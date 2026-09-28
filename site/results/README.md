@@ -1,6 +1,6 @@
 # Community screen: September 6, 2026
 
-[Interactive results](https://itchyfeetleech.github.io/deadlock-perf-lab/) · [CSV with quality notes](teamfight100-three-repeat.csv)
+[Interactive results](https://itchyfeetleech.github.io/Deadlock-Performance-Lab/) · [CSV with quality notes](teamfight100-three-repeat.csv)
 
 100 one-CVAR GameInfo variants, three successful captures each and three baseline captures. The first session stopped after 231 captures; a continuation supplied the remaining 72. All 303 successful captures are included once, with no selection based on FPS. The source sessions have identical frozen profile and context hashes. Each published FPS mean was checked against the records, and every raw-capture hash was verified before publication.
 

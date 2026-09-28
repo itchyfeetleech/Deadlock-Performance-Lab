@@ -5,6 +5,7 @@ from pathlib import Path
 import statistics
 
 from deadlock_perf_lab.storage import digest, read_json, LabError
+from deadlock_perf_lab.workspace import default_workspace
 
 
 def summarize(session: Path) -> Path:
@@ -49,5 +50,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('session', nargs='?', type=Path)
     args = parser.parse_args()
-    selected = args.session or Path(Path('.lab/research/particle-values/session.txt').read_text().strip())
+    pointer = default_workspace() / 'research/particle-values/session.txt'
+    selected = args.session or Path(pointer.read_text().strip())
     print(summarize(selected))

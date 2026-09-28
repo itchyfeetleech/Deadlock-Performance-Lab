@@ -3,10 +3,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'cvar-impact.html'
-      - 'cvar-impact.png'
-      - 'particle-values.html'
-      - 'results/**'
+      - 'site/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -25,10 +22,8 @@ jobs:
       - uses: actions/configure-pages@v5
       - name: Assemble public results
         run: |
-          mkdir -p _site/results
-          cp cvar-impact.html _site/index.html
-          cp cvar-impact.html cvar-impact.png particle-values.html _site/
-          cp results/* _site/results/
+          cp -r site _site
+          cp site/cvar-impact.html _site/index.html
           touch _site/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:

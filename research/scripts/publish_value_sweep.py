@@ -175,7 +175,7 @@ def publish(session: Path, root: Path) -> None:
     end = max(datetime.fromisoformat(r['finished_at']) for r in data['records'])
     (output / 'particle-values-provenance.md').write_text(f'''# Numeric sweep — September 6, 2026
 
-[Report](https://itchyfeetleech.github.io/deadlock-perf-lab/particle-values.html) · [CSV](particle-values-averages.csv) · [Full per-run metrics and hashes](particle-values-data.json) · [PNG](particle-values-summary.png) · [SVG](particle-values-summary.svg)
+[Report](https://itchyfeetleech.github.io/Deadlock-Performance-Lab/particle-values.html) · [CSV](particle-values-averages.csv) · [Full per-run metrics and hashes](particle-values-data.json) · [PNG](particle-values-summary.png) · [SVG](particle-values-summary.svg)
 
 Session `{data['session']}` completed all 99 planned captures. All capture hashes, profile hashes, context keys, schedule indices and repeats were checked. Average FPS, 1% low, 0.1% low and P99 frame time were recomputed from each raw capture and matched the saved metrics. All 99 captures are included exactly once. Elapsed time: {(end-start).total_seconds()/60:.1f} minutes.
 
@@ -185,7 +185,7 @@ Each of 32 variants changes one CVAR and has three captures. Three baseline capt
 
 The run deliberately uses one baseline per round. The native report's paired/bracketed verdict is not applicable to this schedule; this publication uses descriptive means. Three repeats do not establish significance. All 96 treatment captures lack individual CVAR readback, and all 99 flag camera/progression review. The public JSON and CSV retain those quality notes. FPS does not isolate CPU time or establish acceptable visual quality.
 
-Reproduce with `PYTHONPATH=src python scripts/publish_value_sweep.py SESSION`, with matplotlib installed. The generator validates the source and writes this report, the webpage, data exports and both plot formats.
+Reproduce with `python -m research.scripts.publish_value_sweep SESSION`, with matplotlib installed. The generator validates the source and writes this report, the webpage, data exports and both plot formats.
 ''')
     plot(data, output)
     print(f'Published artifacts built: {len(data["records"])} verified captures, 32 values, 8 CVARs.')
@@ -194,6 +194,6 @@ Reproduce with `PYTHONPATH=src python scripts/publish_value_sweep.py SESSION`, w
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('session', type=Path)
-    parser.add_argument('--root', type=Path, default=Path('.'))
+    parser.add_argument('--root', type=Path, default=Path('site'))
     args = parser.parse_args()
     publish(args.session, args.root)

@@ -9,7 +9,7 @@ from deadlock_perf_lab.planning import make_plan, verify_plan
 from deadlock_perf_lab.profiles import add_profile, catalog
 from deadlock_perf_lab.storage import LabError, digest, fingerprint, write_json
 from deadlock_perf_lab.sweep import variants
-from deadlock_perf_lab.workspace import load_workspace
+from deadlock_perf_lab.workspace import default_workspace, load_workspace
 
 
 def prepare(workspace: Path, matrix: Path, rounds: int = 3) -> Path:
@@ -63,8 +63,8 @@ def prepare(workspace: Path, matrix: Path, rounds: int = 3) -> Path:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--workspace', type=Path, default=Path('.lab'))
-    parser.add_argument('--matrix', type=Path, default=Path('examples/particle-value-matrix.csv'))
+    parser.add_argument('--workspace', type=Path, default=default_workspace())
+    parser.add_argument('--matrix', type=Path, default=Path(__file__).parent.parent / 'particle-value-matrix.csv')
     parser.add_argument('--rounds', type=int, default=3)
     args = parser.parse_args()
     print(prepare(args.workspace, args.matrix, args.rounds))

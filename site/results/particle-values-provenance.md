@@ -1,6 +1,6 @@
 # Numeric sweep — September 6, 2026
 
-[Report](https://itchyfeetleech.github.io/deadlock-perf-lab/particle-values.html) · [CSV](particle-values-averages.csv) · [Full per-run metrics and hashes](particle-values-data.json) · [PNG](particle-values-summary.png) · [SVG](particle-values-summary.svg)
+[Report](https://itchyfeetleech.github.io/Deadlock-Performance-Lab/particle-values.html) · [CSV](particle-values-averages.csv) · [Full per-run metrics and hashes](particle-values-data.json) · [PNG](particle-values-summary.png) · [SVG](particle-values-summary.svg)
 
 Session `20260906T035918Z-34a33c` completed all 99 planned captures. All capture hashes, profile hashes, context keys, schedule indices and repeats were checked. Average FPS, 1% low, 0.1% low and P99 frame time were recomputed from each raw capture and matched the saved metrics. All 99 captures are included exactly once. Elapsed time: 60.9 minutes.
 
@@ -10,4 +10,4 @@ Each of 32 variants changes one CVAR and has three captures. Three baseline capt
 
 The run deliberately uses one baseline per round. The native report's paired/bracketed verdict is not applicable to this schedule; this publication uses descriptive means. Three repeats do not establish significance. All 96 treatment captures lack individual CVAR readback, and all 99 flag camera/progression review. The public JSON and CSV retain those quality notes. FPS does not isolate CPU time or establish acceptable visual quality.
 
-Reproduce with `PYTHONPATH=src python scripts/publish_value_sweep.py SESSION`, with matplotlib installed. The generator validates the source and writes this report, the webpage, data exports and both plot formats.
+Reproduce with `python -m research.scripts.publish_value_sweep SESSION`, with matplotlib installed. The generator validates the source and writes this report, the webpage, data exports and both plot formats.

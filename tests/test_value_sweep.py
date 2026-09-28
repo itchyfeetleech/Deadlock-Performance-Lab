@@ -5,9 +5,13 @@ import unittest
 
 from deadlock_perf_lab.storage import read_json
 from deadlock_perf_lab.workspace import initialize
-from scripts.prepare_value_sweep import prepare
+try:
+    from research.scripts.prepare_value_sweep import prepare
+except ImportError:  # sdist builds ship tests without research/
+    prepare = None
 
 
+@unittest.skipIf(prepare is None, 'research/ is not present in this checkout')
 class ValueSweepTests(unittest.TestCase):
     def test_schedule_has_unique_indices_and_reuses_identical_profiles(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -1,14 +1,11 @@
-# Personal experiments and raw game data never belong in a release.
-/runs/
-/.local-history/
-/HANDOFF.md
+# Workspaces, raw game data and experiment output never belong in the repository.
 /.lab/
-/demo-output/
-/release-preview/
 *.dem
 *.etl
 *.log
 .env
+
+# Python tooling
 .venv/
 __pycache__/
 *.py[cod]
@@ -19,4 +16,3 @@ dist/
 htmlcov/
 .pytest_cache/
 .ruff_cache/
-/positive-convars.txt
