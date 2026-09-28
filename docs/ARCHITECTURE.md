@@ -7,8 +7,9 @@
 | `cli.py` | Arguments and command dispatch; `dpl` alone opens the app |
 | `gui.py`, `assets/app.html` | Local app server (127.0.0.1, per-launch secret cookie) and its single-page interface; benchmarks run as detached `dpl run` processes |
 | `workspace.py` | Default workspace location, settings validation, capture setup and session lookup |
-| `profiles.py`, `sweep.py` | Profile validation, bundled snapshots and one-cvar GameInfo variants |
-| `planning.py` | Presets, frozen profiles, randomized schedules and plan verification |
+| `configs.py` | gameinfo.gi / video.txt configs: presets fetched from OptimizationLock, setting catalogue, ConVars and video.txt editing, the exact files a config writes |
+| `profiles.py`, `sweep.py` | Profile validation (baseline, configs, console cvars, manual) and one-cvar GameInfo sweeps |
+| `planning.py` | Presets, run settings (FPS limit, renderer), configs materialized into frozen plans, randomized schedules and plan verification |
 | `system.py` | Steam discovery and read-only settings detection (launch options, resolution, Proton), setup checks, fingerprints, process identity and install lock paths |
 | `runner.py`, `vconsole.py` | Game lifecycle, replay control and capture orchestration |
 | `transaction.py`, `storage.py` | Atomic writes, backups, recovery journals and locks |
@@ -25,7 +26,8 @@ Capture and import code do not depend on report rendering. Plans own the experim
 ~/.local/share/deadlock-performance-lab/   # or --workspace / DPL_WORKSPACE / legacy ./.lab
   lab.json                         # conditions and scenario (app Set up tab)
   capture.conf / manual.conf        # MangoHud configuration
-  profiles/<id>.json                # custom profile snapshots
+  profiles/<id>.json                # your configs (starting file frozen in) and other custom profiles
+  cache/optimizationlock/           # presets downloaded from GitHub (refreshed hourly)
   imports/                         # manually captured logs
   sessions/<UTC>-<random>/
     plan.json                      # frozen plan with SHA-256

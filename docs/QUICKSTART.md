@@ -38,13 +38,23 @@ Keep any options you already use after `%command%`, and don't repeat `%command%`
 
 A **bot match** scene is available for rough CPU stress tests. Bots behave randomly, so bot results never get a verdict.
 
-Your baseline is your installation exactly as it is, including any existing `gameinfo.gi` or `autoexec.cfg` changes. If you want stock Deadlock as the control, restore it yourself first (for example with Steam's *Verify integrity of game files*).
+Your baseline is your installation exactly as it is, including any existing `gameinfo.gi` or `autoexec.cfg` changes. If you already use a modified `gameinfo.gi` and want to compare against stock, build a config from the **Clean Valve default** preset.
 
-## 2. Benchmark
+## 2. Build a config
+
+A config is the `gameinfo.gi` and/or `video.txt` you want to test. On the **Configs** tab, press **New config**, then:
+
+1. Choose what to **start from**: your current file, one of Sqooky's OptimizationLock presets (downloaded from GitHub when you pick it), or a file you import.
+2. Tick any settings you want to change on top. They are grouped by category, with descriptions.
+3. **Save config.**
+
+A good first comparison is **Sqooky's OptimizationLock**, saved unchanged. The [config guide](CONFIGS.md) covers presets, `video.txt`, imports and installing a winner.
+
+## 3. Benchmark
 
 On the **Benchmark** tab:
 
-1. **Tick the configs to compare.** Built-ins cover FPS caps, the Vulkan and DX11 renderers, and four attributed community `gameinfo.gi` files (marked *whole file*). Choose *Add your own console settings* for cvars such as `fps_max 165`.
+1. **Tick the configs to compare.** Your current setup is always included.
 2. **Choose how thorough:**
 
    | Length | Rounds | Capture | Use it for |
@@ -53,7 +63,8 @@ On the **Benchmark** tab:
    | Shortlist | 1 | 10 s | Screening many configs to find ones worth confirming |
    | Confirm | 5 | 30 s | A real answer: the only length that can give *improved* or *regressed* |
 
-3. **Close Deadlock and press Start.** The app shows how many launches and roughly how long before you start.
+3. **Check the run settings.** *FPS limit* (default **Uncapped**) and *Graphics API* (default: the game's) apply to every capture, your current setup included, so they never favour one config.
+4. **Close Deadlock and press Start.** The app shows how many launches and roughly how long before you start.
 
 Each round measures your current setup, then each config in a shuffled order, then your current setup again. One config at *Confirm* length means 15 launches. While it runs:
 
@@ -63,7 +74,7 @@ Each round measures your current setup, then each config in a shuffled order, th
 
 For the first run, a *Quick look* with one config is a good smoke test.
 
-## 3. Results
+## 4. Results
 
 The **Results** tab lists every benchmark. **Open report** shows:
 
@@ -71,7 +82,7 @@ The **Results** tab lists every benchmark. **Open report** shows:
 - **Each config against the baseline:** average FPS, 1% lows, P99 frame time, the change in percent with a 95% interval, and a verdict with the reasons it was or wasn't given.
 - **Frame-time traces.** Overlay any two captures to see stutters.
 
-**Details & review** lists every capture. The lab can't see your screen, so live captures carry checks only you can clear. Confirm that the camera stayed on the player, the replay kept playing and the config visibly applied. Tick the captures you actually watched and describe how you checked. Verdicts stay *inconclusive* until the relevant captures are confirmed. The app can't clear malformed data, missing settings or failed cvar readback.
+**Details & review** lists every capture. The lab can't see your screen, so live captures carry checks only you can clear. Confirm that the camera stayed on the player, the replay kept playing and the config looked as intended. Tick the captures you actually watched and describe how you checked. Verdicts stay *inconclusive* until the relevant captures are confirmed. The app can't clear malformed data, missing settings or failed cvar readback.
 
 **Share ZIP** downloads `index.html`, `summary.md`, `summary.json` and `runs.csv`, which open offline. Raw logs, backups, configs and replay paths stay on your machine. Your config names and notes are included, so check them before sharing.
 
@@ -83,12 +94,12 @@ Rerun a promising result as a new *Confirm* benchmark before trusting it. The [m
 dpl doctor                                   # check your PC
 dpl setup                                    # print the Steam launch options line
 $EDITOR ~/.local/share/deadlock-performance-lab/lab.json   # replay, tick, player, conditions
-dpl profiles                                 # list configs; dpl profile show ID for details
-dpl plan --cases fps-unlock --preset confirm # freeze a plan and print its schedule
+dpl profile add my-config --gameinfo ~/Downloads/gameinfo.gi   # and/or --video FILE
+dpl plan --cases my-config --preset confirm --fps-max 0   # freeze a plan and print its schedule
 dpl run --live                               # close Deadlock first
-dpl review --run 002-fps-unlock --note 'Watched it: camera stayed on player 1 and the replay kept playing.'
+dpl review --run 002-my-config --note 'Watched it: camera stayed on player 1 and the replay kept playing.'
 dpl report --open
 dpl export --output report.zip
 ```
 
-`dpl plan --cases baseline --rounds 1` followed by `dpl run --live` is a quick smoke test. The plan freezes configs, replay, conditions and run order. Create a new plan to change any of them.
+`dpl plan --cases baseline --rounds 1` followed by `dpl run --live` is a quick smoke test. The plan freezes the exact config files, run settings, replay, conditions and run order. Create a new plan to change any of them.

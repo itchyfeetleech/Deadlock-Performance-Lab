@@ -1,42 +1,22 @@
-# Testing configurations
+# Screening many settings
 
-Start with one change and the same replay scene. The baseline is your current installation, including existing configs. See the [first experiment guide](QUICKSTART.md) for capture setup.
+Most people should build configs in the app ([custom gameinfo.gi and video.txt configs](CONFIGS.md)). This page covers larger, command-line experiments: testing many single-cvar values to find which settings matter, then confirming the best ones. The baseline is always your current installation. See the [first benchmark guide](QUICKSTART.md) for capture setup.
 
-## Built-in and custom profiles
+## Console cvars instead of files
 
-`dpl profiles` lists FPS caps, renderer flags and community GameInfo snapshots. Inspect a profile before planning:
-
-```bash
-dpl profile show fps-unlock
-dpl plan --cases fps-unlock --rounds 5
-```
-
-For a custom cvar, use **Add your own console settings** on the app's **Benchmark** tab, or:
+Configs change `gameinfo.gi` and `video.txt`. To test cvars set from the console at launch instead (a temporary `autoexec`):
 
 ```bash
-printf 'fps_max 165\n' > cap165.cfg
-dpl profile add cap-165 --autoexec cap165.cfg --description '165 FPS game cap'
-dpl plan --cases cap-165 --rounds 5
+printf 'r_farz 6000\n' > farz.cfg
+dpl profile add farz-6000 --autoexec farz.cfg --description 'Shorter far plane'
+dpl plan --cases farz-6000 --preset confirm
 ```
 
-Cvar profiles accept assignments and comments. Commands that load other configs, bind keys or change the scene are rejected. The source is copied into the profile and frozen in each plan. Readback checks confirm the requested value; inspect the game to check its actual effect.
-
-Use [manual experiments](MANUAL_EXPERIMENTS.md) for video settings, resolution, upscaling, Proton, drivers or OS settings. Record visual differences as well as frame times. A cap can lower average FPS while improving pacing.
-
-## Community GameInfo files
-
-The bundled files are attributed snapshots from 2026-09-04. They change many variables and can reduce visual quality or break with game updates. Inspect the diff against your installation:
-
-```bash
-dpl profile show community-sqooky --diff
-dpl plan --cases community-sqooky --rounds 5 --experimental
-```
-
-Whole-file swaps require `--experimental`. The tool restores your original files after the run. Source hashes and credits are in [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
+Only cvar assignments and comments are accepted. Commands that load other configs, bind keys or change the scene are rejected. Use [manual experiments](MANUAL_EXPERIMENTS.md) for settings the lab can't apply, such as Proton, drivers or OS settings. A frame cap and the graphics API are run settings, not configs: `--fps-max` and `--renderer` on `dpl plan`, or the Benchmark tab in the app.
 
 ## Screen a large set
 
-Use short captures to find candidates, then confirm them in a fresh experiment with longer captures and repeated rounds.
+Use short captures to find candidates, then confirm them in a fresh experiment with longer captures and repeated rounds. The app offers the first three presets as Quick look, Shortlist and Confirm.
 
 | Preset (app name) | Rounds by default | Capture | Warm-up | Settle | Cooldown |
 |---|---:|---:|---:|---:|---:|
@@ -56,7 +36,7 @@ dpl run --live
 dpl shortlist --top 5
 ```
 
-The CSV requires `id,cvar,value`, with an optional `name`. Each profile changes one direct ConVars assignment, or adds it if absent. Duplicate definitions and unchanged values are rejected. The base file must match your current GameInfo when you plan the live run. The [example matrix](../examples/convar-matrix.csv) contains candidates to test, not recommended settings. Quote selectors such as `'gi*'` to prevent shell expansion.
+The CSV requires `id,cvar,value`, with an optional `name`. Each profile changes one direct ConVars assignment, or adds it if absent. Duplicate definitions and unchanged values are rejected. The base file must match your current GameInfo when you plan the live run. Single-cvar sweeps are stricter than configs: a setting the console can't read back blocks that treatment's verdict, because the cvar is the thing being tested. The [example matrix](../examples/convar-matrix.csv) contains candidates to test, not recommended settings. Quote selectors such as `'gi*'` to prevent shell expansion.
 
 Inspect the shortlisted results, then use their profile IDs in a new plan:
 
@@ -73,10 +53,10 @@ Rankings use average FPS change and do not override measurement checks. Compare 
 dpl timings
 ```
 
-This shows successful-run durations, phase medians and an estimate of remaining time. GameInfo and renderer changes require a fresh process. A one-round screen of 50 treatments means 52 launches, including the two baselines. Launching, loading and seeking take time beyond the preset durations.
+This shows successful-run durations, phase medians and an estimate of remaining time. Every capture uses a fresh game process. A one-round screen of 50 treatments means 52 launches, including the two baselines. Launching, loading and seeking take time beyond the preset durations.
 
 Large launch delays can come from Steam shader preparation. Let it finish and keep the renderer and cache state consistent between trials. See [troubleshooting](TROUBLESHOOTING.md) for startup and capture failures.
 
-New plans start replay loading from the temporary startup config and seek immediately after confirmed signon. Cvar readback and final demo-info requests use engine acknowledgements rather than fixed delays; hidden cvars remain flagged. Readback runs during the configured camera-settle interval. These changes reduce setup time while retaining the configured warm-up and capture duration. Create a fresh plan to use the new replay-start protocol; existing plans preserve their recorded scenario.
+New plans start replay loading from the temporary startup config and seek immediately after confirmed signon. Cvar readback and final demo-info requests use engine acknowledgements rather than fixed delays; hidden cvars are reported. Readback runs during the configured camera-settle interval. These changes reduce setup time while retaining the configured warm-up and capture duration. Create a fresh plan to use the new replay-start protocol; existing plans preserve their recorded scenario.
 
 Repeated captures still launch a fresh process. Reusing a process for all five repetitions could save more launch/load time, but changes the independence and cache history of the experiment and is not supported by this runner. Replay seeking already uses the engine's fast-goto path when available; changing demo speed, cutting the replay file, or skipping warm-up can change the scene or cache state being measured.

@@ -6,6 +6,10 @@
 | The app doesn't open in a browser | Open the `http://127.0.0.1:…` address that `dpl` prints. Over SSH, use `dpl gui --no-browser --port 8765` with `ssh -L 8765:127.0.0.1:8765`. |
 | "This link has expired" | The app was closed, or it quit after 30 idle minutes. Run `dpl` again. |
 | Steam launch options "not detected" | Steam may save them only when it closes. If you pasted the line from the app, carry on: the first capture fails with a clear message if MangoHud isn't recording. "Points elsewhere" means the line was pasted from another workspace; paste it again. |
+| Presets "couldn't download" | The app fetches OptimizationLock presets from `raw.githubusercontent.com`. Check your connection or proxy, then press **Refresh**/**Try again**. A previously downloaded copy is used offline. Your own files and imports work without internet. |
+| "Made for a different game version" | The preset's `PGIVersion` differs from your installed `gameinfo.gi`, usually after a game update. Pick the preset again for the latest version. If the game misbehaves with a whole-file preset, test your own file plus ticked settings instead. |
+| "The game rewrote video.txt" | Deadlock normalized or rejected some video settings. The listed values are what the game actually used; your file was still restored. |
+| Many settings "hidden from the console" | Normal for `gameinfo.gi` cvars. The whole file was still applied and measured; only individual confirmation is missing. |
 | Where are my results? | In `~/.local/share/deadlock-performance-lab` (shown at the bottom of the app), or `./.lab` for workspaces made by earlier versions. `dpl --workspace PATH` picks another. |
 | Game install not discovered | Type the folder into the app's **Set up** tab (or set `install` in `lab.json`); it contains `game/citadel/gameinfo.gi`. Native Steam is the supported launcher. |
 | No game within 180 seconds | Sign into Steam, launch Deadlock once normally, finish updates and shader processing, close it, then retry with a new plan. See the run's `steam.log` and Steam's own logs. |

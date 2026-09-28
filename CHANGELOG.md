@@ -2,10 +2,13 @@
 
 ## 0.3.0 — Unreleased
 
-**A graphical app.** Running `dpl` now opens a local app in your browser. It guides you through setup, benchmarking and results, so you no longer have to edit `lab.json` by hand or learn the commands. Every command still works.
+**A graphical app built around your own configs.** Running `dpl` now opens a local app in your browser. It guides you through setup, building `gameinfo.gi`/`video.txt` configs, benchmarking and results, so you no longer have to edit `lab.json` by hand or learn the commands. Every command still works.
 
 - **Set up** checks Steam, MangoHud and the game, and shows the Steam launch options line with a Copy button. It detects whether the line is saved in Steam and lists your downloaded replays. Resolution, display mode and Proton version are filled in from the game's `video.txt` and Steam's settings.
-- **Benchmark** lets you tick configs (including your own console settings), choose Quick look, Shortlist or Confirm, and see the number of launches and estimated time before you start. Runs continue in the background with live progress and a Cancel button that restores your files.
+- **Configs** is the new centre of the app. Start a `gameinfo.gi` or `video.txt` from your installed file, from a Sqooky/OptimizationLock preset (downloaded from GitHub when chosen: OptimizationLock, Boot, Kaizuchaneru, test, Piggy, clean Valve; Liah's and Piggy's `video.txt`) or from an imported file. Then tick settings grouped by OptimizationLock's categories and descriptions, with switches for on/off settings, sliders for numbers and search across every documented cvar. Preview the exact diff, save, edit, duplicate, and download the finished files to install a winner. `video.txt` presets keep your GPU identifiers and, by default, your resolution and display settings.
+- Configs are frozen into each plan as the exact files they write, so later edits or preset updates never change past results. Readback of hidden `gameinfo.gi` cvars is reported instead of blocking a config's verdict. A `video.txt` the game rewrites is still restored, and the report notes the changed values.
+- **Benchmark** lets you tick configs, choose Quick look, Shortlist or Confirm, and see the number of launches and estimated time before you start. **FPS limit** (uncapped by default) and **graphics API** are now run settings that apply to every capture, baseline included (`dpl plan --fps-max N --renderer vulkan|dx11`). Runs continue in the background with live progress and a Cancel button that restores your files.
+- **Removed the bundled treatments.** The FPS-cap and renderer profiles are replaced by the run settings above. The four bundled community `gameinfo.gi` snapshots are replaced by presets fetched on request. `dpl profile add ID --gameinfo FILE --video FILE` saves your own files as a config, and `dpl plan` now requires `--cases`. Existing sessions keep their frozen copies and stay readable.
 - **Results** lists every session with Open report, Share ZIP and a review panel, so you can confirm the captures you watched. It also shows a **Restore my files** banner after an interrupted run.
 - **Add to app menu** (or `dpl shortcut`) installs a desktop launcher. Opening the app again reuses a running window, and the app closes itself after 30 idle minutes.
 - The app listens only on `127.0.0.1` and needs a per-launch secret cookie, the expected Host header and, for changes, a custom request header.
@@ -24,7 +27,8 @@
 - The project is called Deadlock Performance Lab everywhere. Links point to the renamed repository; the old GitHub Pages address returned 404.
 - The published results website moved to `site/`, and the value-sweep scripts and matrix moved to `research/`. Removed the machine-specific `BENCHMARK-LAUNCH.md` runbook.
 - The README and first-benchmark guide are rewritten around the app. The other guides point to the new workspace location.
-- `THIRD_PARTY_NOTICES.md` and the GameInfo source manifest now record the 2026-09-06 comment-line edits to three bundled files, with current hashes. They previously described the files as unchanged.
+- `THIRD_PARTY_NOTICES.md` now describes presets fetched from OptimizationLock; no third-party config files are redistributed.
+- New [config guide](docs/CONFIGS.md); the screening guide now focuses on single-cvar sweeps.
 - Earlier unreleased changes: removed the report header badge, baseline-history panel, iteration-time panel and Print/PDF button; replaced the sort dropdown with sortable columns; separated workspace setup, planning, capture processing and report rendering.
 
 ## 0.2.0 — 2026-09-06
