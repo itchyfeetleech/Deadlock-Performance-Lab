@@ -1,14 +1,15 @@
 # Architecture
 
-`dpl` is a Python package using only the standard library at runtime. Live capture uses native Steam, VConsole and MangoHud; manual imports and the demo feed the same analysis and report pipeline.
+`dpl` is a Python package using only the standard library at runtime. The app is a local web page served by `gui.py`; it calls the same functions as the command line. Live capture uses native Steam, VConsole and MangoHud; manual imports and the demo feed the same analysis and report pipeline.
 
 | Module | Responsibility |
 |---|---|
-| `cli.py` | Arguments, terminal menu and command dispatch |
-| `workspace.py` | Workspace configuration, capture setup and session lookup |
+| `cli.py` | Arguments and command dispatch; `dpl` alone opens the app |
+| `gui.py`, `assets/app.html` | Local app server (127.0.0.1, per-launch secret cookie) and its single-page interface; benchmarks run as detached `dpl run` processes |
+| `workspace.py` | Default workspace location, settings validation, capture setup and session lookup |
 | `profiles.py`, `sweep.py` | Profile validation, bundled snapshots and one-cvar GameInfo variants |
 | `planning.py` | Presets, frozen profiles, randomized schedules and plan verification |
-| `system.py` | Steam discovery, system/game fingerprints, process identity and install lock paths |
+| `system.py` | Steam discovery and read-only settings detection (launch options, resolution, Proton), setup checks, fingerprints, process identity and install lock paths |
 | `runner.py`, `vconsole.py` | Game lifecycle, replay control and capture orchestration |
 | `transaction.py`, `storage.py` | Atomic writes, backups, recovery journals and locks |
 | `capture.py`, `metrics.py` | MangoHud parsing, window validation, metrics and binned frame-time traces |
@@ -21,14 +22,15 @@ Capture and import code do not depend on report rendering. Plans own the experim
 ## Saved data (schema 1)
 
 ```text
-.lab/
-  lab.json                         # user-edited conditions and scenario
+~/.local/share/deadlock-performance-lab/   # or --workspace / DPL_WORKSPACE / legacy ./.lab
+  lab.json                         # conditions and scenario (app Set up tab)
   capture.conf / manual.conf        # MangoHud configuration
   profiles/<id>.json                # custom profile snapshots
   imports/                         # manually captured logs
   sessions/<UTC>-<random>/
     plan.json                      # frozen plan with SHA-256
     status.json / events.log
+    runner.json / runner.log       # live runner PID (removed on exit) and its output
     runs/001-baseline/
       result.json / window.json
       capture/*.csv                # automated capture
@@ -46,4 +48,4 @@ Plans cannot be edited or resumed after starting. Create a new plan when conditi
 
 A write-ahead journal records backups before changing files. An install-wide `flock` and pending-journal pointer in the user's cache protect concurrent workspaces. PID start times are checked before signalling the game. See [recovery instructions](TROUBLESHOOTING.md#recover-after-interruption).
 
-Reports embed their data and browser assets in one HTML file. Text is escaped, and the ZIP exporter includes only the four report files. Labels and notes remain user-authored content; see [security and data handling](../SECURITY.md).
+The app server accepts requests only from `127.0.0.1` with the expected Host header and a per-launch secret held in a `SameSite=Strict` cookie; changes also need a custom header that other websites cannot send. Reports embed their data and browser assets in one HTML file. Text is escaped, and the ZIP exporter includes only the four report files. Labels and notes remain user-authored content; see [security and data handling](../SECURITY.md).

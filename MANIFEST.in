@@ -2,4 +2,4 @@ include README.md LICENSE THIRD_PARTY_NOTICES.md CHANGELOG.md CONTRIBUTING.md SE
 recursive-include docs *.md *.png
 recursive-include examples *.cfg *.json *.csv
 recursive-include tests *.py
-recursive-include src/deadlock_perf_lab/assets *.html *.json *.cfg *.gi *.md LICENSE
+recursive-include src/deadlock_perf_lab/assets *.html *.json *.cfg *.svg *.gi *.md LICENSE

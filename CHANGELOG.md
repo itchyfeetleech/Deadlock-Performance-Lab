@@ -1,11 +1,31 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 — Unreleased
 
-- Removed the report header badge, baseline-history panel, iteration-time panel and Print/PDF button.
-- Replaced the sort dropdown with reversible sorting on every configuration column.
-- Consolidated configuration guides, release instructions and validation notes; shortened the README and CLI guide.
-- Separated workspace setup, plan creation, capture processing and report rendering. Commands and saved-data formats are unchanged.
+**A graphical app.** Running `dpl` now opens a local app in your browser. It guides you through setup, benchmarking and results, so you no longer have to edit `lab.json` by hand or learn the commands. Every command still works.
+
+- **Set up** checks Steam, MangoHud and the game, and shows the Steam launch options line with a Copy button. It detects whether the line is saved in Steam and lists your downloaded replays. Resolution, display mode and Proton version are filled in from the game's `video.txt` and Steam's settings.
+- **Benchmark** lets you tick configs (including your own console settings), choose Quick look, Shortlist or Confirm, and see the number of launches and estimated time before you start. Runs continue in the background with live progress and a Cancel button that restores your files.
+- **Results** lists every session with Open report, Share ZIP and a review panel, so you can confirm the captures you watched. It also shows a **Restore my files** banner after an interrupted run.
+- **Add to app menu** (or `dpl shortcut`) installs a desktop launcher. Opening the app again reuses a running window, and the app closes itself after 30 idle minutes.
+- The app listens only on `127.0.0.1` and needs a per-launch secret cookie, the expected Host header and, for changes, a custom request header.
+
+**Fewer hurdles**
+
+- The workspace now defaults to one per-user folder, `~/.local/share/deadlock-performance-lab`, instead of `./.lab` in whatever directory you ran from. The Steam launch options line therefore stays valid wherever you run `dpl`. An existing `./.lab` is still used from its own directory. `--workspace` and `DPL_WORKSPACE` override the default.
+- Every command creates the workspace on first use when needed. Missing-workspace errors say what to do.
+- New workspaces follow player `1` by default instead of leaving the camera target unset.
+- `dpl doctor` distinguishes advice (`WARN`) from blocking failures.
+- Settings saved from the app are validated before `lab.json` is written.
+- Single-file `dpl.pyz` builds (run with `python3 dpl.pyz`, no install needed), plus a release workflow that attaches them with the wheel and sdist when a version tag is pushed.
+
+**Tidy-up**
+
+- The project is called Deadlock Performance Lab everywhere. Links point to the renamed repository; the old GitHub Pages address returned 404.
+- The published results website moved to `site/`, and the value-sweep scripts and matrix moved to `research/`. Removed the machine-specific `BENCHMARK-LAUNCH.md` runbook.
+- The README and first-benchmark guide are rewritten around the app. The other guides point to the new workspace location.
+- `THIRD_PARTY_NOTICES.md` and the GameInfo source manifest now record the 2026-09-06 comment-line edits to three bundled files, with current hashes. They previously described the files as unchanged.
+- Earlier unreleased changes: removed the report header badge, baseline-history panel, iteration-time panel and Print/PDF button; replaced the sort dropdown with sortable columns; separated workspace setup, planning, capture processing and report rendering.
 
 ## 0.2.0 — 2026-09-06
 

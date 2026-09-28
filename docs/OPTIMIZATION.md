@@ -11,7 +11,7 @@ dpl profile show fps-unlock
 dpl plan --cases fps-unlock --rounds 5
 ```
 
-For a custom cvar:
+For a custom cvar, use **Add your own console settings** on the app's **Benchmark** tab, or:
 
 ```bash
 printf 'fps_max 165\n' > cap165.cfg
@@ -38,12 +38,12 @@ Whole-file swaps require `--experimental`. The tool restores your original files
 
 Use short captures to find candidates, then confirm them in a fresh experiment with longer captures and repeated rounds.
 
-| Preset | Rounds by default | Capture | Warm-up | Settle | Cooldown |
+| Preset (app name) | Rounds by default | Capture | Warm-up | Settle | Cooldown |
 |---|---:|---:|---:|---:|---:|
-| `scout` | 1 | 5 s | 2 s | 1 s | 0 s |
-| `screen` | 1 | 10 s | 5 s | 1 s | 0 s |
-| `confirm` | 5 | 30 s | 45 s | 5 s | 5 s |
-| `custom` (default) | 5 | From `lab.json` | From `lab.json` | From `lab.json` | From `lab.json` |
+| `scout` (Quick look) | 1 | 5 s | 2 s | 1 s | 0 s |
+| `screen` (Shortlist) | 1 | 10 s | 5 s | 1 s | 0 s |
+| `confirm` (Confirm) | 5 | 30 s | 45 s | 5 s | 5 s |
+| `custom` (command-line default) | 5 | From `lab.json` | From `lab.json` | From `lab.json` | From `lab.json` |
 
 `--rounds N` overrides the round count. Presets are saved in the plan without editing `lab.json`. Short passes can miss small effects and intermittent stalls; neither `scout` nor `screen` has enough rounds for an improvement verdict.
 

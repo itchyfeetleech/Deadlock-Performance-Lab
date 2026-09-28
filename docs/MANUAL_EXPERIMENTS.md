@@ -5,18 +5,17 @@ Use manual experiments for in-game video settings, upscaling, frame caps outside
 ## Prepare one treatment
 
 ```bash
-dpl init  # only if you do not already have a workspace
 dpl profile add shadows-low --manual --description 'Change shadow quality from High to Low; all other video settings unchanged'
 ```
 
-Edit `.lab/lab.json` with the baseline conditions and the intended scenario, timing and frame budget. Record driver/Mesa version, Proton, resolution, render scale, VSync/VRR, display mode, overlays and background load. Set `sample_s` to your intended window, usually 30 seconds.
+Record the baseline conditions in the app's **Set up** tab (or edit `lab.json` in your workspace, `~/.local/share/deadlock-performance-lab` by default), together with the intended scenario, timing and frame budget. Record driver/Mesa version, Proton, resolution, render scale, VSync/VRR, display mode, overlays and background load. Set `sample_s` to your intended window, usually 30 seconds.
 
 ```bash
 dpl plan --manual --cases shadows-low --rounds 5
 dpl setup --manual
 ```
 
-The printed schedule defines the capture order. With one treatment each round is baseline → shadows-low → baseline. A frozen manual plan accepts only imports; it cannot launch an automated suite. The setup command writes `manual.conf` in the workspace and prints the per-game Steam wrapper. Manual logging uses `log_interval=0`, is off at startup and writes into `.lab/imports/`.
+The printed schedule defines the capture order. With one treatment each round is baseline → shadows-low → baseline. A frozen manual plan accepts only imports; it cannot launch an automated suite. The setup command writes `manual.conf` in the workspace and prints the per-game Steam launch options line. Manual logging uses `log_interval=0`, is off at startup and writes into the workspace's `imports/` folder.
 
 ## Capture each scheduled trial
 
@@ -27,10 +26,11 @@ The printed schedule defines the capture order. With one treatment each round is
 5. Inspect and import the stopped log. If the actual measurement begins 2 seconds into the file, pass `--start 2`; the parser requires enough coverage for the complete planned duration.
 
 ```bash
-dpl inspect .lab/imports/deadlock_FIRST.csv --interval-ms 0 --start 0 --duration 30
-dpl import .lab/imports/deadlock_FIRST.csv --case baseline --round 1 --interval-ms 0
-dpl import .lab/imports/deadlock_SECOND.csv --case shadows-low --round 1 --interval-ms 0
-dpl import .lab/imports/deadlock_THIRD.csv --case baseline --round 1 --interval-ms 0
+W=~/.local/share/deadlock-performance-lab
+dpl inspect $W/imports/deadlock_FIRST.csv --interval-ms 0 --start 0 --duration 30
+dpl import $W/imports/deadlock_FIRST.csv --case baseline --round 1 --interval-ms 0
+dpl import $W/imports/deadlock_SECOND.csv --case shadows-low --round 1 --interval-ms 0
+dpl import $W/imports/deadlock_THIRD.csv --case baseline --round 1 --interval-ms 0
 ```
 
 Continue with rounds 2–5. Follow the actual schedule when testing multiple treatments. Changed capture hardware metadata or logging intervals, repeated source hashes and wrong-order imports are rejected. A copy is stored per run; changing the original later does not change the experiment's evidence.
@@ -44,6 +44,8 @@ dpl review --run 002-shadows-low --note 'Confirmed Low shadows, same replay tick
 dpl report --open
 ```
 
+Manual sessions also appear in the app's **Results** tab, where you can open their reports.
+
 Reviews are bound to the exact result hash. They cannot waive bad data or missing pre-recorded conditions. Reports summarize available CPU/GPU telemetry to support investigation, but low GPU load alone does not prove a CPU bottleneck.
 
-To return to automated replay capture, run `dpl setup` and use the printed `capture.conf` wrapper instead of `manual.conf` in Steam.
+To return to automated replay capture, paste the line from the app's **Set up** tab (or `dpl setup`) back into Steam, replacing the `manual.conf` one.

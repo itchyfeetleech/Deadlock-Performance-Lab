@@ -19,7 +19,7 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: python -m pip install -e '.[dev]'
       - run: python -m unittest discover -v
-      - run: ruff check src tests
+      - run: ruff check src tests research
       - run: dpl --workspace /tmp/dpl-ci demo --rounds 5
   package:
     runs-on: ubuntu-latest
@@ -30,12 +30,22 @@ jobs:
           python-version: '3.11'
       - run: python -m pip install build
       - run: python -m build
-      - run: |
+      - name: Build single-file dpl.pyz
+        run: |
+          mkdir -p /tmp/pyz
+          cp -r src/deadlock_perf_lab /tmp/pyz/
+          find /tmp/pyz -name __pycache__ -prune -exec rm -rf {} +
+          printf 'from deadlock_perf_lab.cli import main\n\nraise SystemExit(main())\n' > /tmp/pyz/__main__.py
+          python -m zipapp /tmp/pyz -p '/usr/bin/env python3' -c -o dist/dpl.pyz
+      - name: Smoke-test the wheel and dpl.pyz outside the checkout
+        run: |
           python -m venv /tmp/dpl-wheel
           /tmp/dpl-wheel/bin/pip install dist/*.whl
           cd /tmp
           /tmp/dpl-wheel/bin/dpl --version
           /tmp/dpl-wheel/bin/dpl --workspace /tmp/dpl-wheel-demo demo --rounds 1
+          python "$GITHUB_WORKSPACE/dist/dpl.pyz" --version
+          python "$GITHUB_WORKSPACE/dist/dpl.pyz" --workspace /tmp/dpl-pyz-demo demo --rounds 1
       - uses: actions/upload-artifact@v4
         with:
           name: python-distributions
