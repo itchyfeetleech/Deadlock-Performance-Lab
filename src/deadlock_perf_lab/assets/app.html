@@ -197,6 +197,48 @@
       .review ul { list-style: none; padding: 0; margin: 8px 0; columns: 2; }
       .review li label { display: flex; gap: 8px; align-items: center; }
 
+      .parts { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 0; border-bottom: 1px solid var(--line); }
+      .parts button { border: 0; border-radius: 6px 6px 0 0; background: none; color: var(--muted); padding: 9px 14px; font-family: var(--mono); }
+      .parts button[aria-selected="true"] { background: var(--panel-2); color: var(--text); box-shadow: inset 0 -2px var(--accent); }
+      .count { font-family: system-ui, sans-serif; font-size: 11px; color: var(--accent); }
+      .source { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; margin: 14px 0 6px; }
+      .notice { padding: 9px 13px; background: #29291e; border-left: 3px solid var(--accent); margin: 8px 0; font-size: 12.5px; border-radius: 0 6px 6px 0; }
+      .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 12px 0 8px; }
+      .toolbar input[type="search"] { flex: 1; min-width: 200px; width: auto; }
+      .toolbar label { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
+      details.cat { border: 1px solid var(--line); border-radius: 8px; margin: 6px 0; background: var(--panel-2); }
+      details.cat > summary { padding: 9px 12px; color: var(--text); display: flex; justify-content: space-between; gap: 10px; list-style: none; }
+      details.cat > summary::-webkit-details-marker { display: none; }
+      details.cat > summary::before { content: "▸"; color: var(--muted); }
+      details.cat[open] > summary::before { content: "▾"; }
+      details.cat > summary strong { flex: 1; }
+      details.cat > summary span { font-size: 12px; color: var(--muted); }
+      details.cat > summary span b { color: var(--accent); font-weight: 600; }
+      .srow { display: grid; grid-template-columns: 22px minmax(0, 1fr) 270px; gap: 10px; align-items: center; padding: 8px 12px; border-top: 1px solid var(--line-soft); }
+      .srow.on { background: #232719; }
+      .srow code { font-size: 12.5px; overflow-wrap: anywhere; }
+      .srow .label2 { font-size: 13px; margin-right: 6px; }
+      .srow .desc { color: var(--muted); font-size: 12px; margin: 2px 0 0; }
+      .srow .vals { color: var(--muted); font: 11px var(--mono); margin-top: 2px; }
+      .srow .vals .diff { color: var(--amber); }
+      .srow.locked { opacity: .5; }
+      .srow:not(.on) .ctl { opacity: .6; }
+      .ctl { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+      .ctl input[type="range"] { flex: 1; min-width: 80px; padding: 0; accent-color: var(--accent); }
+      .ctl input[type="number"] { width: 100px; padding: 5px 8px; }
+      .ctl input[type="text"] { width: 160px; padding: 5px 8px; }
+      .ctl select { width: auto; padding: 5px 8px; }
+      .add-setting { position: relative; margin-top: 10px; }
+      .add-setting ul { position: absolute; z-index: 5; left: 0; right: 0; top: 100%; list-style: none; margin: 4px 0 0; padding: 4px; background: #101410; border: 1px solid var(--line); border-radius: 6px; max-height: 300px; overflow: auto; }
+      .add-setting li button { width: 100%; text-align: left; border: 0; background: none; white-space: normal; padding: 6px 8px; }
+      .add-setting li button:hover { background: #232719; }
+      .add-setting li small { display: block; color: var(--muted); }
+      .runopts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+      pre.diff { max-height: 380px; overflow: auto; background: #0e120e; border: 1px solid var(--line); border-radius: 6px; padding: 10px; font-size: 12px; white-space: pre; }
+      pre.diff .add { color: var(--green); }
+      pre.diff .del { color: var(--red); }
+      pre.diff .hunk { color: var(--blue); }
+      .cfg-card .what p { margin: 2px 0 0; }
       .empty { text-align: center; padding: 34px 20px; color: var(--muted); }
       #toast {
         position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); max-width: min(680px, calc(100% - 32px));
@@ -209,11 +251,16 @@
       details > summary { cursor: pointer; color: var(--accent); }
 
       @media (max-width: 720px) {
-        .form, .depth { grid-template-columns: 1fr; }
+        .form, .depth, .runopts, .source { grid-template-columns: 1fr; }
+        .srow { grid-template-columns: 22px minmax(0, 1fr); }
+        .srow .ctl { grid-column: 2; justify-content: flex-start; }
+        .parts button { padding: 8px 10px; }
         ul.checks li { grid-template-columns: 22px 1fr; }
         ul.checks .d { grid-column: 2; }
         .review ul { columns: 1; }
-        nav.tabs button { padding: 10px 8px; font-size: 14px; }
+        nav.tabs { gap: 0; overflow-x: auto; }
+        nav.tabs button { padding: 10px 6px; font-size: 13px; }
+        nav.tabs button .n { width: 18px; height: 18px; margin-right: 4px; font-size: 11px; }
         .top { flex-wrap: wrap; }
       }
     </style>
@@ -230,8 +277,9 @@
 
       <nav class="tabs" role="tablist">
         <button role="tab" data-tab="setup" id="tab-setup"><span class="n">1</span>Set up</button>
-        <button role="tab" data-tab="bench" id="tab-bench"><span class="n">2</span>Benchmark</button>
-        <button role="tab" data-tab="results" id="tab-results"><span class="n">3</span>Results</button>
+        <button role="tab" data-tab="configs" id="tab-configs"><span class="n">2</span>Configs</button>
+        <button role="tab" data-tab="bench" id="tab-bench"><span class="n">3</span>Benchmark</button>
+        <button role="tab" data-tab="results" id="tab-results"><span class="n">4</span>Results</button>
       </nav>
 
       <div id="banners"></div>
@@ -241,11 +289,11 @@
       <main id="view-setup" role="tabpanel">
         <section class="panel intro">
           <div>
-            <h1>Measure what a setting really does to your FPS.</h1>
+            <h1>Find the gameinfo.gi and video.txt that really run best.</h1>
             <p class="muted">
-              Pick configs to try, press start, and the lab launches Deadlock, plays the same replay moment for each
-              one, records every frame and puts your current setup side by side with each change. Your game files are
-              always put back afterwards.
+              Build configs from your own files or Sqooky's OptimizationLock presets. The lab launches Deadlock,
+              plays the same replay moment with each one, records every frame and compares it with your current setup.
+              Your game files are always put back afterwards.
             </p>
           </div>
           <div>
@@ -350,26 +398,58 @@
         </section>
 
         <section class="panel flat" style="text-align:center">
-          <button class="primary big" data-goto="bench">Next: pick what to test →</button>
+          <button class="primary big" data-goto="configs">Next: build a config →</button>
+        </section>
+      </main>
+
+      <!-- ============================== CONFIGS ============================== -->
+      <main id="view-configs" role="tabpanel" class="hidden">
+        <section class="panel intro">
+          <div>
+            <h2>Your configs</h2>
+            <p class="muted">
+              A config is a <code>gameinfo.gi</code> and/or <code>video.txt</code> to test against your current setup.
+              Start from your own files, one of
+              <a href="https://github.com/Sqooky/OptimizationLock" target="_blank" rel="noreferrer">Sqooky's OptimizationLock</a>
+              presets (downloaded from GitHub when you pick one) or a file you import, then tick the settings to change.
+              Your game only uses a config while a benchmark runs.
+            </p>
+          </div>
+          <button class="primary big" id="new-config">New config</button>
+        </section>
+        <div id="config-list" class="sessions"></div>
+
+        <section class="panel hidden" id="builder">
+          <div class="step-head">
+            <h2 id="builder-title">New config</h2>
+            <button id="builder-close">Close</button>
+          </div>
+          <div class="form">
+            <label><span class="label">Name</span><input id="cfg-name" maxlength="80" placeholder="e.g. OptimizationLock with shadows on" /></label>
+            <label><span class="label">Notes (optional)</span><input id="cfg-notes" maxlength="300" placeholder="What you expect it to do" /></label>
+          </div>
+          <div class="parts" role="tablist">
+            <button data-part="gameinfo" aria-selected="true">gameinfo.gi <span class="count" id="count-gameinfo"></span></button>
+            <button data-part="video" aria-selected="false">video.txt <span class="count" id="count-video"></span></button>
+          </div>
+          <div id="part-body"></div>
+          <div class="go">
+            <div class="estimate" id="cfg-summary"></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button id="cfg-preview">Preview file changes</button>
+              <button class="primary" id="cfg-save">Save config</button>
+            </div>
+          </div>
+          <div id="cfg-preview-box"></div>
         </section>
       </main>
 
       <!-- ============================== BENCHMARK ============================== -->
       <main id="view-bench" role="tabpanel" class="hidden">
         <section class="panel">
-          <h2>1 · What should be compared with your current setup?</h2>
-          <p class="muted small">Your current setup is always measured too (before and after each round), so pick only the changes you want to try.</p>
+          <h2>1 · Which configs should be compared with your current setup?</h2>
+          <p class="muted small">Your current setup is always measured too, before and after each round.</p>
           <div id="profiles"></div>
-          <details style="margin-top:14px">
-            <summary>Add your own console settings</summary>
-            <form id="custom" class="form">
-              <label><span class="label">Name</span><input name="name" placeholder="165 FPS cap" required /></label>
-              <label><span class="label">What you expect (optional)</span><input name="description" placeholder="Smoother pacing than uncapped" /></label>
-              <label class="wide"><span class="label">Settings, one per line</span><textarea name="content" placeholder="fps_max 165" required></textarea>
-                <div class="hint">Console variables only (name and value). Commands that bind keys, load other configs or change the scene are refused.</div></label>
-              <div class="wide"><button type="submit">Add config</button></div>
-            </form>
-          </details>
         </section>
 
         <section class="panel">
@@ -385,9 +465,23 @@
               <strong>Confirm</strong><div class="meta" data-meta="confirm"></div>
               <p>Repeated rounds. Needed for an "improved" or "regressed" verdict.</p></label>
           </div>
-          <details style="margin-top:12px"><summary>Rounds</summary>
-            <label style="max-width:220px;margin-top:8px"><span class="label">Repeat rounds (1–30)</span><input id="rounds" type="number" min="1" max="30" /></label>
-          </details>
+          <div class="runopts">
+            <label><span class="label">FPS limit during the test</span>
+              <select id="fps-mode">
+                <option value="0">Uncapped (recommended)</option>
+                <option value="keep">Keep my game's limit</option>
+                <option value="custom">Custom…</option>
+              </select></label>
+            <label id="fps-custom-wrap" class="hidden"><span class="label">FPS limit</span><input id="fps-custom" type="number" min="1" max="1000" value="240" /></label>
+            <label><span class="label">Graphics API</span>
+              <select id="renderer">
+                <option value="default">Game default</option>
+                <option value="vulkan">Vulkan (-vulkan)</option>
+                <option value="dx11">DirectX 11 (-dx11)</option>
+              </select></label>
+            <label><span class="label">Repeat rounds</span><input id="rounds" type="number" min="1" max="30" /></label>
+          </div>
+          <p class="hint">The FPS limit and graphics API apply to every capture, your current setup included, so they don't skew the comparison. Uncapped lets small differences show.</p>
           <div class="go">
             <div>
               <div class="estimate" id="estimate"></div>
@@ -430,12 +524,6 @@
       let open = new Set(); // expanded result sessions
       let followed = null; // session shown in the progress panel
       let pollTimer = null;
-      const CATEGORY = {
-        "frame-pacing": ["Frame-rate caps", "Limit FPS in the game"],
-        renderer: ["Graphics API", "Launch with a different renderer"],
-        community: ["Community configs", "Temporarily replace gameinfo.gi with a whole community config"],
-        custom: ["Your configs", ""],
-      };
       const PRESET_LABEL = { scout: "Quick look", screen: "Shortlist", confirm: "Confirm", custom: "Custom" };
 
       async function api(path, body) {
@@ -465,7 +553,7 @@
       // ---------------------------------------------------------------- tabs
       function show(tab) {
         for (const b of $$("nav.tabs button")) b.setAttribute("aria-selected", b.dataset.tab === tab);
-        for (const v of ["setup", "bench", "results"]) $("#view-" + v).classList.toggle("hidden", v !== tab);
+        for (const v of ["setup", "configs", "bench", "results"]) $("#view-" + v).classList.toggle("hidden", v !== tab);
         store.set("tab", tab);
         if (tab === "results") renderSessions();
         window.scrollTo({ top: 0 });
@@ -503,6 +591,7 @@
         renderChecks();
         $("#launch-options").textContent = S.launch_options;
         renderScene();
+        renderConfigList();
         renderProfiles();
         renderEstimate();
         if (!$("#view-results").classList.contains("hidden")) renderSessions();
@@ -640,28 +729,389 @@
       $("#launch-done").onclick = () => { store.set("launchPasted:" + S.workspace, true); render(); };
       $("#recheck").onclick = (e) => act(e.target, async () => { await refresh(); toast("Checked."); });
 
+      // ---------------------------------------------------------------- configs
+      const PARTS = { gameinfo: "gameinfo.gi", video: "video.txt" };
+      const DISPLAY_KEYS = ["setting.defaultres", "setting.defaultresheight", "setting.refreshrate_numerator",
+        "setting.refreshrate_denominator", "setting.fullscreen", "setting.coop_fullscreen", "setting.nowindowborder",
+        "setting.mat_vsync", "setting.monitor_index", "setting.aspectratiomode", "setting.high_dpi",
+        "setting.fullscreen_min_on_focus_loss", "setting.recommendedheight", "setting.r_fullscreen_gamma"];
+      let CAT = null; // settings catalogue and preset list
+      let catLoading = null;
+      const CUR = { gameinfo: null, video: null }; // your installed files' settings
+      let B = null; // the config being edited
+      const configs = () => S.profiles.filter((p) => p.kind !== "manual");
+      const blankPart = () => ({ source: "current", filename: null, content: null, base: null, meta: {}, overrides: {}, keep_display: true, error: null });
+      const lower = (o) => Object.fromEntries(Object.entries(o || {}).map(([k, v]) => [k.toLowerCase(), v]));
+
+      async function loadCatalog(refresh = false) {
+        if (CAT && !refresh) return CAT;
+        catLoading = catLoading || api("/api/configs/catalog" + (refresh ? "?refresh=1" : "")).finally(() => (catLoading = null));
+        CAT = await catLoading;
+        return CAT;
+      }
+      async function loadCurrent(part) {
+        if (!CUR[part]) {
+          try { CUR[part] = { settings: (await api(`/api/configs/source?part=${part}&source=current`)).settings }; }
+          catch (e) { CUR[part] = { settings: {}, error: e.message }; }
+        }
+        return CUR[part];
+      }
+
+      function renderConfigList() {
+        const list = configs();
+        $("#tab-configs").classList.toggle("done", list.length > 0);
+        $("#config-list").innerHTML = list.length ? list.map((p) => `<div class="session cfg-card"><div class="row">
+            <div class="what"><strong>${esc(p.name)}</strong>${p.kind !== "config" ? `<span class="badge">${esc(p.kind)}</span>` : ""}
+              <p class="small muted">${esc(p.description)}</p></div>
+            <div class="actions">
+              ${p.kind === "config" ? `<button data-edit="${esc(p.id)}">Edit</button><button data-copy="${esc(p.id)}">Duplicate</button>` : ""}
+              ${p.gameinfo ? `<a href="/api/configs/${esc(p.id)}/gameinfo.gi" title="Download the finished file to install it yourself">gameinfo.gi ↓</a>` : ""}
+              ${p.video ? `<a href="/api/configs/${esc(p.id)}/video.txt" title="Download the finished file to install it yourself">video.txt ↓</a>` : ""}
+              ${p.category === "custom" ? `<button data-delete="${esc(p.id)}" class="danger">Delete</button>` : ""}
+            </div></div></div>`).join("")
+          : `<div class="panel empty"><p>No configs yet. Press <strong>New config</strong> and start from your own files or Sqooky's OptimizationLock.</p></div>`;
+      }
+      $("#config-list").addEventListener("click", (e) => {
+        const b = e.target.closest("button");
+        if (!b) return;
+        if (b.dataset.edit) openBuilder(b.dataset.edit);
+        if (b.dataset.copy) openBuilder(b.dataset.copy, true);
+        if (b.dataset.delete && confirm("Delete this config? Past results keep their own copy."))
+          act(b, async () => { await api("/api/configs/delete", { id: b.dataset.delete }); await refresh(); toast("Config deleted."); });
+      });
+      $("#new-config").onclick = () => openBuilder();
+      $("#builder-close").onclick = () => { $("#builder").classList.add("hidden"); B = null; };
+
+      async function openBuilder(id = null, copy = false) {
+        B = { id: copy ? null : id, part: "gameinfo", gameinfo: blankPart(), video: blankPart() };
+        $("#builder").classList.remove("hidden");
+        $("#cfg-preview-box").innerHTML = "";
+        $("#builder-title").textContent = !id ? "New config" : copy ? "Copy of config" : "Edit config";
+        $("#cfg-name").value = "";
+        $("#cfg-notes").value = "";
+        $("#part-body").innerHTML = `<p class="muted">Loading settings…</p>`;
+        $("#builder").scrollIntoView({ behavior: "smooth", block: "start" });
+        try {
+          if (id) {
+            const saved = await api("/api/configs/" + encodeURIComponent(id));
+            $("#cfg-name").value = copy ? saved.name + " (copy)" : saved.name;
+            $("#cfg-notes").value = /^(gameinfo\.gi|video\.txt):/.test(saved.description || "") ? "" : saved.description || "";
+            for (const part of ["gameinfo", "video"]) {
+              const spec = saved[part];
+              if (!spec) continue;
+              Object.assign(B[part], {
+                source: spec.source === "preset" ? spec.preset : spec.source, filename: spec.filename,
+                overrides: { ...spec.overrides }, keep_display: spec.keep_display !== false, base: spec.base_settings || null,
+                meta: spec.source === "preset" ? { fetched_at: spec.fetched_at, source: spec.source_url, saved: true } : {},
+              });
+            }
+            if (copy) for (const part of ["gameinfo", "video"]) if (B[part].source === "file") B[part].copyOf = id;
+          }
+          await loadCatalog().catch(() => null);
+          await renderPart();
+        } catch (e) { $("#part-body").innerHTML = `<p class="state failed">${esc(e.message)}</p>`; }
+      }
+
+      function kindOf(values) {
+        const vs = values.filter((v) => v != null && v !== "").map((v) => String(v).toLowerCase());
+        if (!vs.length) return "text";
+        if (vs.every((v) => ["true", "false", "0", "1"].includes(v))) return "bool";
+        if (vs.every((v) => v.trim() !== "" && isFinite(Number(v)))) return "num";
+        return "text";
+      }
+      function control(kind, value, values) {
+        if (kind === "bool") {
+          const words = values.some((v) => /^(true|false)$/i.test(String(v)));
+          const on = ["true", "1"].includes(String(value).toLowerCase());
+          return `<label class="switch"><input type="checkbox" class="v-bool" data-words="${words ? 1 : 0}" ${on ? "checked" : ""} /> <span>${on ? "On" : "Off"}</span></label>`;
+        }
+        if (kind === "num") {
+          const nums = values.filter((v) => v != null && v !== "" && isFinite(Number(v))).map(Number);
+          const ints = nums.every(Number.isInteger);
+          const top = Math.max(1, ...nums.map(Math.abs)) * 2;
+          const slider = top <= 100000 ? `<input type="range" class="v-range" min="${Math.min(0, ...nums) < 0 ? -top : 0}" max="${top}" step="${ints ? 1 : top <= 4 ? 0.01 : 0.1}" value="${esc(value)}" />` : "";
+          return `${slider}<input type="number" class="v" step="any" value="${esc(value)}" />`;
+        }
+        return `<input type="text" class="v" value="${esc(value)}" />`;
+      }
+      // Setting names are case-insensitive; find the key an override was stored under.
+      const ovKey = (P, name) => Object.keys(P.overrides).find((k) => k.toLowerCase() === name.toLowerCase());
+      function settingRow(part, s, base, mine) {
+        const P = B[part];
+        const key = ovKey(P, s.name);
+        const on = key !== undefined;
+        const locked = part === "video" && P.source !== "current" && P.keep_display && DISPLAY_KEYS.includes(s.name.toLowerCase());
+        const inBase = base[s.name.toLowerCase()], yours = mine[s.name.toLowerCase()];
+        const value = on ? P.overrides[key] : inBase ?? s.default ?? yours ?? s.suggested ?? "";
+        const values = [inBase, s.default, yours, s.suggested, value];
+        const vals = [];
+        if (P.source !== "current") vals.push(`in file: ${inBase ?? "not set"}`);
+        vals.push(`<span class="${P.source !== "current" && yours !== inBase ? "diff" : ""}">yours: ${esc(yours ?? "not set")}</span>`);
+        if (s.default != null && s.default !== "") vals.push(`default: ${esc(s.default)}`);
+        if (s.suggested != null && part === "gameinfo") vals.push(`OptimizationLock: ${esc(s.suggested)}${s.optional ? " (commented out)" : ""}`);
+        const hay = `${s.name} ${s.label || ""} ${s.description || ""}`.toLowerCase();
+        return `<div class="srow ${on ? "on" : ""} ${locked ? "locked" : ""}" data-name="${esc(s.name)}" data-hay="${esc(hay)}">
+          <input type="checkbox" class="tick" ${on ? "checked" : ""} ${locked ? "disabled" : ""} title="Change this setting" aria-label="Change ${esc(s.name)}" />
+          <div>${s.label ? `<span class="label2">${esc(s.label)}</span>` : ""}<code>${esc(s.name)}</code>
+            ${s.description ? `<p class="desc">${esc(s.description)}</p>` : ""}
+            <div class="vals">${locked ? "kept from your file · " : ""}${vals.join(" · ")}</div></div>
+          <div class="ctl">${locked ? "" : control(kindOf(values), value, values)}</div></div>`;
+      }
+
+      async function renderPart() {
+        if (!B) return;
+        const part = B.part, P = B[part];
+        $$(".parts button").forEach((b) => b.setAttribute("aria-selected", b.dataset.part === part));
+        const current = await loadCurrent(part);
+        const mine = lower(current.settings);
+        const base = P.source === "current" ? mine : lower(P.base || {});
+        const presets = (CAT && CAT.presets && CAT.presets[part]) || [];
+        const options = [`<option value="current">My current ${PARTS[part]}</option>`,
+          ...presets.map((x) => `<option value="${esc(x.id)}">${esc(x.name)}</option>`),
+          P.source === "file" ? `<option value="file">Imported: ${esc(P.filename || "your file")}</option>` : ""].join("");
+        const preset = presets.find((x) => x.id === P.source);
+        let meta = "";
+        if (P.error) meta = `<span class="state failed">${esc(P.error)}</span>`;
+        else if (preset) meta = `${esc(preset.description)} <a href="${esc(preset.source)}" target="_blank" rel="noreferrer">View on GitHub</a> · ` +
+          (P.meta.saved ? `saved copy from ${esc(new Date(P.meta.fetched_at).toLocaleDateString())} · <button class="link" id="src-refresh">Get latest</button>`
+            : P.meta.fetched_at ? `downloaded ${esc(new Date(P.meta.fetched_at).toLocaleString())}${P.meta.stale ? " (offline copy)" : ""} · <button class="link" id="src-refresh">Refresh</button>` : "downloading…");
+        else if (P.source === "file") meta = `Imported ${esc(P.filename || "file")}.`;
+        else meta = current.error ? `<span class="state failed">${esc(current.error)}</span>` : `Your installed file: ${Object.keys(mine).length} settings. Tick a setting to change it.`;
+
+        let groups;
+        if (part === "gameinfo") {
+          const listed = new Set();
+          groups = ((CAT && CAT.gameinfo) || []).map((g) => ({ name: g.name, settings: g.settings.map((s) => {
+            listed.add(s.name.toLowerCase());
+            return { name: s.name, description: s.description, default: s.default, suggested: s.value, optional: s.optional };
+          }) }));
+          const inFile = Object.keys(base).filter((k) => !listed.has(k)).sort();
+          if (inFile.length) groups.push({ name: P.source === "current" ? "Other settings in your file" : "Other settings in this file", settings: inFile.map((k) => ({ name: k })) });
+          inFile.forEach((k) => listed.add(k));
+          const added = Object.keys(P.overrides).filter((k) => !listed.has(k.toLowerCase()));  // ticked but not in any list
+          if (added.length) groups.unshift({ name: "Added by you", open: true, settings: added.map((k) => ({ name: k })) });
+        } else {
+          const listed = new Set();
+          groups = ((CAT && CAT.video) || []).map((g) => ({ name: g.name, settings: g.settings.filter((s) => {
+            const known = s.name.toLowerCase() in base || s.name.toLowerCase() in mine;
+            if (known) listed.add(s.name.toLowerCase());
+            return known;
+          }) })).filter((g) => g.settings.length);
+          const rest = Object.keys(base).filter((k) => k.startsWith("setting.") && !listed.has(k));
+          if (rest.length) groups.push({ name: "More", settings: rest.map((k) => ({ name: k, label: k.slice(8) })) });
+        }
+        const catalogNote = part === "gameinfo" && !(CAT && CAT.gameinfo)
+          ? `<div class="notice">Descriptions and categories come from Sqooky's OptimizationLock on GitHub, which couldn't be reached${CAT && CAT.error ? ` (${esc(CAT.error)})` : ""}. You can still change any setting in your file. <button class="link" id="cat-retry">Try again</button></div>` : "";
+        const wholeFile = P.source !== "current"
+          ? `<div class="notice">${part === "gameinfo" ? "Replaces your whole gameinfo.gi, engine sections included." : "Uses this video.txt, keeping your own GPU identifiers."} Your ticked settings go on top.</div>` : "";
+        const keep = part === "video" && P.source !== "current"
+          ? `<label class="small" style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" id="keep-display" ${P.keep_display ? "checked" : ""} /> Keep my resolution, display mode, VSync and brightness (recommended, so only quality settings differ)</label>` : "";
+        $("#part-body").innerHTML = `
+          <div class="source">
+            <label><span class="label">Start from</span><select id="src-select">${options}</select></label>
+            <div><input type="file" id="src-file" class="hidden" accept=".gi,.txt,text/plain" /><button id="src-import">Import a file…</button></div>
+          </div>
+          <p class="hint">${meta}</p>${wholeFile}${keep}${catalogNote}
+          <div class="toolbar">
+            <input type="search" id="cfg-search" placeholder="Search ${part === "gameinfo" ? "settings and descriptions" : "video settings"}…" />
+            <label><input type="checkbox" id="only-ticked" /> Only ticked</label>
+            <button id="expand-all" class="small">Expand all</button>
+          </div>
+          ${P.base === null && P.source !== "current" ? `<p class="muted">Loading…</p>` : groups.map((g, i) => {
+            const ticked = g.settings.filter((s) => ovKey(P, s.name) !== undefined).length;
+            return `<details class="cat" data-cat="${i}" ${g.open || ticked ? "open" : ""}><summary><strong>${esc(g.name)}</strong>
+              <span>${g.settings.length} setting${g.settings.length === 1 ? "" : "s"}${ticked ? ` · <b>${ticked} ticked</b>` : ""}</span></summary>
+              ${g.settings.map((s) => settingRow(part, s, base, mine)).join("")}</details>`;
+          }).join("")}
+          ${part === "gameinfo" ? `<div class="add-setting"><label><span class="label">Add any other setting</span>
+            <input type="search" id="add-q" placeholder="Type a cvar name, e.g. r_farz" autocomplete="off" /></label><ul class="hidden" id="add-results"></ul></div>` : ""}`;
+        $("#src-select").value = P.source;
+        updateCounts();
+      }
+
+      function updateCounts() {
+        if (!B) return;
+        const bits = [];
+        for (const part of ["gameinfo", "video"]) {
+          const P = B[part], n = Object.keys(P.overrides).length;
+          const whole = P.source !== "current";
+          $("#count-" + part).textContent = whole ? (n ? `file + ${n}` : "file") : n ? String(n) : "";
+          const start = whole ? ((CAT && CAT.presets && CAT.presets[part].find((x) => x.id === P.source)) || { name: P.filename || "imported file" }).name : null;
+          if (whole || n) bits.push(`<strong>${PARTS[part]}</strong>: ${start ? esc(start) : "your file"}${n ? ` + ${n} setting${n === 1 ? "" : "s"}` : ""}`);
+        }
+        $("#cfg-summary").innerHTML = bits.length ? bits.join(" · ") : "Nothing changed yet: pick a starting file or tick settings.";
+      }
+
+      async function setSource(part, source, refresh = false) {
+        const P = B[part];
+        Object.assign(P, { source, error: null, meta: {}, base: null });
+        await renderPart();
+        if (source === "current") return;
+        try {
+          const r = await api(`/api/configs/source?part=${part}&source=${encodeURIComponent(source)}${refresh ? "&refresh=1" : ""}`);
+          P.base = r.settings;
+          P.meta = r.meta || {};
+        } catch (e) { P.error = e.message; P.base = {}; }
+        await renderPart();
+      }
+
+      function filter() {
+        const q = ($("#cfg-search") || { value: "" }).value.trim().toLowerCase();
+        const only = ($("#only-ticked") || {}).checked;
+        for (const d of $$("#part-body details.cat")) {
+          let shown = 0;
+          for (const r of $$(".srow", d)) {
+            const ok = (!q || r.dataset.hay.includes(q)) && (!only || r.classList.contains("on"));
+            r.classList.toggle("hidden", !ok);
+            shown += ok;
+          }
+          d.classList.toggle("hidden", !shown);
+          if (q || only) d.open = shown > 0;
+        }
+      }
+      function setOverride(r, value) {
+        const P = B[B.part], name = ovKey(B[B.part], r.dataset.name) || r.dataset.name;
+        if (value === null) delete P.overrides[name];
+        else P.overrides[name] = value;
+        r.classList.toggle("on", value !== null);
+        $(".tick", r).checked = value !== null;
+        const d = r.closest("details"), n = $$(".srow.on", d).length, s = $("summary span", d);
+        const total = $$(".srow", d).length;
+        s.innerHTML = `${total} setting${total === 1 ? "" : "s"}${n ? ` · <b>${n} ticked</b>` : ""}`;
+        updateCounts();
+      }
+      function controlValue(r) {
+        const b = $(".v-bool", r);
+        if (b) return b.dataset.words === "1" ? (b.checked ? "true" : "false") : (b.checked ? "1" : "0");
+        const v = $(".v", r);
+        return v ? v.value.trim() : "";
+      }
+      $("#part-body").addEventListener("input", (e) => {
+        const r = e.target.closest(".srow");
+        if (e.target.id === "cfg-search") return filter();
+        if (e.target.id === "add-q") return searchCvars(e.target.value);
+        if (!r) return;
+        if (e.target.classList.contains("v-range")) $(".v", r).value = e.target.value;
+        if (e.target.classList.contains("v") && $(".v-range", r)) $(".v-range", r).value = e.target.value;
+        if (e.target.classList.contains("v-bool")) e.target.nextElementSibling.textContent = e.target.checked ? "On" : "Off";
+        if (!e.target.classList.contains("tick")) setOverride(r, controlValue(r));
+      });
+      $("#part-body").addEventListener("change", (e) => {
+        const r = e.target.closest(".srow");
+        if (r && e.target.classList.contains("tick")) return setOverride(r, e.target.checked ? controlValue(r) : null);
+        if (e.target.id === "only-ticked") return filter();
+        if (e.target.id === "src-select") return setSource(B.part, e.target.value);
+        if (e.target.id === "keep-display") { B.video.keep_display = e.target.checked; return renderPart(); }
+        if (e.target.id === "src-file" && e.target.files[0]) importFile(e.target.files[0]);
+      });
+      $("#part-body").addEventListener("click", (e) => {
+        if (e.target.id === "src-import") $("#src-file").click();
+        if (e.target.id === "src-refresh") setSource(B.part, B[B.part].source, true);
+        if (e.target.id === "cat-retry") act(e.target, async () => { await loadCatalog(true); await renderPart(); });
+        if (e.target.id === "expand-all") {
+          const all = $$("#part-body details.cat");
+          const open = all.some((d) => !d.open);
+          all.forEach((d) => (d.open = open));
+          e.target.textContent = open ? "Collapse all" : "Expand all";
+        }
+        const add = e.target.closest("[data-add]");
+        if (add) {
+          const name = add.dataset.add;
+          const known = ovKey(B.gameinfo, name);
+          B.gameinfo.overrides[known || name] = known ? B.gameinfo.overrides[known] : add.dataset.value;
+          renderPart().then(() => {
+            const r = $$("#part-body .srow").find((x) => x.dataset.name.toLowerCase() === name.toLowerCase());
+            if (r) { r.closest("details").open = true; r.scrollIntoView({ block: "center" }); ($(".v, .v-bool", r) || r).focus(); }
+            toast(`Ticked ${name}. Set the value you want to test.`);
+          });
+        }
+      });
+      async function importFile(file) {
+        const part = B.part;
+        try {
+          if (file.size > 2e6) throw new Error("That file is too large to be a " + PARTS[part] + ".");
+          const text = await file.text();
+          const r = await api("/api/configs/parse", { part, content: text });
+          Object.assign(B[part], { source: "file", content: text, filename: file.name, base: r.settings, meta: {}, error: null });
+          await renderPart();
+          toast(`Imported ${file.name}.`);
+        } catch (e) { toast(e.message, true); }
+      }
+      let searchTimer = null;
+      function searchCvars(q) {
+        clearTimeout(searchTimer);
+        const box = $("#add-results");
+        if (q.trim().length < 2) { box.classList.add("hidden"); return; }
+        searchTimer = setTimeout(async () => {
+          try {
+            const hits = await api("/api/configs/search?q=" + encodeURIComponent(q));
+            box.innerHTML = hits.length ? hits.map((h) => `<li><button data-add="${esc(h.name)}" data-value="${esc(h.default)}"><code>${esc(h.name)}</code>
+              <small>${esc(h.description || "No description")} · default ${esc(h.default)}${h.flags ? " · " + esc(h.flags) : ""}</small></button></li>`).join("")
+              : `<li class="small muted" style="padding:6px 8px">No match. Check the spelling, or add it to your file directly.</li>`;
+          } catch (e) { box.innerHTML = `<li class="small muted" style="padding:6px 8px">${esc(e.message)}</li>`; }
+          box.classList.remove("hidden");
+        }, 250);
+      }
+      $$(".parts button").forEach((b) => (b.onclick = () => { B.part = b.dataset.part; renderPart(); }));
+
+      function payload() {
+        const body = { id: B.id, name: $("#cfg-name").value, description: $("#cfg-notes").value, copy_of: null };
+        for (const part of ["gameinfo", "video"]) {
+          const P = B[part];
+          body[part] = { source: P.source, overrides: P.overrides, keep_display: P.keep_display };
+          if (P.source === "file") Object.assign(body[part], { content: P.content || "", filename: P.filename, copy_of: P.copyOf || null });
+        }
+        return body;
+      }
+      function diffHtml(text) {
+        return text.split("\n").map((l) => `<span class="${l.startsWith("+") ? "add" : l.startsWith("-") ? "del" : l.startsWith("@@") ? "hunk" : ""}">${esc(l)}</span>`).join("\n");
+      }
+      $("#cfg-preview").onclick = (e) => act(e.target, async () => {
+        const r = await api("/api/configs/preview", payload());
+        const n = Object.keys(r.cvars).length, v = Object.keys(r.video_changes).length;
+        $("#cfg-preview-box").innerHTML = `<h3 style="margin-top:14px">What this config writes</h3>
+          <p class="small muted">Compared with your installed files: ${n} gameinfo setting${n === 1 ? "" : "s"} and ${v} video setting${v === 1 ? "" : "s"} differ.</p>
+          ${r.notes.map((x) => `<div class="notice">${esc(x)}</div>`).join("")}
+          ${r.gameinfo_diff ? `<details open><summary>gameinfo.gi</summary><pre class="diff">${diffHtml(r.gameinfo_diff)}</pre></details>` : ""}
+          ${r.video_diff ? `<details open><summary>video.txt</summary><pre class="diff">${diffHtml(r.video_diff)}</pre></details>` : ""}`;
+      });
+      $("#cfg-save").onclick = (e) => act(e.target, async () => {
+        const r = await api("/api/configs/save", payload());
+        store.set("cases", [...new Set([...store.get("cases", []), r.id])]);
+        await refresh();
+        $("#builder").classList.add("hidden");
+        B = null;
+        toast("Config saved. It's ticked on the Benchmark tab.");
+      });
+
       // ---------------------------------------------------------------- benchmark
       function selected() { return $$("#profiles input:checked").map((i) => i.value); }
       function renderProfiles() {
-        const keep = new Set(store.get("cases", ["fps-unlock"]));
-        const groups = {};
-        for (const p of S.profiles) if (p.kind !== "manual") (groups[p.category] ||= []).push(p);
-        const order = ["frame-pacing", "renderer", "community", "custom", ...Object.keys(groups)];
-        const seen = new Set();
-        $("#profiles").innerHTML = order.filter((g) => groups[g] && !seen.has(g) && seen.add(g)).map((g) => {
-          const [title, sub] = CATEGORY[g] || [g, ""];
-          return `<div class="group"><h3>${esc(title)} <small>${esc(sub)}</small></h3><div class="options">` +
-            groups[g].map((p) => `<label class="option"><input type="checkbox" value="${esc(p.id)}" ${keep.has(p.id) ? "checked" : ""} />
-              <div><strong>${esc(p.name || p.id)}${p.kind === "gameinfo" ? '<span class="badge exp">whole file</span>' : ""}</strong>
-              <p>${esc(p.description)}</p>${p.source ? `<p><a href="${esc(p.source)}" target="_blank" rel="noreferrer">Source</a></p>` : ""}</div></label>`).join("") +
-            `</div></div>`;
-        }).join("");
+        const keep = new Set(store.get("cases", []));
+        const list = configs();
+        $("#profiles").innerHTML = list.length
+          ? `<div class="options">` + list.map((p) => `<label class="option"><input type="checkbox" value="${esc(p.id)}" ${keep.has(p.id) ? "checked" : ""} />
+              <div><strong>${esc(p.name)}</strong><p>${esc(p.description)}</p></div></label>`).join("") +
+            `</div><p class="small"><button class="link" data-goto="configs">Create or edit configs</button></p>`
+          : `<div class="empty"><p>No configs yet. A config is the gameinfo.gi and/or video.txt you want to test.</p>
+              <p><button class="primary" data-goto="configs">Build your first config</button></p></div>`;
       }
       $("#profiles").addEventListener("change", () => { store.set("cases", selected()); renderEstimate(); });
 
-      function preset() { return ($("#depth input:checked") || {}).value || "screen"; }
+      function preset() { return ($("#depth input:checked") || {}).value || store.get("preset", "screen"); }
       $("#depth").addEventListener("change", () => { store.set("preset", preset()); $("#rounds").value = ""; renderEstimate(); });
       $("#rounds").addEventListener("input", renderEstimate);
+      $("#fps-mode").value = store.get("fpsMode", "0");
+      $("#fps-custom").value = store.get("fpsCustom", 240);
+      $("#renderer").value = store.get("renderer", "default");
+      $("#fps-custom-wrap").classList.toggle("hidden", $("#fps-mode").value !== "custom");
+      $("#fps-mode").onchange = (e) => { store.set("fpsMode", e.target.value); $("#fps-custom-wrap").classList.toggle("hidden", e.target.value !== "custom"); };
+      $("#fps-custom").oninput = (e) => store.set("fpsCustom", e.target.value);
+      $("#renderer").onchange = (e) => store.set("renderer", e.target.value);
+      function fpsMax() {
+        const mode = $("#fps-mode").value;
+        return mode === "keep" ? null : mode === "custom" ? parseInt($("#fps-custom").value) || 240 : 0;
+      }
       function duration(sec) {
         const m = Math.round(sec / 60);
         return m < 1 ? "under a minute" : m < 90 ? `about ${m} min` : `about ${(sec / 3600).toFixed(1)} hours`;
@@ -680,7 +1130,7 @@
         const each = v.sample_s + v.warmup_s + v.settle_s + v.cooldown_s + S.launch_overhead_s;
         $("#estimate").innerHTML = n
           ? `Deadlock will launch <strong>${runs}</strong> times · <strong>${duration(runs * each)}</strong>`
-          : "Pick at least one config above.";
+          : "Tick at least one config above.";
         const blockers = [];
         if (!S.ready.tools) blockers.push("Fix the items in Set up → Check your PC.");
         if (!S.ready.scene) blockers.push("Finish Set up → Choose the test scene.");
@@ -688,27 +1138,17 @@
         if (S.recovery_needed) blockers.push("Restore your files first (see the banner above).");
         if (S.running) blockers.push("A benchmark is already running.");
         if (!launchOk() && !blockers.length) blockers.push("Steam launch options not detected yet — the first capture will fail if they are missing.");
+        if (rounds < 5 && n) blockers.push(`${rounds === 1 ? "One round gives" : `${rounds} rounds give`} numbers but no verdict; a verdict needs 5 rounds (Confirm).`);
         $("#blockers").innerHTML = blockers.map((b) => `<li>${esc(b)}</li>`).join("");
-        const hard = blockers.filter((b) => !b.startsWith("Steam launch"));
+        const hard = blockers.filter((b) => !b.startsWith("Steam launch") && !/no verdict/.test(b));
         $("#start").disabled = !n || hard.length > 0;
-        if (rounds < 5 && p !== "scout" && p !== "screen") $("#blockers").innerHTML += `<li>Fewer than 5 rounds can't produce a verdict.</li>`;
       }
       $("#start").onclick = (e) => act(e.target, async () => {
-        const res = await api("/api/benchmark", { cases: selected(), preset: preset(), rounds: parseInt($("#rounds").value) || null });
+        const res = await api("/api/benchmark", { cases: selected(), preset: preset(), rounds: parseInt($("#rounds").value) || null,
+                                                   fps_max: fpsMax(), renderer: $("#renderer").value });
         toast("Benchmark started. Deadlock will launch shortly.");
         followed = res.session;
         await refresh();
-      });
-      $("#custom").addEventListener("submit", (e) => {
-        e.preventDefault();
-        const f = e.target;
-        act($("button", f), async () => {
-          const res = await api("/api/profile", { name: f.name.value, description: f.description.value, content: f.content.value });
-          store.set("cases", [...selected(), res.id]);
-          f.reset();
-          await refresh();
-          toast("Config added and selected.");
-        });
       });
 
       // ---------------------------------------------------------------- progress
@@ -808,8 +1248,8 @@
           ${d.log_tail ? `<details><summary>Error log</summary><pre class="log">${esc(d.log_tail.join("\n"))}</pre></details>` : ""}
           ${pending.length ? `<form class="review"><h3>Confirm what you saw (${pending.length} capture${pending.length > 1 ? "s" : ""})</h3>
             <p class="small muted">The lab can't see your screen, so results stay "inconclusive" until you confirm each capture was valid:
-            the camera stayed on the same player, the replay kept playing, and ${pending.some((r) => r.reviewable.some((b) => b.startsWith("Whole GameInfo") || b.startsWith("Renderer")))
-              ? "the config/renderer visibly applied" : "nothing odd happened"}. Only tick captures you actually watched.</p>
+            the camera stayed on the same player, the replay kept playing, and ${pending.some((r) => r.reviewable.some((b) => /^(Config applied|Whole GameInfo|Renderer)/.test(b)))
+              ? "the config looked as intended (no missing models, broken lighting or menus)" : "nothing odd happened"}. Only tick captures you actually watched.</p>
             <label class="small"><input type="checkbox" class="all" /> Select all</label>
             <ul>${pending.map((r) => `<li><label><input type="checkbox" value="${esc(r.id)}" /> <span class="mono small">${esc(r.id)}</span></label></li>`).join("")}</ul>
             <label><span class="label">How did you check? (saved with the result)</span>
@@ -860,7 +1300,7 @@
         try {
           await refresh();
           const first = !S.sessions.length;
-          show(store.get("tab", first ? "setup" : setupDone() ? "bench" : "setup"));
+          show(store.get("tab", first || !setupDone() ? "setup" : configs().length ? "bench" : "configs"));
           renderEstimate();
           const dismissed = store.get("dismissed", null);
           const latest = S.sessions.find((s) => !s.synthetic);

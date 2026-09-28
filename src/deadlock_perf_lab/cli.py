@@ -14,7 +14,7 @@ from .analysis import analyze, shortlist, timings
 from .capture import read_mangohud
 from .imports import import_capture, review_run
 from .planning import PRESETS, make_plan
-from .profiles import add_profile, catalog
+from .profiles import DEMO_PROFILES, add_profile, catalog
 from .report import bundle, generate_report, markdown_report
 from .runner import recover, run_session
 from .storage import LabError, atomic_write, digest, read_json
@@ -62,16 +62,20 @@ def parser() -> argparse.ArgumentParser:
     sweep = ps.add_parser("sweep", help="create one-cvar GameInfo variants from id,cvar,value CSV")
     sweep.add_argument("matrix", type=Path)
     sweep.add_argument("--base", type=Path, required=True)
-    add = ps.add_parser("add")
+    add = ps.add_parser("add", help="save a config from your own gameinfo.gi and/or video.txt (or a cvar file)")
     add.add_argument("id")
     add.add_argument("--name")
-    add.add_argument("--description", required=True)
-    types = add.add_mutually_exclusive_group(required=True)
-    types.add_argument("--autoexec", type=Path)
-    types.add_argument("--gameinfo", type=Path)
-    types.add_argument("--manual", action="store_true")
-    plan = command("plan", "Freeze profiles, conditions and randomized baseline-bracketed rounds.")
-    plan.add_argument("--cases", default="fps-unlock", help="comma-separated profile IDs")
+    add.add_argument("--description", default="")
+    add.add_argument("--gameinfo", type=Path, help="a complete gameinfo.gi to test")
+    add.add_argument("--video", type=Path, help="a complete video.txt to test (your resolution and device are kept)")
+    add.add_argument("--autoexec", type=Path, help="console cvars applied at launch instead")
+    add.add_argument("--manual", action="store_true", help="a change you make by hand (see docs/MANUAL_EXPERIMENTS.md)")
+    plan = command("plan", "Freeze configs, conditions and randomized baseline-bracketed rounds.")
+    plan.add_argument("--cases", required=True, help="comma-separated config IDs (see dpl profiles); globs allowed")
+    plan.add_argument("--fps-max", type=int, default=None,
+                      help="FPS limit for every capture, baseline included (0 = uncapped; default: keep the game's)")
+    plan.add_argument("--renderer", choices=["default", "vulkan", "dx11"], default="default",
+                      help="graphics API for every capture (default: the game's)")
     plan.add_argument("--rounds", type=int, help="default: 1 for scout/screen, 5 otherwise")
     plan.add_argument("--preset", choices=list(PRESETS), default="custom", help="scout: 5s/one round; screen: 10s/one round; confirm: 30s/five rounds; custom: lab.json timings")
     plan.add_argument("--seed", type=int, default=47)
@@ -145,7 +149,8 @@ Terminal workflow (same steps as the app):
 2. dpl doctor             Check Steam, MangoHud and the game install.
 3. dpl setup              Copy the printed line into Deadlock's Steam Launch Options.
 4. Edit lab.json in your workspace: replay, tick, player and your game settings.
-5. dpl plan --cases fps-unlock --preset confirm    Check the printed schedule.
+   dpl profile add my-config --gameinfo FILE --video FILE   Save a config to test.
+5. dpl plan --cases my-config --preset confirm --fps-max 0   Check the printed schedule.
 6. Close Deadlock, then:  dpl run --live
 7. dpl review --run ID --note '...'                Confirm captures you watched.
 8. dpl report --open
@@ -210,8 +215,16 @@ def main(argv: list[str] | None = None) -> int:
                 entry = catalog(workspace).get(args.id)
                 if not entry:
                     raise LabError("Unknown profile. See dpl profiles.")
-                print(json.dumps({k: v for k, v in entry.items() if k != "content"}, indent=2))
-                if args.diff and entry["kind"] == "gameinfo":
+                shown = {k: v for k, v in entry.items() if k != "content"}
+                for part in ("gameinfo", "video"):
+                    if isinstance(shown.get(part), dict):
+                        shown[part] = {k: v for k, v in shown[part].items() if k != "content"}
+                print(json.dumps(shown, indent=2))
+                if args.diff and entry["kind"] == "config":
+                    from .configs import preview
+                    shown = preview(entry, Path(load_workspace(workspace)["install"]))
+                    print("\n".join(shown["notes"]) + "\n" + shown["gameinfo_diff"] + shown["video_diff"])
+                elif args.diff and entry["kind"] == "gameinfo":
                     config = load_workspace(workspace)
                     original = Path(config["install"]) / "game/citadel/gameinfo.gi"
                     print("".join(difflib.unified_diff(original.read_text().splitlines(True), entry["content"].splitlines(True),
@@ -225,17 +238,32 @@ def main(argv: list[str] | None = None) -> int:
                 print("\n".join(str(path) for path in paths))
             else:
                 load_workspace(workspace)
-                kind = "autoexec" if args.autoexec else "gameinfo" if args.gameinfo else "manual"
-                entry = {"id": args.id, "name": args.name or args.id, "kind": kind, "category": "custom",
-                         "status": "experimental", "description": args.description}
-                source = args.autoexec or args.gameinfo
-                if source:
-                    entry["content"] = source.read_text(encoding="utf-8")
-                    entry["source_sha256"] = digest(source)
+                chosen = [bool(args.gameinfo or args.video), bool(args.autoexec), args.manual]
+                if sum(chosen) != 1:
+                    raise LabError("Give --gameinfo and/or --video, or --autoexec, or --manual.")
+                entry = {"id": args.id, "name": args.name or args.id, "category": "custom", "status": "experimental",
+                         "description": args.description}
+                if args.autoexec:
+                    entry.update(kind="autoexec", content=args.autoexec.read_text(encoding="utf-8"),
+                                 source_sha256=digest(args.autoexec))
+                elif args.manual:
+                    entry.update(kind="manual")
+                else:
+                    entry["kind"] = "config"
+                    for part, source in (("gameinfo", args.gameinfo), ("video", args.video)):
+                        if source:
+                            entry[part] = {"source": "file", "content": source.read_text(encoding="utf-8"),
+                                           "filename": source.name, "overrides": {}, "keep_display": True}
+                    if not entry["description"]:
+                        from .configs import summary
+                        entry["description"] = summary(entry)
+                if not entry["description"]:
+                    raise LabError("Add --description to say what this change is.")
                 print(add_profile(workspace, entry))
         elif cmd == "plan":
             session, plan = make_plan(workspace, args.cases.split(","), args.rounds, args.seed,
-                                      experimental=args.experimental, manual=args.manual, preset=args.preset)
+                                      experimental=args.experimental, manual=args.manual, preset=args.preset,
+                                      fps_max=args.fps_max, renderer=args.renderer)
             show_plan(session, plan)
         elif cmd == "run":
             session = session_path(workspace, args.session)
@@ -252,7 +280,7 @@ def main(argv: list[str] | None = None) -> int:
         elif cmd == "demo":
             if not (workspace / "lab.json").exists():
                 initialize(workspace)
-            session, plan = make_plan(workspace, ["fps-unlock", "renderer-vulkan", "cap-144"], args.rounds, 47, demo=True)
+            session, plan = make_plan(workspace, [p["id"] for p in DEMO_PROFILES], args.rounds, 47, demo=True)
             run_session(workspace, session)
             output = generate_report(session)
             print(f"\nDEMO DATA ONLY — no game was launched.\nReport: {output}")

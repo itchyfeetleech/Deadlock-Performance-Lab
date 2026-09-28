@@ -38,7 +38,7 @@ Documentation = "https://github.com/itchyfeetleech/Deadlock-Performance-Lab/tree
 where = ["src"]
 
 [tool.setuptools.package-data]
-deadlock_perf_lab = ["assets/*.json", "assets/*.cfg", "assets/*.html", "assets/*.svg", "assets/gameinfo/*.gi", "assets/gameinfo/*.md", "assets/gameinfo/LICENSE"]
+deadlock_perf_lab = ["assets/*.json", "assets/*.cfg", "assets/*.html", "assets/*.svg"]
 
 [tool.ruff]
 line-length = 110

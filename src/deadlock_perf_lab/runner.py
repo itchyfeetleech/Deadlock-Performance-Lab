@@ -196,7 +196,9 @@ def run_live(workspace: Path, session: Path, plan: dict, item: dict, directory: 
     capture_dir.mkdir()
     game_cfg = install / "game/citadel/cfg/autoexec_dpl.cfg"
     capture_config = workspace / "capture.conf"
-    for target in (game_cfg, install / "game/citadel/gameinfo.gi"):
+    video_txt = install / "game/citadel/cfg/video.txt"
+    config_files = (profile.get("materialized") or {}) if profile["kind"] == "config" else {}
+    for target in (game_cfg, install / "game/citadel/gameinfo.gi", video_txt):
         if not target.resolve().is_relative_to(install.resolve()):
             raise LabError(f"Game config resolves outside the install: {target}")
     blockers = []
@@ -205,6 +207,8 @@ def run_live(workspace: Path, session: Path, plan: dict, item: dict, directory: 
         blockers.append("Record resolution, graphics preset, Proton and display mode in lab.json before drawing conclusions.")
     try:
         content = profile.get("content", "") if profile["kind"] == "autoexec" else ""
+        if scenario.get("fps_max") is not None:
+            content += f"\nfps_max {int(scenario['fps_max'])}\n"
         if scenario["mode"] == "bots":
             content += "\n" + files("deadlock_perf_lab").joinpath("assets/scenario_stress.cfg").read_text()
         elif scenario.get("replay_launch") == "startup":
@@ -215,6 +219,14 @@ def run_live(workspace: Path, session: Path, plan: dict, item: dict, directory: 
         if profile["kind"] == "gameinfo":
             txn.apply(install / "game/citadel/gameinfo.gi", profile["content"].encode())
             blockers.append("Whole GameInfo swap: file application verified, individual cvar effects and replay fidelity require review.")
+        if config_files.get("gameinfo"):
+            txn.apply(install / "game/citadel/gameinfo.gi", config_files["gameinfo"].encode())
+        if config_files.get("video"):
+            # The game may rewrite video.txt itself; restore it regardless, keeping its copy.
+            txn.apply(video_txt, config_files["video"].encode(), tolerant=True)
+        if profile["kind"] == "config":
+            warnings.extend(config_files.get("notes", []))
+            blockers.append("Config applied: confirm the game looked as intended and the replay played normally.")
         # Per-game Steam launch options read this at each fresh process launch.
         # No interval sampling and no fixed duration which might stop mid-load.
         # NOTE: no `no_display` here. MangoHud 0.8.4 only runs its autostart
@@ -227,6 +239,7 @@ def run_live(workspace: Path, session: Path, plan: dict, item: dict, directory: 
                                    f"output_folder={capture_dir}\n").encode())
         args = ["steam", "-applaunch", APP_ID, "-insecure", "-dev", "-vconsole", "-condebug"]
         args += profile.get("flags", []) if profile["kind"] == "launch" else []
+        args += [flag for flag in scenario.get("launch_flags", []) if flag not in args]
         args += ["+exec", "autoexec_dpl"]
         if scenario["mode"] == "bots":
             if not re.fullmatch(r"[A-Za-z0-9_]+", scenario["map"]):
@@ -291,11 +304,26 @@ def run_live(workspace: Path, session: Path, plan: dict, item: dict, directory: 
         settle_started = time.monotonic()
         console.send("sv_cheats 0")
         assignments = "sv_cheats 0"
+        if scenario.get("fps_max") is not None:
+            # Applies to every capture, baseline included, so a failed readback is a note, not a blocker.
+            warnings.extend(f"FPS limit {issue}" for issue in
+                            verify_assignments(console, f"fps_max {int(scenario['fps_max'])}"))
         if profile["kind"] == "autoexec":
             assignments += "\n" + profile["content"]
         elif profile["kind"] == "gameinfo" and profile.get("cvar"):
             assignments += f'\n{profile["cvar"]} "{profile["requested_value"]}"'
         blockers += verify_assignments(console, assignments)
+        if config_files.get("cvars"):
+            # A config is measured as a whole file; settings the engine hides or
+            # overrides are reported, not treated as a failed capture.
+            readback = verify_assignments(console, "\n".join(f'{k} "{v}"' for k, v in config_files["cvars"].items()))
+            hidden = [r for r in readback if ": no readback;" in r]
+            differs = [r for r in readback if r not in hidden]
+            if differs:
+                warnings.append(f"{len(differs)} config setting(s) read back a different value: " + " ".join(differs[:10]))
+            if hidden:
+                warnings.append(f"{len(hidden)} of {len(config_files['cvars'])} changed gameinfo settings are hidden from the "
+                                "console, so the lab could not confirm them.")
         pause(max(0, scenario["settle_s"] - (time.monotonic() - settle_started)), console, processes)
         mark("camera_and_settle")
         capture = capture_file(capture_dir)
@@ -328,6 +356,16 @@ def run_live(workspace: Path, session: Path, plan: dict, item: dict, directory: 
         launched = False
         processes = {}
         mark("shutdown")
+        if config_files.get("video") and video_txt.is_file() and video_txt.read_text(errors="replace") != config_files["video"]:
+            from .configs import video_settings
+            try:
+                final = {k.lower(): v for k, v in video_settings(video_txt.read_text(encoding="utf-8")).items()}
+                changed = [f"{k}={final.get(k.lower(), 'removed')}" for k, v in config_files.get("video_changes", {}).items()
+                           if final.get(k.lower()) != v]
+            except (LabError, UnicodeDecodeError):
+                changed = ["the file could not be read"]
+            warnings.append("The game rewrote video.txt during this capture" +
+                            (f"; it changed: {', '.join(changed[:10])}." if changed else "."))
         result_capture = read_mangohud(capture, start_s=start, duration_s=scenario["sample_s"], interval_ms=0)
         if result_capture.metadata["invalid_rows"]:
             blockers.append("The raw capture contained malformed rows; inspect before drawing conclusions.")
@@ -340,6 +378,9 @@ def run_live(workspace: Path, session: Path, plan: dict, item: dict, directory: 
                   "warnings": warnings + result_capture.warnings, "quality_blockers": blockers}
         if profile["kind"] == "launch":
             result["quality_blockers"].append("Renderer flag requested; verify the selected API in steam.log or the game overlay.")
+        if scenario.get("launch_flags"):
+            result["warnings"].append(f"Every capture used {' '.join(scenario['launch_flags'])}; confirm the renderer in "
+                                      "steam.log or the game overlay.")
         mark("analysis")
         result["phase_timings_s"] = phases
         return result
@@ -372,8 +413,8 @@ def run_live(workspace: Path, session: Path, plan: dict, item: dict, directory: 
 def run_demo(plan: dict, item: dict, directory: Path) -> dict:
     seed = int(hashlib.sha256(f"{plan['seed']}:{item['index']}:{item['case']}".encode()).hexdigest()[:16], 16)
     rng = random.Random(seed)
-    factor = {"baseline": 1, "fps-unlock": 1.08, "cap-144": .6, "cap-240": .99,
-              "renderer-vulkan": 1.05, "renderer-dx11": .98}.get(item["case"], 1.12)
+    factor = {"baseline": 1, "example-optimizationlock": 1.09, "example-shadows-off": 1.04,
+              "example-low-video": 1.15}.get(item["case"], 1.06)
     baseline_ms = 1000 / (240 * factor * rng.uniform(.995, 1.005))
     elapsed = 0.0
     duration = plan["context"]["scenario"]["sample_s"]

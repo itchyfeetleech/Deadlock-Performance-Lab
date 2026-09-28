@@ -33,8 +33,9 @@ import webbrowser
 from . import __version__
 from .analysis import timings
 from .imports import REVIEWABLE, review_run
+from . import configs
 from .planning import PRESETS, make_plan
-from .profiles import add_profile, catalog, valid_id
+from .profiles import DEMO_PROFILES, add_profile, catalog
 from .report import bundle, generate_report
 from .runner import recover, request_cancel, runner_alive
 from .storage import LabError, atomic_write, digest, read_json
@@ -44,7 +45,7 @@ from .workspace import ensure_workspace, launch_options, missing_conditions, sav
 NAME = "Deadlock Performance Lab"
 IDLE_EXIT_S = 30 * 60
 LAUNCH_OVERHEAD_S = 20  # Typical Steam launch, replay load and shutdown per capture.
-DEMO_CASES = ["fps-unlock", "renderer-vulkan", "cap-144"]
+DEMO_CASES = [p["id"] for p in DEMO_PROFILES]
 PRESET_ROUNDS = {"scout": 1, "screen": 1, "confirm": 5}
 
 
@@ -164,8 +165,7 @@ class App:
         install = self.install(config)
         checks = doctor(install, self.workspace)
         try:
-            profiles = [{k: v for k, v in p.items() if k not in {"content", "flags"}}
-                        for p in catalog(self.workspace).values() if p["id"] != "baseline"]
+            profiles = [self.public_profile(p) for p in catalog(self.workspace).values() if p["id"] != "baseline"]
             profile_error = None
         except LabError as exc:
             profiles, profile_error = [], str(exc)
@@ -193,6 +193,14 @@ class App:
                       "scene": scene_ready and not missing_conditions(config)},
             "recovery_needed": any(not c["ok"] for c in checks if c["check"] in {"Recovery", "Install recovery"}),
         }
+
+    @staticmethod
+    def public_profile(profile: dict) -> dict:
+        result = {k: v for k, v in profile.items() if k not in {"content", "flags", "materialized"}}
+        for part in ("gameinfo", "video"):
+            if isinstance(result.get(part), dict):
+                result[part] = {k: v for k, v in result[part].items() if k != "content"}
+        return result
 
     def detail(self, session_id: str) -> dict:
         session = self.session(session_id)
@@ -269,11 +277,14 @@ class App:
         if preset not in PRESET_ROUNDS:
             raise LabError("Unknown benchmark length.")
         rounds = int(body.get("rounds") or PRESET_ROUNDS[preset])
+        fps_max = body.get("fps_max")
+        fps_max = None if fps_max in (None, "", "keep") else int(fps_max)
         available = catalog(self.workspace)
         experimental = any(available.get(c, {}).get("kind") == "gameinfo" for c in cases)
         self.preflight(config)
         session, _ = make_plan(self.workspace, cases, rounds, secrets.randbelow(1_000_000),
-                               experimental=experimental, preset=preset)
+                               experimental=experimental, preset=preset, fps_max=fps_max,
+                               renderer=str(body.get("renderer") or "default"))
         self.spawn(session, live=True)
         return {"session": session.name}
 
@@ -305,18 +316,106 @@ class App:
             review_run(session, run, note)
         return {"reviewed": len(runs)}
 
-    def add_profile(self, body: dict) -> dict:
-        self.config()
-        name = " ".join(str(body.get("name", "")).split())[:80]
-        slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:48]
-        if not slug:
-            raise LabError("Give your config a name.")
-        content = str(body.get("content", "")).strip() + "\n"
-        profile = {"id": valid_id("my-" + slug), "name": name, "kind": "autoexec", "category": "custom",
-                   "status": "experimental", "content": content,
-                   "description": " ".join(str(body.get("description", "")).split())[:300] or content.strip()}
-        add_profile(self.workspace, profile)
-        return {"id": profile["id"]}
+    # ---- configs -------------------------------------------------------------------
+    def installed(self) -> Path:
+        install = self.install(self.config())
+        if not install or not (install / "game/citadel/gameinfo.gi").is_file():
+            raise LabError("Set your Deadlock folder in Set up first.")
+        return install
+
+    def config_source(self, part: str, source: str, refresh: bool = False) -> dict:
+        """Settings in a starting file: your current one, or a preset downloaded from GitHub."""
+        if part not in {"gameinfo", "video"}:
+            raise LabError("Unknown file.")
+        meta = {}
+        if source == "current":
+            path = configs.install_file(self.installed(), part)
+            if not path.is_file():
+                raise LabError(f"{path.name} not found. Launch Deadlock once so it creates it.")
+            text = path.read_text(encoding="utf-8")
+        else:
+            text, meta = configs.preset_text(self.workspace, part, source, refresh=refresh)
+        return self.parse_source(part, text) | {"meta": meta}
+
+    @staticmethod
+    def parse_source(part: str, text: str) -> dict:
+        if part == "gameinfo":
+            configs.validate_gameinfo(text)
+            return {"settings": configs.convars(text)}
+        return {"settings": configs.video_settings(text)}
+
+    def config_catalog(self, refresh: bool = False) -> dict:
+        result = {"presets": configs.presets(), "video": None, "gameinfo": None, "error": None}
+        try:
+            text, meta = configs.preset_text(self.workspace, "gameinfo", "sqooky", refresh=refresh)
+            result["gameinfo"] = configs.catalog_from(text)
+            result["meta"] = meta
+        except LabError as exc:
+            result["error"] = str(exc)
+        try:
+            current = self.config_source("video", "current")["settings"]
+        except (LabError, OSError):
+            current = {}
+        result["video"] = configs.video_catalog(list(current))
+        return result
+
+    def cvar_search(self, query: str) -> list[dict]:
+        query = query.strip().lower()
+        if len(query) < 2:
+            return []
+        if not hasattr(self, "_reference"):
+            self._reference = configs.reference(self.workspace)
+        hits = [v for k, v in self._reference.items() if query in k]
+        hits.sort(key=lambda v: (not v["name"].lower().startswith(query), len(v["name"])))
+        return hits[:40]
+
+    def saved_config(self, config_id: str) -> dict:
+        profile = catalog(self.workspace).get(config_id)
+        if not profile or profile.get("kind") != "config":
+            raise LabError("Unknown config.")
+        result = self.public_profile(profile)
+        for part in ("gameinfo", "video"):
+            if (profile.get(part) or {}).get("content"):
+                result[part]["base_settings"] = self.parse_source(part, profile[part]["content"])["settings"]
+        return result
+
+    def build_config(self, body: dict) -> dict:
+        available = catalog(self.workspace)
+        for part in ("gameinfo", "video"):
+            spec = body.get(part)
+            if isinstance(spec, dict) and spec.get("source") == "file" and not spec.get("content"):
+                # Imported files stay on the server; editing or copying a config reuses them.
+                existing = available.get(body.get("id") or spec.get("copy_of") or "") or {}
+                previous = existing.get(part) or {}
+                spec.update(content=previous.get("content", ""), filename=previous.get("filename"))
+        return configs.build(self.workspace, body)
+
+    def save_config(self, body: dict) -> dict:
+        profile = self.build_config(body)
+        if not body.get("id"):  # A new config never replaces another with the same name.
+            taken, base, n = catalog(self.workspace), profile["id"], 2
+            while profile["id"] in taken:
+                profile["id"], n = f"{base[:60]}-{n}", n + 1
+        configs.materialize(profile, self.installed())  # Refuse configs that can't apply here.
+        add_profile(self.workspace, profile, replace=bool(body.get("id")))
+        return {"id": profile["id"], "description": profile["description"]}
+
+    def delete_config(self, body: dict) -> dict:
+        profile = catalog(self.workspace).get(str(body.get("id")))
+        if not profile or profile.get("category") != "custom":
+            raise LabError("Only your own configs can be deleted.")
+        (self.workspace / "profiles" / f"{profile['id']}.json").unlink()
+        return {"deleted": profile["id"]}
+
+    def config_file(self, config_id: str, name: str) -> bytes:
+        profile = catalog(self.workspace).get(config_id)
+        if not profile or profile.get("kind") != "config":
+            raise LabError("Unknown config.")
+        files = configs.materialize(profile, self.installed())
+        content = files["gameinfo" if name == "gameinfo.gi" else "video"]
+        if content is None:
+            raise LabError(f"This config doesn't change {name}.")
+        return content.encode()
 
     def open_folder(self, body: dict) -> dict:
         path = self.session(body["session"]) if body.get("session") else self.workspace
@@ -419,6 +518,19 @@ class Handler(BaseHTTPRequestHandler):
                                  "text/html; charset=utf-8")
             if path == "/api/state":
                 return self.json(app.state())
+            query = {k: v[0] for k, v in parse_qs(url.query).items()}
+            if path == "/api/configs/catalog":
+                return self.json(app.config_catalog(query.get("refresh") == "1"))
+            if path == "/api/configs/source":
+                return self.json(app.config_source(query.get("part", ""), query.get("source", "current"),
+                                                   query.get("refresh") == "1"))
+            if path == "/api/configs/search":
+                return self.json(app.cvar_search(query.get("q", "")))
+            if match := re.fullmatch(r"/api/configs/([a-z0-9_-]+)/(gameinfo\.gi|video\.txt)", path):
+                return self.send(200, app.config_file(match[1], match[2]), "application/octet-stream",
+                                 {"Content-Disposition": f'attachment; filename="{match[2]}"'})
+            if match := re.fullmatch(r"/api/configs/([a-z0-9_-]+)", path):
+                return self.json(app.saved_config(match[1]))
             if path.startswith("/api/session/"):
                 return self.json(app.detail(unquote(path.rsplit("/", 1)[1])))
             if match := re.fullmatch(r"/report/([A-Za-z0-9_-]+)/?", path):
@@ -453,7 +565,10 @@ class Handler(BaseHTTPRequestHandler):
             "/api/start": lambda: app.start(body),
             "/api/cancel": lambda: app.cancel(body),
             "/api/review": lambda: app.review(body),
-            "/api/profile": lambda: app.add_profile(body),
+            "/api/configs/save": lambda: app.save_config(body),
+            "/api/configs/preview": lambda: configs.preview(app.build_config(body), app.installed()),
+            "/api/configs/parse": lambda: app.parse_source(str(body.get("part")), str(body.get("content", ""))),
+            "/api/configs/delete": lambda: app.delete_config(body),
             "/api/recover": lambda: {"restored": recover(app.workspace, force=False)},
             "/api/shortcut": lambda: {"path": str(install_shortcut(app.workspace))},
             "/api/open-folder": lambda: app.open_folder(body),
