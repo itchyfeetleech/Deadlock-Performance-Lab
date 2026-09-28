@@ -1,0 +1,874 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Deadlock Performance Lab</title>
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <style>
+      :root {
+        --bg: #121612;
+        --panel: #1b201b;
+        --panel-2: #171c17;
+        --line: #363e33;
+        --line-soft: #2b3229;
+        --text: #ecebdf;
+        --muted: #a9b09e;
+        --accent: #d8cf9a;
+        --accent-ink: #1a1d14;
+        --green: #afd0a0;
+        --red: #e3a399;
+        --amber: #e2c27a;
+        --blue: #90bccc;
+        --mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+        --serif: Georgia, "Times New Roman", serif;
+      }
+      * { box-sizing: border-box; }
+      html { scrollbar-color: var(--line) var(--bg); }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 14px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      a { color: var(--accent); }
+      h1, h2, h3 { margin: 0; font-weight: 600; }
+      h1 { font: 28px/1.2 var(--serif); }
+      h2 { font: 20px/1.3 var(--serif); }
+      h3 { font-size: 14px; }
+      p { margin: 6px 0; }
+      code, pre, .mono { font-family: var(--mono); }
+      .muted { color: var(--muted); }
+      .small { font-size: 12px; }
+      .hidden { display: none !important; }
+      .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+      button, input, select, textarea {
+        font: inherit;
+        color: var(--text);
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 8px 12px;
+      }
+      textarea { width: 100%; min-height: 76px; resize: vertical; font-family: var(--mono); font-size: 13px; }
+      input, select { width: 100%; }
+      input[type="checkbox"], input[type="radio"] { width: auto; accent-color: var(--accent); }
+      button { cursor: pointer; white-space: nowrap; }
+      button:hover:not(:disabled) { border-color: var(--accent); }
+      button:disabled { opacity: .5; cursor: not-allowed; }
+      button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+      button.primary:hover:not(:disabled) { filter: brightness(1.08); }
+      button.danger { color: var(--red); border-color: #6b4640; }
+      button.link { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; white-space: normal; overflow-wrap: anywhere; text-align: left; }
+      button.big { padding: 12px 22px; font-size: 15px; }
+      :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      label { display: block; }
+      label > span.label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+
+      .shell { max-width: 1080px; margin: 0 auto; padding: 0 20px 60px; }
+      .top {
+        display: flex; align-items: center; justify-content: space-between; gap: 16px;
+        padding: 16px 0; border-bottom: 1px solid var(--line);
+      }
+      .brand { display: flex; align-items: center; gap: 10px; font: 700 14px var(--serif); letter-spacing: .1em; }
+      .brand img { width: 28px; height: 28px; }
+      .brand span { color: var(--accent); font-weight: 400; letter-spacing: .02em; }
+      .top-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+      .top-actions button { font-size: 12px; padding: 6px 10px; }
+
+      nav.tabs { display: flex; gap: 6px; margin: 18px 0 20px; border-bottom: 1px solid var(--line); }
+      nav.tabs button {
+        border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none;
+        color: var(--muted); padding: 10px 14px; font-size: 15px;
+      }
+      nav.tabs button .n {
+        display: inline-grid; place-items: center; width: 22px; height: 22px; margin-right: 8px;
+        border: 1px solid var(--line); border-radius: 50%; font-size: 12px;
+      }
+      nav.tabs button.done .n { background: var(--green); color: var(--accent-ink); border-color: var(--green); }
+      nav.tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+      nav.tabs button[aria-selected="true"] .n { border-color: var(--accent); }
+
+      .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+      .panel.flat { background: none; }
+      .intro { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+      .intro p { max-width: 620px; }
+
+      .banner { border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; display: flex; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+      .banner.warn { background: #2e2716; border: 1px solid #6b5a2c; }
+      .banner.bad { background: #2e1d1a; border: 1px solid #6b4640; }
+
+      .step { display: grid; grid-template-columns: 36px 1fr; gap: 14px; }
+      .step + .step { margin-top: 0; }
+      .dot {
+        width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+        border: 1px solid var(--line); font: 600 14px var(--mono); color: var(--muted);
+      }
+      .dot.ok { background: var(--green); color: var(--accent-ink); border-color: var(--green); }
+      .dot.warn { border-color: var(--amber); color: var(--amber); }
+      .step-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+      .status { font: 12px var(--mono); padding: 3px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
+      .status.ok { color: var(--green); border-color: #4f6546; }
+      .status.warn { color: var(--amber); border-color: #6b5a2c; }
+      .status.bad { color: var(--red); border-color: #6b4640; }
+
+      ul.checks { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 6px; }
+      ul.checks li { display: grid; grid-template-columns: 22px 170px 1fr; gap: 8px; align-items: baseline; }
+      ul.checks .i { font-family: var(--mono); }
+      ul.checks .i.ok { color: var(--green); }
+      ul.checks .i.bad { color: var(--red); }
+      ul.checks .i.warn { color: var(--amber); }
+      ul.checks .d { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+
+      ol.how { margin: 8px 0 12px; padding-left: 20px; }
+      ol.how li { margin: 4px 0; }
+      .code {
+        display: flex; gap: 8px; align-items: stretch; background: #0e120e; border: 1px solid var(--line);
+        border-radius: 6px; padding: 4px 4px 4px 12px;
+      }
+      .code code { flex: 1; font-size: 12.5px; padding: 6px 0; overflow-wrap: anywhere; user-select: all; }
+
+      .form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; margin: 12px 0; }
+      .form .wide { grid-column: 1 / -1; }
+      .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+      .tag { font: 11px var(--mono); color: var(--green); margin-left: 6px; }
+      .seg { display: flex; gap: 8px; flex-wrap: wrap; }
+      .seg label { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; cursor: pointer; }
+      .seg label:has(input:checked) { border-color: var(--accent); background: #262a1d; }
+
+      .group { margin: 18px 0 8px; }
+      .group h3 { display: flex; align-items: baseline; gap: 10px; }
+      .group h3 small { font-weight: 400; color: var(--muted); font-size: 12px; }
+      .options { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 10px; margin-top: 8px; }
+      .option {
+        display: grid; grid-template-columns: 20px 1fr; gap: 10px; align-items: start;
+        border: 1px solid var(--line); border-radius: 8px; padding: 12px; cursor: pointer; background: var(--panel-2);
+      }
+      .option:hover { border-color: #5a6150; }
+      .option:has(input:checked) { border-color: var(--accent); background: #232719; }
+      .option input { margin-top: 4px; }
+      .option strong { display: block; }
+      .option p { color: var(--muted); font-size: 12.5px; margin: 3px 0 0; }
+      .badge { font: 10px var(--mono); padding: 2px 6px; border-radius: 4px; border: 1px solid #53593e; color: var(--accent); margin-left: 6px; vertical-align: 1px; }
+      .badge.exp { color: var(--amber); border-color: #6b5a2c; }
+      .badge.demo { color: var(--blue); border-color: #3e5961; }
+
+      .depth { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 8px; }
+      .depth label { border: 1px solid var(--line); border-radius: 8px; padding: 14px; cursor: pointer; background: var(--panel-2); }
+      .depth label:has(input:checked) { border-color: var(--accent); background: #232719; }
+      .depth strong { font-size: 15px; }
+      .depth .meta { font: 12px var(--mono); color: var(--accent); margin: 4px 0; }
+      .depth p { color: var(--muted); font-size: 12.5px; margin: 0; }
+      .go { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
+      .estimate { font-size: 15px; }
+      .estimate strong { color: var(--accent); }
+      ul.blockers { margin: 6px 0 0; padding-left: 18px; color: var(--amber); font-size: 13px; }
+
+      .progress { height: 10px; background: #0e120e; border: 1px solid var(--line); border-radius: 99px; overflow: hidden; margin: 12px 0 8px; }
+      .progress > div { height: 100%; background: var(--accent); transition: width .4s; }
+      pre.log {
+        background: #0e120e; border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; margin: 10px 0 0;
+        max-height: 220px; overflow: auto; font-size: 12px; white-space: pre-wrap; color: var(--muted);
+      }
+
+      .sessions { display: grid; gap: 10px; }
+      .session { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+      .session > .row { display: flex; gap: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 14px 16px; }
+      .session .what { min-width: 0; flex: 1; }
+      .session .what strong { overflow-wrap: anywhere; }
+      .session .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+      .session .actions a, .session .actions button { font-size: 13px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line); text-decoration: none; color: var(--text); background: var(--panel-2); }
+      .session .actions a.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+      .session .body { border-top: 1px solid var(--line); padding: 14px 16px; }
+      .state { font: 12px var(--mono); }
+      .state.complete { color: var(--green); }
+      .state.failed, .state.interrupted { color: var(--red); }
+      .state.cancelled { color: var(--amber); }
+      .state.running, .state.importing { color: var(--blue); }
+
+      table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+      th { color: var(--muted); font-weight: 500; font-size: 12px; text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+      td { padding: 6px 8px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+      td.num, th.num { text-align: right; }
+      .table-wrap { overflow-x: auto; }
+      .review { margin-top: 14px; padding: 14px; border: 1px dashed #6b5a2c; border-radius: 8px; }
+      .review ul { list-style: none; padding: 0; margin: 8px 0; columns: 2; }
+      .review li label { display: flex; gap: 8px; align-items: center; }
+
+      .empty { text-align: center; padding: 34px 20px; color: var(--muted); }
+      #toast {
+        position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); max-width: min(680px, calc(100% - 32px));
+        background: #2a2f25; border: 1px solid var(--line); border-radius: 8px; padding: 10px 16px;
+        box-shadow: 0 8px 30px #0008; z-index: 10; display: none;
+      }
+      #toast.bad { border-color: #6b4640; color: #f3d0ca; }
+      #toast.show { display: block; }
+      footer { margin-top: 30px; color: var(--muted); font-size: 12px; display: flex; gap: 14px; flex-wrap: wrap; justify-content: space-between; }
+      details > summary { cursor: pointer; color: var(--accent); }
+
+      @media (max-width: 720px) {
+        .form, .depth { grid-template-columns: 1fr; }
+        ul.checks li { grid-template-columns: 22px 1fr; }
+        ul.checks .d { grid-column: 2; }
+        .review ul { columns: 1; }
+        nav.tabs button { padding: 10px 8px; font-size: 14px; }
+        .top { flex-wrap: wrap; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="top">
+        <div class="brand"><img src="/icon.svg" alt="" /> DEADLOCK <span>Performance Lab</span></div>
+        <div class="top-actions">
+          <button id="shortcut" title="Add a launcher to your desktop's application menu">Add to app menu</button>
+          <button id="quit" title="Close this app. A running benchmark keeps going.">Quit</button>
+        </div>
+      </header>
+
+      <nav class="tabs" role="tablist">
+        <button role="tab" data-tab="setup" id="tab-setup"><span class="n">1</span>Set up</button>
+        <button role="tab" data-tab="bench" id="tab-bench"><span class="n">2</span>Benchmark</button>
+        <button role="tab" data-tab="results" id="tab-results"><span class="n">3</span>Results</button>
+      </nav>
+
+      <div id="banners"></div>
+      <section id="running" class="panel hidden" aria-live="polite"></section>
+
+      <!-- ============================== SET UP ============================== -->
+      <main id="view-setup" role="tabpanel">
+        <section class="panel intro">
+          <div>
+            <h1>Measure what a setting really does to your FPS.</h1>
+            <p class="muted">
+              Pick configs to try, press start, and the lab launches Deadlock, plays the same replay moment for each
+              one, records every frame and puts your current setup side by side with each change. Your game files are
+              always put back afterwards.
+            </p>
+          </div>
+          <div>
+            <button class="primary big" id="demo">See an example report</button>
+            <p class="small muted">Made-up data · no game needed · 2 seconds</p>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="step">
+            <div class="dot" id="dot-tools" data-n="1">1</div>
+            <div>
+              <div class="step-head">
+                <h2>Check your PC</h2>
+                <span class="status" id="status-tools"></span>
+              </div>
+              <ul class="checks" id="checks"></ul>
+              <button id="recheck">Check again</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="step">
+            <div class="dot" id="dot-launch" data-n="2">2</div>
+            <div>
+              <div class="step-head">
+                <h2>Let Steam record frame times</h2>
+                <span class="status" id="status-launch"></span>
+              </div>
+              <ol class="how">
+                <li>In Steam, right-click <strong>Deadlock</strong> → <strong>Properties…</strong></li>
+                <li>Under <strong>General → Launch Options</strong>, paste this line. Keep any options you already use <em>after</em> <code>%command%</code>.</li>
+              </ol>
+              <div class="code"><code id="launch-options"></code><button id="copy">Copy</button></div>
+              <p class="hint">
+                This loads MangoHud invisibly. It only records while a benchmark runs, so normal play is unchanged.
+                Steam may only save the change when it closes, so this step can still say "not detected" after you
+                paste. Your first benchmark checks it for real.
+              </p>
+              <button class="link" id="launch-done">I've pasted it</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="step">
+            <div class="dot" id="dot-scene" data-n="3">3</div>
+            <div>
+              <div class="step-head">
+                <h2>Choose the test scene</h2>
+                <span class="status" id="status-scene"></span>
+              </div>
+              <p class="muted small">Every config is measured on exactly the same moment of the same replay, so the only difference is the setting.</p>
+              <form id="scene" class="form" autocomplete="off">
+                <label class="wide">
+                  <span class="label">Deadlock folder</span>
+                  <input name="install" placeholder="/home/you/.local/share/Steam/steamapps/common/Deadlock" />
+                  <div class="hint" id="install-hint"></div>
+                </label>
+                <div class="wide">
+                  <span class="label small muted">Scene</span>
+                  <div class="seg">
+                    <label><input type="radio" name="mode" value="replay" /> Replay <span class="small muted">(recommended)</span></label>
+                    <label><input type="radio" name="mode" value="bots" /> Bot match <span class="small muted">(random; rough numbers only)</span></label>
+                  </div>
+                </div>
+                <label class="wide replay-only">
+                  <span class="label">Replay file</span>
+                  <select name="replay-pick"></select>
+                  <input name="replay" class="hidden" placeholder="replays/12345678.dem" />
+                  <div class="hint" id="replay-hint"></div>
+                </label>
+                <label class="replay-only">
+                  <span class="label">Start at tick</span>
+                  <input name="tick" type="number" min="0" step="1" />
+                  <div class="hint">A busy moment such as a teamfight. Leave at least a minute of replay after it.</div>
+                </label>
+                <label class="replay-only">
+                  <span class="label">Player to follow</span>
+                  <input name="player" />
+                  <div class="hint">The camera follows this player (slot number, 1–12).</div>
+                </label>
+                <label>
+                  <span class="label">Target FPS</span>
+                  <input name="budget_fps" type="number" min="1" max="2000" />
+                  <div class="hint">Usually your monitor's refresh rate. Slower frames count as "over budget".</div>
+                </label>
+                <div class="wide" style="margin-top:6px">
+                  <h3>Your game settings</h3>
+                  <p class="hint">Saved with every result so you (and anyone you share with) know what was measured. Detected values are filled in for you — check them.</p>
+                </div>
+                <label><span class="label">Resolution <span class="tag" data-for="resolution"></span></span><input name="resolution" placeholder="e.g. 2560x1440" /></label>
+                <label><span class="label">Graphics quality</span><input name="graphics_preset" placeholder="e.g. High, or Custom: low shadows" /></label>
+                <label><span class="label">Proton version <span class="tag" data-for="proton_version"></span></span><input name="proton_version" placeholder="e.g. Proton Experimental" /></label>
+                <label><span class="label">Display mode <span class="tag" data-for="display_mode"></span></span><input name="display_mode" placeholder="e.g. Fullscreen, 165 Hz" /></label>
+                <label class="wide"><span class="label">Anything else that matters (optional)</span><input name="notes" placeholder="Upscaling, frame generation, VSync/VRR, driver version, other launch options…" /></label>
+                <div class="wide"><button class="primary" type="submit">Save scene</button></div>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel flat" style="text-align:center">
+          <button class="primary big" data-goto="bench">Next: pick what to test →</button>
+        </section>
+      </main>
+
+      <!-- ============================== BENCHMARK ============================== -->
+      <main id="view-bench" role="tabpanel" class="hidden">
+        <section class="panel">
+          <h2>1 · What should be compared with your current setup?</h2>
+          <p class="muted small">Your current setup is always measured too (before and after each round), so pick only the changes you want to try.</p>
+          <div id="profiles"></div>
+          <details style="margin-top:14px">
+            <summary>Add your own console settings</summary>
+            <form id="custom" class="form">
+              <label><span class="label">Name</span><input name="name" placeholder="165 FPS cap" required /></label>
+              <label><span class="label">What you expect (optional)</span><input name="description" placeholder="Smoother pacing than uncapped" /></label>
+              <label class="wide"><span class="label">Settings, one per line</span><textarea name="content" placeholder="fps_max 165" required></textarea>
+                <div class="hint">Console variables only (name and value). Commands that bind keys, load other configs or change the scene are refused.</div></label>
+              <div class="wide"><button type="submit">Add config</button></div>
+            </form>
+          </details>
+        </section>
+
+        <section class="panel">
+          <h2>2 · How thorough?</h2>
+          <div class="depth" id="depth">
+            <label><input type="radio" name="preset" value="scout" class="sr-only" />
+              <strong>Quick look</strong><div class="meta" data-meta="scout"></div>
+              <p>Does it work, and roughly how fast? Good for a first try.</p></label>
+            <label><input type="radio" name="preset" value="screen" class="sr-only" />
+              <strong>Shortlist</strong><div class="meta" data-meta="screen"></div>
+              <p>Compare many configs quickly to find ones worth confirming.</p></label>
+            <label><input type="radio" name="preset" value="confirm" class="sr-only" />
+              <strong>Confirm</strong><div class="meta" data-meta="confirm"></div>
+              <p>Repeated rounds. Needed for an "improved" or "regressed" verdict.</p></label>
+          </div>
+          <details style="margin-top:12px"><summary>Rounds</summary>
+            <label style="max-width:220px;margin-top:8px"><span class="label">Repeat rounds (1–30)</span><input id="rounds" type="number" min="1" max="30" /></label>
+          </details>
+          <div class="go">
+            <div>
+              <div class="estimate" id="estimate"></div>
+              <ul class="blockers" id="blockers"></ul>
+            </div>
+            <button class="primary big" id="start">Start benchmark</button>
+          </div>
+          <p class="hint">While it runs, leave the game window alone: each capture launches Deadlock, plays your replay, records, then closes it. You can keep using other apps, but heavy background work skews results.</p>
+        </section>
+      </main>
+
+      <!-- ============================== RESULTS ============================== -->
+      <main id="view-results" role="tabpanel" class="hidden">
+        <div class="sessions" id="sessions"></div>
+      </main>
+
+      <footer>
+        <span>Workspace: <button class="link mono small" id="workspace" title="Open folder"></button></span>
+        <span>
+          <a href="https://github.com/itchyfeetleech/Deadlock-Performance-Lab#readme" target="_blank" rel="noreferrer">Guide</a> ·
+          <a href="https://github.com/itchyfeetleech/Deadlock-Performance-Lab/blob/main/docs/TROUBLESHOOTING.md" target="_blank" rel="noreferrer">Troubleshooting</a> ·
+          <a href="https://itchyfeetleech.github.io/Deadlock-Performance-Lab/" target="_blank" rel="noreferrer">Community results</a> ·
+          <span id="version"></span>
+        </span>
+      </footer>
+    </div>
+    <div id="toast" role="status"></div>
+
+    <script>
+      "use strict";
+      const $ = (s, root = document) => root.querySelector(s);
+      const $$ = (s, root = document) => [...root.querySelectorAll(s)];
+      const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+      const num = (v, d = 1) => (v == null ? "—" : Number(v).toFixed(d));
+      const store = {
+        get(k, d) { try { return JSON.parse(localStorage.getItem("dpl:" + k)) ?? d; } catch { return d; } },
+        set(k, v) { try { localStorage.setItem("dpl:" + k, JSON.stringify(v)); } catch {} },
+      };
+      let S = null; // latest /api/state
+      let open = new Set(); // expanded result sessions
+      let followed = null; // session shown in the progress panel
+      let pollTimer = null;
+      const CATEGORY = {
+        "frame-pacing": ["Frame-rate caps", "Limit FPS in the game"],
+        renderer: ["Graphics API", "Launch with a different renderer"],
+        community: ["Community configs", "Temporarily replace gameinfo.gi with a whole community config"],
+        custom: ["Your configs", ""],
+      };
+      const PRESET_LABEL = { scout: "Quick look", screen: "Shortlist", confirm: "Confirm", custom: "Custom" };
+
+      async function api(path, body) {
+        const init = body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json", "X-DPL": "1" }, body: JSON.stringify(body) };
+        const res = await fetch(path, { credentials: "same-origin", ...init });
+        let data = null;
+        try { data = await res.json(); } catch {}
+        if (res.status === 403) throw new Error("This window has expired. Run dpl again to open a fresh one.");
+        if (!res.ok) throw new Error((data && data.error) || `Request failed (${res.status})`);
+        return data;
+      }
+      function toast(message, bad = false) {
+        const t = $("#toast");
+        t.textContent = message;
+        t.className = "show" + (bad ? " bad" : "");
+        clearTimeout(toast.timer);
+        toast.timer = setTimeout(() => (t.className = ""), bad ? 9000 : 4000);
+      }
+      async function act(button, fn) {
+        const label = button && button.textContent;
+        if (button) { button.disabled = true; }
+        try { return await fn(); }
+        catch (e) { toast(e.message, true); }
+        finally { if (button) { button.disabled = false; button.textContent = label; } }
+      }
+
+      // ---------------------------------------------------------------- tabs
+      function show(tab) {
+        for (const b of $$("nav.tabs button")) b.setAttribute("aria-selected", b.dataset.tab === tab);
+        for (const v of ["setup", "bench", "results"]) $("#view-" + v).classList.toggle("hidden", v !== tab);
+        store.set("tab", tab);
+        if (tab === "results") renderSessions();
+        window.scrollTo({ top: 0 });
+      }
+      $$("nav.tabs button").forEach((b) => b.addEventListener("click", () => show(b.dataset.tab)));
+      document.addEventListener("click", (e) => {
+        const go = e.target.closest("[data-goto]");
+        if (go) show(go.dataset.goto);
+      });
+
+      // ---------------------------------------------------------------- state
+      async function refresh() {
+        S = await api("/api/state");
+        render();
+        if (S.running) follow(S.running);
+      }
+      const launchOk = () => S.ready.launch || store.get("launchPasted:" + S.workspace, false);
+      const setupDone = () => S.ready.tools && launchOk() && S.ready.scene;
+
+      function setStatus(id, cls, text) {
+        const el = $("#status-" + id);
+        el.className = "status " + cls;
+        el.textContent = text;
+        const dot = $("#dot-" + id);
+        dot.className = "dot " + (cls === "ok" ? "ok" : cls === "warn" || cls === "bad" ? "warn" : "");
+        dot.textContent = cls === "ok" ? "✓" : dot.dataset.n;
+      }
+
+      function render() {
+        $("#version").textContent = "v" + S.version;
+        $("#workspace").textContent = S.workspace;
+        $("#tab-setup").classList.toggle("done", setupDone());
+        $("#tab-results").classList.toggle("done", S.sessions.some((s) => !s.synthetic && s.status.state === "complete"));
+        renderBanners();
+        renderChecks();
+        $("#launch-options").textContent = S.launch_options;
+        renderScene();
+        renderProfiles();
+        renderEstimate();
+        if (!$("#view-results").classList.contains("hidden")) renderSessions();
+      }
+
+      function renderBanners() {
+        const out = [];
+        if (S.recovery_needed)
+          out.push(`<div class="banner bad"><div><strong>A benchmark was interrupted before your game files were put back.</strong>
+            <div class="small">Close Deadlock, then restore them. Nothing else can run until this is done.</div></div>
+            <button class="primary" id="recover">Restore my files</button></div>`);
+        if (S.profile_error) out.push(`<div class="banner bad">${esc(S.profile_error)}</div>`);
+        $("#banners").innerHTML = out.join("");
+        const r = $("#recover");
+        if (r) r.onclick = () => act(r, async () => {
+          const res = await api("/api/recover", {});
+          toast(res.restored.length ? `Restored files from ${res.restored.length} interrupted capture(s).` : "Nothing needed restoring.");
+          await refresh();
+        });
+      }
+
+      const FIX = {
+        Linux: "This app needs Linux.",
+        Steam: "Install Steam from your distribution's packages (the Flatpak version is not supported).",
+        MangoHud: "Install MangoHud with your package manager (e.g. sudo apt install mangohud, sudo pacman -S mangohud, sudo dnf install mangohud).",
+        "Game install": "Install Deadlock in Steam, or type its folder in step 3.",
+        "Game closed": "Close Deadlock before benchmarking. The lab never closes a game it didn't start.",
+      };
+      const OK = { "Game closed": "Deadlock isn't running.", Recovery: "Nothing to restore.", Steam: "Installed.", MangoHud: "Installed." };
+      function renderChecks() {
+        const shown = S.checks.filter((c) => c.check !== "Steam launch options");
+        const item = (c) => {
+          const cls = c.ok ? "ok" : c.required ? "bad" : "warn";
+          const icon = c.ok ? "✓" : c.required ? "✗" : "!";
+          const detail = c.ok ? OK[c.check] || c.detail : FIX[c.check] || c.detail;
+          return `<li><span class="i ${cls}">${icon}</span><strong>${esc(c.check)}</strong><span class="d">${esc(detail)}</span></li>`;
+        };
+        const failing = shown.filter((c) => !c.ok);
+        $("#checks").innerHTML = failing.map(item).join("") + (failing.length === shown.length ? "" :
+          `<li style="display:block"><details><summary class="small">${failing.length ? "Passed checks" : `All ${shown.length} checks passed — show details`}</summary>
+           <ul class="checks">${shown.filter((c) => c.ok).map(item).join("")}</ul></details></li>`);
+        const required = S.checks.filter((c) => c.required && c.check !== "Game closed");
+        const bad = required.filter((c) => !c.ok).length;
+        setStatus("tools", bad ? "bad" : "ok", bad ? `${bad} to fix` : "All good");
+        const launch = S.checks.find((c) => c.check === "Steam launch options");
+        if (S.ready.launch) setStatus("launch", "ok", "Detected in Steam");
+        else if (launchOk()) setStatus("launch", "ok", "Pasted");
+        else setStatus("launch", "warn", launch && /different workspace/.test(launch.detail) ? "Points elsewhere — paste again" : "Not detected yet");
+        $("#launch-done").classList.toggle("hidden", launchOk());
+      }
+
+      let sceneDirty = false;
+      function renderScene() {
+        if (sceneDirty) return; // don't overwrite what the user is typing
+        const f = $("#scene");
+        const c = S.config, sc = c.scenario;
+        f.install.value = c.install || S.install || "";
+        $("#install-hint").textContent = S.install ? (c.install ? "" : "Found automatically.") : "Deadlock was not found automatically. Enter the folder that contains game/citadel.";
+        for (const r of f.mode) r.checked = r.value === (sc.mode || "replay");
+        const pick = f["replay-pick"];
+        const options = [...S.replays];
+        if (sc.replay && !options.includes(sc.replay)) options.unshift(sc.replay);
+        pick.innerHTML = (options.length ? "" : `<option value="">No replays found</option>`) +
+          options.map((r) => `<option value="${esc(r)}">${esc(r)}</option>`).join("") + `<option value="__other">Other file…</option>`;
+        pick.value = sc.replay || options[0] || "";
+        f.replay.value = sc.replay || "";
+        f.replay.classList.toggle("hidden", pick.value !== "__other");
+        $("#replay-hint").innerHTML = S.replays.length ? "Replays in your game's <code>game/citadel</code> folder, newest first."
+          : "Download a match replay in Deadlock, or copy a <code>.dem</code> file into <code>game/citadel/replays</code>, then press Check again.";
+        f.tick.value = sc.tick;
+        f.player.value = sc.player || "";
+        f.budget_fps.value = sc.budget_fps;
+        for (const key of ["resolution", "graphics_preset", "proton_version", "display_mode", "notes"]) {
+          let value = c.conditions[key] ?? "";
+          const tag = $(`.tag[data-for="${key}"]`);
+          if (tag) tag.textContent = "";
+          if (value === "record me") {
+            value = S.detected[key] || "";
+            if (value && tag) tag.textContent = "detected";
+          }
+          if (key === "notes" && /^Record upscaling/.test(value)) value = "";
+          f[key].value = value;
+        }
+        syncMode();
+        const missing = [];
+        if (!S.install) missing.push("game folder");
+        if (sc.mode === "replay" && !sc.replay) missing.push("replay");
+        if (S.missing_conditions.length) missing.push("game settings");
+        const unsaved = !S.ready.scene && S.install && (sc.mode === "bots" || S.replays.length) && !S.missing_conditions.some((k) => !S.detected[k] && k !== "graphics_preset");
+        setStatus("scene", missing.length ? "warn" : "ok", !missing.length ? "Saved" : unsaved ? "Check and save" : "Needs " + missing.join(", "));
+      }
+      function syncMode() {
+        const f = $("#scene");
+        const replay = f.mode.value !== "bots";
+        $$(".replay-only", f).forEach((el) => el.classList.toggle("hidden", !replay));
+      }
+      $("#scene").addEventListener("input", () => (sceneDirty = true));
+      $("#scene").addEventListener("change", (e) => {
+        sceneDirty = true;
+        if (e.target.name === "mode") syncMode();
+        if (e.target.name === "replay-pick") {
+          const other = e.target.value === "__other";
+          $("#scene").replay.classList.toggle("hidden", !other);
+          if (!other) $("#scene").replay.value = e.target.value;
+          else $("#scene").replay.focus();
+        }
+      });
+      $("#scene").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const f = e.target, btn = $("button[type=submit]", f);
+        act(btn, async () => {
+          const pick = f["replay-pick"].value;
+          const body = {
+            install: f.install.value,
+            scenario: { mode: f.mode.value || "replay", tick: f.tick.value, player: f.player.value, budget_fps: f.budget_fps.value,
+                        replay: pick === "__other" ? f.replay.value : pick },
+            conditions: Object.fromEntries(["resolution", "graphics_preset", "proton_version", "display_mode", "notes"].map((k) => [k, f[k].value])),
+          };
+          const empty = ["resolution", "graphics_preset", "proton_version", "display_mode"].filter((k) => !f[k].value.trim());
+          await api("/api/settings", body);
+          sceneDirty = false;
+          await refresh();
+          toast(empty.length ? "Saved. Fill in your game settings too — results need them for a verdict." : "Scene saved.");
+        });
+      });
+
+      $("#copy").onclick = async () => {
+        try { await navigator.clipboard.writeText(S.launch_options); }
+        catch {
+          const range = document.createRange(); range.selectNodeContents($("#launch-options"));
+          getSelection().removeAllRanges(); getSelection().addRange(range); document.execCommand("copy");
+        }
+        toast("Copied. Paste it into Deadlock's Launch Options in Steam.");
+      };
+      $("#launch-done").onclick = () => { store.set("launchPasted:" + S.workspace, true); render(); };
+      $("#recheck").onclick = (e) => act(e.target, async () => { await refresh(); toast("Checked."); });
+
+      // ---------------------------------------------------------------- benchmark
+      function selected() { return $$("#profiles input:checked").map((i) => i.value); }
+      function renderProfiles() {
+        const keep = new Set(store.get("cases", ["fps-unlock"]));
+        const groups = {};
+        for (const p of S.profiles) if (p.kind !== "manual") (groups[p.category] ||= []).push(p);
+        const order = ["frame-pacing", "renderer", "community", "custom", ...Object.keys(groups)];
+        const seen = new Set();
+        $("#profiles").innerHTML = order.filter((g) => groups[g] && !seen.has(g) && seen.add(g)).map((g) => {
+          const [title, sub] = CATEGORY[g] || [g, ""];
+          return `<div class="group"><h3>${esc(title)} <small>${esc(sub)}</small></h3><div class="options">` +
+            groups[g].map((p) => `<label class="option"><input type="checkbox" value="${esc(p.id)}" ${keep.has(p.id) ? "checked" : ""} />
+              <div><strong>${esc(p.name || p.id)}${p.kind === "gameinfo" ? '<span class="badge exp">whole file</span>' : ""}</strong>
+              <p>${esc(p.description)}</p>${p.source ? `<p><a href="${esc(p.source)}" target="_blank" rel="noreferrer">Source</a></p>` : ""}</div></label>`).join("") +
+            `</div></div>`;
+        }).join("");
+      }
+      $("#profiles").addEventListener("change", () => { store.set("cases", selected()); renderEstimate(); });
+
+      function preset() { return ($("#depth input:checked") || {}).value || "screen"; }
+      $("#depth").addEventListener("change", () => { store.set("preset", preset()); $("#rounds").value = ""; renderEstimate(); });
+      $("#rounds").addEventListener("input", renderEstimate);
+      function duration(sec) {
+        const m = Math.round(sec / 60);
+        return m < 1 ? "under a minute" : m < 90 ? `about ${m} min` : `about ${(sec / 3600).toFixed(1)} hours`;
+      }
+      function renderEstimate() {
+        if (!S) return;
+        const p = preset();
+        $$("#depth input").forEach((i) => (i.checked = i.value === p));
+        for (const [name, v] of Object.entries(S.presets))
+          $(`[data-meta="${name}"]`).textContent = `${v.rounds} round${v.rounds > 1 ? "s" : ""} · ${v.sample_s} s captures`;
+        const v = S.presets[p];
+        const rounds = Math.max(1, Math.min(30, parseInt($("#rounds").value) || v.rounds));
+        $("#rounds").placeholder = v.rounds;
+        const n = selected().length;
+        const runs = rounds * (n + 2);
+        const each = v.sample_s + v.warmup_s + v.settle_s + v.cooldown_s + S.launch_overhead_s;
+        $("#estimate").innerHTML = n
+          ? `Deadlock will launch <strong>${runs}</strong> times · <strong>${duration(runs * each)}</strong>`
+          : "Pick at least one config above.";
+        const blockers = [];
+        if (!S.ready.tools) blockers.push("Fix the items in Set up → Check your PC.");
+        if (!S.ready.scene) blockers.push("Finish Set up → Choose the test scene.");
+        if (!S.ready.game_closed) blockers.push("Close Deadlock first.");
+        if (S.recovery_needed) blockers.push("Restore your files first (see the banner above).");
+        if (S.running) blockers.push("A benchmark is already running.");
+        if (!launchOk() && !blockers.length) blockers.push("Steam launch options not detected yet — the first capture will fail if they are missing.");
+        $("#blockers").innerHTML = blockers.map((b) => `<li>${esc(b)}</li>`).join("");
+        const hard = blockers.filter((b) => !b.startsWith("Steam launch"));
+        $("#start").disabled = !n || hard.length > 0;
+        if (rounds < 5 && p !== "scout" && p !== "screen") $("#blockers").innerHTML += `<li>Fewer than 5 rounds can't produce a verdict.</li>`;
+      }
+      $("#start").onclick = (e) => act(e.target, async () => {
+        const res = await api("/api/benchmark", { cases: selected(), preset: preset(), rounds: parseInt($("#rounds").value) || null });
+        toast("Benchmark started. Deadlock will launch shortly.");
+        followed = res.session;
+        await refresh();
+      });
+      $("#custom").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const f = e.target;
+        act($("button", f), async () => {
+          const res = await api("/api/profile", { name: f.name.value, description: f.description.value, content: f.content.value });
+          store.set("cases", [...selected(), res.id]);
+          f.reset();
+          await refresh();
+          toast("Config added and selected.");
+        });
+      });
+
+      // ---------------------------------------------------------------- progress
+      function follow(id) {
+        followed = id;
+        clearTimeout(pollTimer);
+        poll();
+      }
+      async function poll() {
+        if (!followed) return;
+        let d;
+        try { d = await api("/api/session/" + encodeURIComponent(followed)); }
+        catch { pollTimer = setTimeout(poll, 3000); return; }
+        renderRunning(d);
+        if (d.alive || d.starting || d.status.state === "running") pollTimer = setTimeout(poll, 1500);
+        else await refreshQuiet();
+      }
+      async function refreshQuiet() { try { S = await api("/api/state"); render(); } catch {} }
+      function renderRunning(d) {
+        const el = $("#running");
+        const st = d.status, total = st.total || 1, done = st.completed || 0;
+        const live = d.alive || d.starting || st.state === "running";
+        const title = d.synthetic ? "Demo" : d.cases.map((c) => c.name).join(", ");
+        const cur = st.current ? `Capture ${st.current.index} of ${total} · round ${st.current.round} · ${esc(caseName(d, st.current.case))}` : "";
+        let head;
+        if (live) head = `<h2>Benchmark running</h2><p class="muted">${esc(title)}</p>`;
+        else if (st.state === "complete") head = `<h2>Benchmark finished</h2><p class="muted">${esc(title)}</p>`;
+        else if (st.state === "planned") { el.classList.add("hidden"); return; }
+        else head = `<h2>Benchmark ${esc(st.state)}</h2><p class="muted">${esc(st.error || title)}</p>`;
+        el.classList.remove("hidden");
+        el.innerHTML = `<div class="step-head"><div>${head}</div><div class="actions" style="display:flex;gap:8px">
+            ${live ? `<button class="danger" id="cancel">Cancel and restore files</button>` : ""}
+            ${d.has_results ? `<a class="${live ? "" : "primary"}" style="padding:8px 12px;border:1px solid var(--line);border-radius:6px;text-decoration:none;${live ? "color:var(--text)" : "background:var(--accent);color:var(--accent-ink);font-weight:600"}" href="/report/${esc(d.id)}/" target="_blank">${live ? "Partial report" : "Open report"}</a>` : ""}
+            ${live ? "" : `<button id="dismiss">Dismiss</button>`}</div></div>
+          <div class="progress"><div style="width:${Math.round((100 * done) / total)}%"></div></div>
+          <div class="small muted">${done} of ${total} captures done${cur ? " · now: " + cur : ""}${live && d.remaining_min != null ? ` · about ${Math.max(1, Math.round(d.remaining_min))} min left` : ""}</div>
+          ${live ? `<p class="small">Don't touch the game window while it records. You can close this tab; the benchmark keeps going.</p>` : ""}
+          ${!live && st.state === "complete" && !d.synthetic ? `<p class="small">Next: open <button class="link" data-goto="results">Results</button> and confirm what you saw during the captures to unlock verdicts.</p>` : ""}
+          <pre class="log">${esc((d.log_tail || d.events).slice(-14).join("\n")) || "Starting…"}</pre>`;
+        const c = $("#cancel");
+        if (c) c.onclick = () => act(c, async () => { await api("/api/cancel", { session: d.id }); toast("Cancelling — the game closes and your files are restored."); });
+        const x = $("#dismiss");
+        if (x) x.onclick = () => { store.set("dismissed", d.id); followed = null; el.classList.add("hidden"); };
+        const pre = $("pre.log", el);
+        pre.scrollTop = pre.scrollHeight;
+      }
+      const caseName = (d, id) => id === "baseline" ? "your current setup" : (d.cases.find((c) => c.id === id) || { name: id }).name;
+
+      // ---------------------------------------------------------------- results
+      const STATE = { complete: "Complete", running: "Running", planned: "Not started", failed: "Failed", cancelled: "Cancelled", interrupted: "Interrupted", importing: "Importing" };
+      function renderSessions() {
+        if (!S) return;
+        const el = $("#sessions");
+        if (!S.sessions.length) {
+          el.innerHTML = `<div class="panel empty"><h2>No results yet</h2><p>Run the example report or your first benchmark and it will show up here.</p>
+            <p><button class="primary" id="demo2">See an example report</button></p></div>`;
+          $("#demo2").onclick = (e) => runDemo(e.target);
+          return;
+        }
+        el.innerHTML = S.sessions.map((s) => {
+          const title = s.synthetic ? "Example report (made-up data)" : s.cases.length ? s.cases.map((c) => c.name).join(", ") : "Your current setup only";
+          const when = s.created_at ? new Date(s.created_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : s.id;
+          const st = s.starting || s.alive ? "running" : s.status.state;
+          const kind = s.synthetic ? `<span class="badge demo">demo</span>` : s.manual ? `<span class="badge">manual</span>` : "";
+          return `<div class="session" data-id="${esc(s.id)}"><div class="row">
+            <div class="what"><strong>${esc(title)}</strong>${kind}
+              <div class="small muted">${esc(when)} · ${s.synthetic ? "" : esc(PRESET_LABEL[s.preset] || s.preset) + " · "}${s.rounds} round${s.rounds > 1 ? "s" : ""} ·
+              <span class="state ${esc(st)}">${esc(STATE[st] || st)}${st !== "complete" ? ` ${s.status.completed}/${s.status.total}` : ""}</span></div></div>
+            <div class="actions">
+              ${s.has_results ? `<a class="primary" href="/report/${esc(s.id)}/" target="_blank">Open report</a><a href="/export/${esc(s.id)}.zip" title="A ZIP you can share: report only, no raw logs or game files">Share ZIP</a>` : ""}
+              ${st === "planned" && !s.manual ? `<button data-start="${esc(s.id)}">Start</button>` : ""}
+              <button data-folder="${esc(s.id)}" title="Open this session's folder">Folder</button>
+              ${s.synthetic || !s.has_results ? "" : `<button data-open="${esc(s.id)}">${open.has(s.id) ? "Hide details" : "Details & review"}</button>`}
+            </div></div>${open.has(s.id) ? `<div class="body" id="body-${esc(s.id)}">Loading…</div>` : ""}</div>`;
+        }).join("");
+        for (const id of open) loadDetail(id);
+      }
+      $("#sessions").addEventListener("click", (e) => {
+        const b = e.target.closest("button");
+        if (!b) return;
+        if (b.dataset.open) { open.has(b.dataset.open) ? open.delete(b.dataset.open) : open.add(b.dataset.open); renderSessions(); }
+        if (b.dataset.folder) act(b, () => api("/api/open-folder", { session: b.dataset.folder }));
+        if (b.dataset.start) act(b, async () => { const r = await api("/api/start", { session: b.dataset.start }); followed = r.session; await refresh(); });
+      });
+      async function loadDetail(id) {
+        const box = document.getElementById("body-" + id);
+        if (!box) return;
+        let d;
+        try { d = await api("/api/session/" + encodeURIComponent(id)); }
+        catch (e) { box.textContent = e.message; return; }
+        const pending = d.runs.filter((r) => r.reviewable.length);
+        const rows = d.runs.map((r) => `<tr><td class="mono small">${esc(r.id)}</td><td>${r.round}</td><td>${esc(caseName(d, r.case))}</td>
+          <td class="num">${num(r.avg_fps)}</td><td class="num">${num(r.low_1_fps)}</td><td class="num">${num(r.p99_frame_ms, 2)}</td>
+          <td>${r.status !== "ok" ? `<span class="state failed">${esc(r.error || r.status)}</span>` : r.reviewable.length ? `<span class="state cancelled">needs your check</span>` : r.reviewed ? `<span class="state complete">checked</span>` : "—"}
+          ${r.blockers.length ? `<details><summary class="small">${r.blockers.length} note${r.blockers.length > 1 ? "s" : ""}</summary><ul class="small muted">${r.blockers.map((b) => `<li>${esc(b)}</li>`).join("")}</ul></details>` : ""}</td></tr>`).join("");
+        box.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Capture</th><th>Round</th><th>Config</th><th class="num">Avg FPS</th><th class="num">1% low</th><th class="num">P99 ms</th><th>Checks</th></tr></thead><tbody>${rows}</tbody></table></div>
+          ${d.log_tail ? `<details><summary>Error log</summary><pre class="log">${esc(d.log_tail.join("\n"))}</pre></details>` : ""}
+          ${pending.length ? `<form class="review"><h3>Confirm what you saw (${pending.length} capture${pending.length > 1 ? "s" : ""})</h3>
+            <p class="small muted">The lab can't see your screen, so results stay "inconclusive" until you confirm each capture was valid:
+            the camera stayed on the same player, the replay kept playing, and ${pending.some((r) => r.reviewable.some((b) => b.startsWith("Whole GameInfo") || b.startsWith("Renderer")))
+              ? "the config/renderer visibly applied" : "nothing odd happened"}. Only tick captures you actually watched.</p>
+            <label class="small"><input type="checkbox" class="all" /> Select all</label>
+            <ul>${pending.map((r) => `<li><label><input type="checkbox" value="${esc(r.id)}" /> <span class="mono small">${esc(r.id)}</span></label></li>`).join("")}</ul>
+            <label><span class="label">How did you check? (saved with the result)</span>
+              <textarea name="note" minlength="15" required placeholder="Watched every capture: camera stayed on player 1 and the replay kept playing throughout."></textarea></label>
+            <p><button class="primary" type="submit">Confirm selected captures</button></p></form>` : ""}`;
+        const form = $("form.review", box);
+        if (form) {
+          $(".all", form).onchange = (e) => $$("ul input", form).forEach((i) => (i.checked = e.target.checked));
+          form.onsubmit = (e) => {
+            e.preventDefault();
+            act($("button[type=submit]", form), async () => {
+              const runs = $$("ul input:checked", form).map((i) => i.value);
+              const r = await api("/api/review", { session: id, runs, note: form.note.value });
+              toast(`Confirmed ${r.reviewed} capture(s). The report now includes them.`);
+              loadDetail(id);
+            });
+          };
+        }
+      }
+
+      // ---------------------------------------------------------------- misc actions
+      function runDemo(button) {
+        const w = window.open("", "_blank");
+        if (w) w.document.write("<body style='background:#121612;color:#ecebdf;font:15px system-ui;padding:40px'>Building the example report…</body>");
+        act(button, async () => {
+          try {
+            const r = await api("/api/demo", {});
+            const url = "/report/" + r.session + "/";
+            if (w) w.location.href = url; else location.href = url;
+            await refreshQuiet();
+          } catch (e) { if (w) w.close(); throw e; }
+        });
+      }
+      $("#demo").onclick = (e) => runDemo(e.target);
+      $("#shortcut").onclick = (e) => act(e.target, async () => {
+        await api("/api/shortcut", {});
+        toast("Added. Find “Deadlock Performance Lab” in your application menu.");
+      });
+      $("#quit").onclick = (e) => act(e.target, async () => {
+        await api("/api/quit", {});
+        document.body.innerHTML = `<div class="shell"><div class="panel" style="margin-top:40px"><h2>Closed</h2>
+          <p class="muted">Run <code>dpl</code> or use the app menu shortcut to open it again. A running benchmark keeps going and restores your files.</p></div></div>`;
+      });
+      $("#workspace").onclick = (e) => act(e.target, () => api("/api/open-folder", {}));
+
+      // ---------------------------------------------------------------- start
+      (async () => {
+        try {
+          await refresh();
+          const first = !S.sessions.length;
+          show(store.get("tab", first ? "setup" : setupDone() ? "bench" : "setup"));
+          renderEstimate();
+          const dismissed = store.get("dismissed", null);
+          const latest = S.sessions.find((s) => !s.synthetic);
+          if (!S.running && latest && latest.id !== dismissed && ["failed", "cancelled", "interrupted"].includes(latest.status.state) && Date.now() - new Date(latest.created_at) < 864e5)
+            follow(latest.id);
+        } catch (e) { toast(e.message, true); }
+        setInterval(() => { if (document.visibilityState === "visible" && !sceneDirty) refreshQuiet(); }, 10000);
+      })();
+    </script>
+  </body>
+</html>

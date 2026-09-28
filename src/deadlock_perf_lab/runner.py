@@ -12,13 +12,15 @@ import random
 import re
 import signal
 import subprocess
+import threading
 import time
 import uuid
 
 from .capture import chart_series, read_mangohud
 from .profiles import validate
 from .storage import LabError, digest, exclusive_lock, read_json, write_json
-from .system import APP_ID, doctor, game_identity, game_processes, identity, install_lock, process_matches
+from .system import (APP_ID, doctor, game_identity, game_processes, identity, install_lock, process_matches,
+                     process_start_time)
 from .transaction import Transaction
 from .vconsole import VConsole
 from .planning import verify_plan
@@ -209,7 +211,7 @@ def run_live(workspace: Path, session: Path, plan: dict, item: dict, directory: 
             # Put the quoted path in a game cfg, not Steam's nested argument
             # string (Steam/Proton can turn literal quotes into backslashes).
             content += f"\necho {startup_marker}\nplaydemo " + quote_console(scenario["replay_command"]) + "\n"
-        txn.apply(game_cfg, ("// Temporary Deadlock Perf Lab configuration\n" + content).encode())
+        txn.apply(game_cfg, ("// Temporary Deadlock Performance Lab configuration\n" + content).encode())
         if profile["kind"] == "gameinfo":
             txn.apply(install / "game/citadel/gameinfo.gi", profile["content"].encode())
             blockers.append("Whole GameInfo swap: file application verified, individual cvar effects and replay fidelity require review.")
@@ -396,6 +398,9 @@ def run_demo(plan: dict, item: dict, directory: Path) -> dict:
 
 @contextlib.contextmanager
 def interruptible():
+    if threading.current_thread() is not threading.main_thread():
+        yield  # Signal handlers can only be installed from the main thread.
+        return
     old = signal.getsignal(signal.SIGTERM)
 
     def stop(signum, frame):
@@ -425,7 +430,7 @@ def run_session(workspace: Path, session: Path) -> None:
                 if state.get("state") != "restored":
                     raise LabError(f"An earlier run needs recovery: dpl --workspace {pending['workspace']} recover")
                 guard.unlink()
-            failures = [c for c in doctor(Path(plan["install"]), workspace) if not c["ok"]]
+            failures = [c for c in doctor(Path(plan["install"]), workspace) if not c["ok"] and c.get("required", True)]
             if failures:
                 raise LabError("Preflight failed: " + "; ".join(f"{c['check']}: {c['detail']}" for c in failures))
             scenario = plan["context"]["scenario"]
@@ -433,6 +438,7 @@ def run_session(workspace: Path, session: Path) -> None:
                 raise LabError("Replay changed since planning.")
         total = len(plan["schedule"])
         completed = 0
+        write_json(session / "runner.json", {"pid": os.getpid(), "start_time": process_start_time(os.getpid())})
         try:
             for item in plan["schedule"]:
                 directory = session / "runs" / f"{item['index']:03d}-{item['case']}"
@@ -459,6 +465,27 @@ def run_session(workspace: Path, session: Path) -> None:
             write_json(session / "status.json", {"state": "cancelled" if isinstance(exc, KeyboardInterrupt) else "failed",
                                                  "completed": completed, "total": total, "error": str(exc) or "Interrupted"})
             raise
+        finally:
+            (session / "runner.json").unlink(missing_ok=True)
+
+
+def runner_alive(session: Path) -> int | None:
+    """PID of the process running this session, if it is still alive."""
+    try:
+        runner = read_json(session / "runner.json")
+    except LabError:
+        return None
+    pid, start = runner.get("pid"), runner.get("start_time")
+    return pid if isinstance(pid, int) and start and process_matches(pid, start) else None
+
+
+def request_cancel(session: Path) -> bool:
+    """Ask a running session to stop; it restores files before exiting."""
+    pid = runner_alive(session)
+    if not pid:
+        return False
+    os.kill(pid, signal.SIGTERM)
+    return True
 
 
 def recover(workspace: Path, *, force: bool = False) -> list[str]:

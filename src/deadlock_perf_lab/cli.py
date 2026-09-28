@@ -1,4 +1,4 @@
-"""One entry point for setup, experiments, analysis, recovery and sharing."""
+"""One entry point: the app (dpl), plus commands for scripting and advanced experiments."""
 from __future__ import annotations
 
 import argparse
@@ -20,21 +20,31 @@ from .runner import recover, run_session
 from .storage import LabError, atomic_write, digest, read_json
 from .sweep import create_sweep
 from .system import discover_install, doctor, identity
-from .workspace import initialize, launch_options, load_workspace, session_path
+from .workspace import default_workspace, initialize, launch_options, load_workspace, session_path
 
 
 def parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="dpl", description="Deadlock Perf Lab — Linux benchmark tools.",
-                                epilog="Start with: dpl demo --open   |   dpl init   |   dpl guide")
-    p.add_argument("--version", action="version", version=f"Deadlock Perf Lab {__version__}")
-    p.add_argument("--workspace", type=Path, default=Path(".lab"), help="experiment workspace (default: .lab)")
-    sub = p.add_subparsers(dest="command")
+    p = argparse.ArgumentParser(
+        prog="dpl", description="Deadlock Performance Lab — benchmark Deadlock settings on Linux.",
+        epilog="Run dpl with no command to open the app. dpl guide shows the terminal workflow.")
+    p.add_argument("--version", action="version", version=f"Deadlock Performance Lab {__version__}")
+    p.add_argument("--workspace", type=Path, default=None,
+                   help="where settings and results are kept (default: ~/.local/share/deadlock-performance-lab, "
+                        "or ./.lab if it exists; env DPL_WORKSPACE)")
+    sub = p.add_subparsers(dest="command", metavar="COMMAND")
 
     def command(name, help_text):
         cmd = sub.add_parser(name, help=help_text, description=help_text)
         cmd.add_argument("--workspace", type=Path, default=argparse.SUPPRESS, help=argparse.SUPPRESS)
         return cmd
 
+    gui = command("gui", "Open the app in your browser (same as running dpl on its own).")
+    gui.add_argument("--no-browser", action="store_true", help="print the address instead of opening a browser")
+    gui.add_argument("--port", type=int, default=0, help="fixed local port (default: random)")
+    demo = command("demo", "Build an example report from synthetic data; no game needed.")
+    demo.add_argument("--open", action="store_true", help="open the report in your browser")
+    demo.add_argument("--rounds", type=int, default=5)
+    command("shortcut", "Add Deadlock Performance Lab to your desktop's application menu.")
     init = command("init", "Create a workspace; discover your Steam library.")
     init.add_argument("--install", help="Deadlock installation directory")
     init.add_argument("--replay", help="absolute or citadel-relative .dem path")
@@ -70,9 +80,6 @@ def parser() -> argparse.ArgumentParser:
     run = command("run", "Execute an existing plan; --live is required for game launches.")
     run.add_argument("session", nargs="?", default="latest")
     run.add_argument("--live", action="store_true")
-    demo = command("demo", "Exercise the full pipeline with conspicuously synthetic data; no game needed.")
-    demo.add_argument("--open", action="store_true")
-    demo.add_argument("--rounds", type=int, default=5)
     timing = command("timings", "Show observed iteration time and estimated remaining duration.")
     timing.add_argument("session", nargs="?", default="latest")
     short = command("shortlist", "Rank provisional screening candidates for a fresh confirmation experiment.")
@@ -129,61 +136,46 @@ def show_plan(session: Path, plan: dict) -> None:
 
 
 def guide() -> None:
-    print("""Deadlock Perf Lab
+    print("""Deadlock Performance Lab
 
-Try the report: dpl demo --open
+The easiest way in is the app: run  dpl  on its own.
 
-1. dpl init — edit .lab/lab.json with your replay, camera and conditions.
-2. dpl doctor, then dpl setup — copy the launch options into Steam.
-3. dpl profiles — inspect a treatment with dpl profile show ID.
-4. dpl plan --cases fps-unlock --rounds 5 — check the printed schedule.
-5. Close Deadlock, then dpl run --live.
-6. Verify each capture's camera, playback and settings with dpl review.
-7. dpl report --open — check variation and slow frames as well as FPS.
+Terminal workflow (same steps as the app):
+1. dpl demo --open        See an example report (no game needed).
+2. dpl doctor             Check Steam, MangoHud and the game install.
+3. dpl setup              Copy the printed line into Deadlock's Steam Launch Options.
+4. Edit lab.json in your workspace: replay, tick, player and your game settings.
+5. dpl plan --cases fps-unlock --preset confirm    Check the printed schedule.
+6. Close Deadlock, then:  dpl run --live
+7. dpl review --run ID --note '...'                Confirm captures you watched.
+8. dpl report --open
 
-Baseline means your current setup. Config changes are restored after each run.
-After a power loss or hard kill, close Deadlock and run dpl recover.
-For settings you change yourself, use dpl plan --manual and dpl import.
+Your current setup is the baseline. Game files are restored after every capture.
+After a power loss or hard kill, close Deadlock and run  dpl recover.
+Settings you change by hand (video options, Proton, drivers): dpl plan --manual, then dpl import.
 
-Setup and guides: https://github.com/itchyfeetleech/deadlock-perf-lab#benchmark-your-setup
+Guides: https://github.com/itchyfeetleech/Deadlock-Performance-Lab#readme
 """)
-
-
-def interactive() -> list[str]:
-    print("\n  DEADLOCK PERF LAB\n  Linux benchmark tools.\n")
-    choices = [("Try the demo and open the report", ["demo", "--open"]),
-               ("Create a workspace", ["init"]), ("Check my setup", ["doctor"]),
-               ("Browse benchmark profiles", ["profiles"]), ("Read the workflow", ["guide"]),
-               ("Open the latest report", ["report", "--open"])]
-    for i, (name, _) in enumerate(choices, 1):
-        print(f"  {i}. {name}")
-    answer = input("\nChoose 1–6 (Enter to exit): ").strip()
-    if not answer:
-        return []
-    if not answer.isdigit() or not 1 <= int(answer) <= len(choices):
-        raise LabError("Choose a number from 1 to 6.")
-    return choices[int(answer) - 1][1]
 
 
 def main(argv: list[str] | None = None) -> int:
     p = parser()
     try:
         args = p.parse_args(argv)
-        if not args.command:
-            if sys.stdin.isatty():
-                selection = interactive()
-                if selection:
-                    return main(["--workspace", str(args.workspace), *selection])
-            else:
-                p.print_help()
-            return 0
-        workspace = args.workspace.expanduser().resolve()
+        workspace = (args.workspace or default_workspace()).expanduser().resolve()
         if any(c in str(workspace) for c in "\r\n,="):
             raise LabError("Workspace path cannot contain newlines, commas or '=' (MangoHud config syntax).")
-        cmd = args.command
-        if cmd == "init":
+        cmd = args.command or "gui"
+        if cmd == "gui":
+            from .gui import serve
+            return serve(workspace, open_browser=not getattr(args, "no_browser", False), port=getattr(args, "port", 0))
+        elif cmd == "shortcut":
+            from .gui import install_shortcut
+            load_workspace(workspace) if (workspace / "lab.json").exists() else initialize(workspace)
+            print(f"Added {install_shortcut(workspace)}\nLook for Deadlock Performance Lab in your application menu.")
+        elif cmd == "init":
             initialize(workspace, args.install, args.replay)
-            print(f"Workspace created: {workspace}\nEdit {workspace / 'lab.json'} to record your conditions.\nNext: dpl doctor · dpl setup · dpl guide")
+            print(f"Workspace created: {workspace}\nEdit {workspace / 'lab.json'} to record your conditions, or run dpl to use the app.\nNext: dpl doctor · dpl setup · dpl guide")
         elif cmd == "doctor":
             config = read_json(workspace / "lab.json") if (workspace / "lab.json").exists() else {}
             install = Path(config["install"]) if config.get("install") else discover_install()
@@ -192,9 +184,10 @@ def main(argv: list[str] | None = None) -> int:
                 print(json.dumps({"checks": checks, "system": identity()}, indent=2))
             else:
                 for check in checks:
-                    print(f"{'PASS' if check['ok'] else 'FAIL'}  {check['check']}: {check['detail']}")
-                print("Steam launch-option wiring is verified by a fresh capture during the first live run.")
-            return 0 if all(c["ok"] for c in checks) else 1
+                    label = "PASS" if check["ok"] else "FAIL" if check["required"] else "WARN"
+                    print(f"{label}  {check['check']}: {check['detail']}")
+                print(f"\nWorkspace: {workspace}\nThe first live capture confirms that Steam's launch options work.")
+            return 0 if all(c["ok"] for c in checks if c["required"]) else 1
         elif cmd == "setup":
             load_workspace(workspace)
             options = launch_options(workspace)
@@ -282,7 +275,7 @@ def main(argv: list[str] | None = None) -> int:
                 print("No complete baseline-bracketed rounds yet.")
         elif cmd == "sessions":
             if not (workspace / "sessions").exists():
-                print("No workspace yet. Start with dpl init or dpl demo.")
+                print("No results yet. Try: dpl demo --open")
             else:
                 for session in sorted((workspace / "sessions").iterdir()):
                     if (session / "status.json").exists():
@@ -326,7 +319,7 @@ def main(argv: list[str] | None = None) -> int:
             guide()
         return 0
     except KeyboardInterrupt:
-        print("\nCancelled. Restoration was attempted; run dpl doctor to check recovery state.", file=sys.stderr)
+        print("\nCancelled. Game files were restored unless an error is shown above; run dpl doctor to confirm.", file=sys.stderr)
         return 130
     except (LabError, OSError, ValueError, KeyError, TypeError) as exc:
         print(f"dpl: {exc}", file=sys.stderr)
