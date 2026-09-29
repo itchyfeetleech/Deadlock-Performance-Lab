@@ -1,8 +1,9 @@
-"""Frozen profiles, benchmark presets and randomized experiment schedules."""
+"""Frozen profiles, run settings and randomized experiment schedules."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
 import fnmatch
+import math
 from pathlib import Path
 import random
 import uuid
@@ -11,37 +12,46 @@ from . import __version__
 from .profiles import DEMO_PROFILES, catalog, frozen, validate
 from .storage import LabError, digest, fingerprint, write_json
 from .system import game_identity, identity
-from .workspace import PLACEHOLDERS, load_workspace
+from .workspace import PLACEHOLDERS, TIMING_LIMITS, load_workspace
 
 
 RENDERERS = {"default": [], "vulkan": ["-vulkan"], "dx11": ["-dx11"]}
-PRESETS = {
-    "custom": {},
-    "scout": {"sample_s": 5, "warmup_s": 2, "settle_s": 1, "cooldown_s": 0},
-    "screen": {"sample_s": 10, "warmup_s": 5, "settle_s": 1, "cooldown_s": 0},
-    "confirm": {"sample_s": 30, "warmup_s": 45, "settle_s": 5, "cooldown_s": 5},
-}
+DEFAULT_ROUNDS = 3
+MAX_ROUNDS = 30
+TIMING_NAMES = {"sample_s": "Capture length", "warmup_s": "Warm-up", "settle_s": "Settle time", "cooldown_s": "Cooldown"}
+
+
+def run_timing(values: dict) -> dict:
+    """Validated capture timings in seconds; whole numbers are stored as integers."""
+    result = {}
+    for key, value in values.items():
+        if key not in TIMING_LIMITS:
+            raise LabError(f"Unknown timing setting: {key}")
+        low, high = TIMING_LIMITS[key]
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not low <= value <= high:
+            raise LabError(f"{TIMING_NAMES[key]} must be between {low} and {high} seconds.")
+        result[key] = int(value) if float(value).is_integer() else value
+    return result
 
 
 def make_plan(workspace: Path, cases: list[str], rounds: int | None, seed: int, *, demo: bool = False,
-              experimental: bool = False, manual: bool = False, preset: str = "custom",
+              experimental: bool = False, manual: bool = False, timing: dict | None = None,
               fps_max: int | None = None, renderer: str = "default") -> tuple[Path, dict]:
     """Freeze a randomized, baseline-bracketed schedule.
 
-    fps_max and renderer are run settings: they apply to every capture,
-    baseline included (fps_max None keeps the game's own setting).
+    timing overrides lab.json's capture timings for this plan. fps_max and
+    renderer apply to every capture, baseline included (fps_max None keeps
+    the game's own setting).
     """
     config = load_workspace(workspace)
     if fps_max is not None and (isinstance(fps_max, bool) or not isinstance(fps_max, int) or not 0 <= fps_max <= 1000):
         raise LabError("FPS limit must be 0 (uncapped) to 1000, or unset to keep the game's setting.")
     if renderer not in RENDERERS:
         raise LabError("Renderer must be default, vulkan or dx11.")
-    if preset not in PRESETS:
-        raise LabError("Preset must be scout, screen, confirm or custom.")
-    if rounds is None:
-        rounds = 1 if preset in {"scout", "screen"} else 5
-    if not 1 <= rounds <= 30:
-        raise LabError("rounds must be between 1 and 30; use at least 5 for a comparison.")
+    rounds = DEFAULT_ROUNDS if rounds is None else rounds
+    if isinstance(rounds, bool) or not isinstance(rounds, int) or not 1 <= rounds <= MAX_ROUNDS:
+        raise LabError(f"rounds must be between 1 and {MAX_ROUNDS}.")
+    timing = run_timing(timing or {})
     available = catalog(workspace)
     if demo:
         available.update({p["id"]: validate(dict(p)) for p in DEMO_PROFILES})
@@ -67,7 +77,7 @@ def make_plan(workspace: Path, cases: list[str], rounds: int | None, seed: int, 
     scenario["ready_protocol"] = "source2-demo-signon-v3"
     scenario["replay_launch"] = "startup"
     scenario["camera_guard_s"] = .1
-    scenario.update(PRESETS[preset])
+    scenario.update(timing)
     scenario["fps_max"] = fps_max
     scenario["launch_flags"] = RENDERERS[renderer]
     install = Path(config["install"]) if config["install"] else None
@@ -122,7 +132,7 @@ def make_plan(workspace: Path, cases: list[str], rounds: int | None, seed: int, 
     plan = {"schema": 1, "version": __version__, "id": session_id, "synthetic": demo,
             "install": str(install) if install else None, "manual": manual, "seed": seed, "rounds": rounds,
             "profiles": plan_profiles, "schedule": schedule, "context": context,
-            "preset": preset, "context_key": fingerprint(context), "created_at": datetime.now(timezone.utc).isoformat()}
+            "context_key": fingerprint(context), "created_at": datetime.now(timezone.utc).isoformat()}
     plan["plan_sha256"] = fingerprint(plan)
     session = workspace / "sessions" / session_id
     write_json(session / "plan.json", plan)

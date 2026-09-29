@@ -593,12 +593,11 @@
       // ---------------------------------------------------------------- header & summary
       function renderSummary() {
         const created = plan.created_at ? new Date(plan.created_at) : null;
-        const preset = { scout: "Quick look", screen: "Shortlist", confirm: "Confirm", custom: "Custom length" }[plan.preset];
         const scene = scenario.mode === "replay" ? `Replay at tick ${count(scenario.tick)}` : scenario.mode === "bots" ? "Bot match" : scenario.mode === "manual" ? "Manual captures" : null;
         $("meta").replaceChildren(
           ...[
             created && !isNaN(created) ? created.toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : null,
-            data.synthetic ? "Example with made-up data" : preset,
+            data.synthetic ? "Example with made-up data" : null,
             plan.rounds ? `${plan.rounds} round${plan.rounds > 1 ? "s" : ""}` : null,
             scenario.sample_s ? `${scenario.sample_s} s per capture` : null,
             scene,

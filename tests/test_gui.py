@@ -80,6 +80,8 @@ class GuiServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(state["workspace"], str(self.workspace.resolve()))
         self.assertFalse(state["ready"]["scene"])
+        self.assertEqual(state["benchmark"]["rounds"], 3)
+        self.assertEqual(state["benchmark"]["sample_s"], 30)
         self.assertEqual(state["profiles"], [])  # nothing bundled; configs are the user's own
         status, demo = self.api("POST", "/api/demo")
         self.assertEqual(status, 200, demo)
@@ -105,7 +107,7 @@ class GuiServerTests(unittest.TestCase):
         status, result = self.api("POST", "/api/benchmark", {"cases": []})
         self.assertEqual(status, 400)
         self.assertIn("Pick at least one", result["error"])
-        status, result = self.api("POST", "/api/benchmark", {"cases": ["cfg-anything"], "preset": "scout"})
+        status, result = self.api("POST", "/api/benchmark", {"cases": ["cfg-anything"], "rounds": 1, "sample_s": 5})
         self.assertEqual(status, 400)
         self.assertIn("Not ready yet", result["error"])
         status, result = self.api("POST", "/api/settings", {"conditions": {"resolution": "1280x720"}})

@@ -12,7 +12,7 @@ from . import __version__
 from .analysis import analyze, shortlist, timings
 from .capture import read_mangohud
 from .imports import import_capture
-from .planning import PRESETS, make_plan
+from .planning import DEFAULT_ROUNDS, make_plan
 from .profiles import DEMO_PROFILES, add_profile, catalog
 from .report import bundle, generate_report, markdown_report
 from .runner import recover, run_session
@@ -74,8 +74,11 @@ def parser() -> argparse.ArgumentParser:
                       help="FPS limit for every capture, baseline included (0 = uncapped; default: keep the game's)")
     plan.add_argument("--renderer", choices=["default", "vulkan", "dx11"], default="default",
                       help="graphics API for every capture (default: the game's)")
-    plan.add_argument("--rounds", type=int, help="default: 1 for scout/screen, 5 otherwise")
-    plan.add_argument("--preset", choices=list(PRESETS), default="custom", help="scout: 5s/one round; screen: 10s/one round; confirm: 30s/five rounds; custom: lab.json timings")
+    plan.add_argument("--rounds", type=int, help=f"rounds of your current setup plus every config (default {DEFAULT_ROUNDS})")
+    plan.add_argument("--capture", type=float, dest="sample_s", metavar="SECONDS", help="time recorded per capture (default: lab.json)")
+    plan.add_argument("--warmup", type=float, dest="warmup_s", metavar="SECONDS", help="replay time before seeking back to the start tick (default: lab.json)")
+    plan.add_argument("--settle", type=float, dest="settle_s", metavar="SECONDS", help="pause on the start tick before recording (default: lab.json)")
+    plan.add_argument("--cooldown", type=float, dest="cooldown_s", metavar="SECONDS", help="wait between captures (default: lab.json)")
     plan.add_argument("--seed", type=int, default=47)
     plan.add_argument("--experimental", action="store_true", help="allow legacy whole-file gameinfo profiles saved by older versions")
     plan.add_argument("--manual", action="store_true", help="plan captures made by the operator")
@@ -119,10 +122,11 @@ def parser() -> argparse.ArgumentParser:
 
 def show_plan(session: Path, plan: dict) -> None:
     print(f"\nExperiment {plan['id']} · {'MANUAL' if plan.get('manual') else 'DEMO' if plan['synthetic'] else 'LIVE PLAN'}")
-    print(f"Preset: {plan.get('preset', 'custom')}\n{plan['rounds']} rounds · {len(plan['schedule'])} runs · seed {plan['seed']}")
+    s = plan["context"]["scenario"]
+    print(f"{plan['rounds']} rounds · {len(plan['schedule'])} runs · {s['sample_s']} s capture, {s['warmup_s']} s warm-up, "
+          f"{s['settle_s']} s settle, {s['cooldown_s']} s cooldown · seed {plan['seed']}")
     for round_index in range(1, plan["rounds"] + 1):
         print(f"  Round {round_index}: " + " → ".join(x["case"] for x in plan["schedule"] if x["round"] == round_index))
-    s = plan["context"]["scenario"]
     minimum = len(plan["schedule"]) * (s["sample_s"] + s["warmup_s"] + s["settle_s"] + s["cooldown_s"]) / 60
     print(f"\nConfigured timing: about {minimum:.1f} minutes plus launch/load/seek overhead.")
     print(f"Frozen plan: {session / 'plan.json'}")
@@ -230,7 +234,9 @@ def main(argv: list[str] | None = None) -> int:
                 print(add_profile(workspace, entry))
         elif cmd == "plan":
             session, plan = make_plan(workspace, args.cases.split(","), args.rounds, args.seed,
-                                      experimental=args.experimental, manual=args.manual, preset=args.preset,
+                                      experimental=args.experimental, manual=args.manual,
+                                      timing={k: v for k in ("sample_s", "warmup_s", "settle_s", "cooldown_s")
+                                              if (v := getattr(args, k)) is not None},
                                       fps_max=args.fps_max, renderer=args.renderer)
             show_plan(session, plan)
         elif cmd == "run":
@@ -266,7 +272,7 @@ def main(argv: list[str] | None = None) -> int:
                 ci = f" (95% interval {c['ci95_pct'][0]:+.1f} to {c['ci95_pct'][1]:+.1f}%)" if c["ci95_pct"] else ""
                 print(f"  {c['case']:<28} {c['delta_pct']:+.2f}% average FPS{ci} · {len(c['paired_rounds'])} rounds")
             if candidates:
-                print("\nRe-test them: dpl plan --preset confirm --cases " + ",".join(c["case"] for c in candidates))
+                print("\nRe-test them: dpl plan --cases " + ",".join(c["case"] for c in candidates))
             else:
                 print("No complete baseline-bracketed rounds yet.")
         elif cmd == "sessions":

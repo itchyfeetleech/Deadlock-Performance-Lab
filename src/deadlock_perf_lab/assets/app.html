@@ -154,11 +154,13 @@
       .badge.exp { color: var(--amber); border-color: #6b5a2c; }
       .badge.demo { color: var(--blue); border-color: #3e5961; }
 
-      .depth { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 8px; }
-      .depth label { border: 1px solid var(--line); border-radius: 8px; padding: 14px; cursor: pointer; background: var(--panel-2); }
-      .depth label:has(input:checked) { border-color: var(--accent); background: #232719; }
-      .depth strong { font-size: 15px; }
-      .depth .meta { font: 12px var(--mono); color: var(--accent); margin: 4px 0; }
+      input[type="range"] { padding: 0; border: 0; background: none; accent-color: var(--accent); }
+      .sliders { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 32px; margin-top: 14px; }
+      .slider label { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 13px; }
+      .slider output, .slider-head output { font: 600 14px var(--mono); color: var(--accent); }
+      .slider-head { display: flex !important; justify-content: space-between; align-items: baseline; }
+      .slider input[type="range"] { margin: 6px 0 2px; }
+      #fps-limit-wrap { margin-top: 10px; }
       .go { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
       .estimate { font-size: 15px; }
       .estimate strong { color: var(--accent); }
@@ -228,7 +230,6 @@
       .add-setting li button { width: 100%; text-align: left; border: 0; background: none; white-space: normal; padding: 6px 8px; }
       .add-setting li button:hover { background: #232719; }
       .add-setting li small { display: block; color: var(--muted); }
-      .runopts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
       pre.diff { max-height: 380px; overflow: auto; background: #0e120e; border: 1px solid var(--line); border-radius: 6px; padding: 10px; font-size: 12px; white-space: pre; }
       pre.diff .add { color: var(--green); }
       pre.diff .del { color: var(--red); }
@@ -242,7 +243,7 @@
       .rank { margin-bottom: 18px; }
       .rank h3 { margin-bottom: 4px; }
       .retest { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: 8px; }
-      .retest input { width: 70px; padding: 5px 8px; }
+      .retest input[type="range"] { width: 180px; }
       .batch { border: 1px solid var(--accent); border-radius: 10px; padding: 16px; margin-top: 16px; background: #1d2118; }
       .brow { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line-soft); }
       .brow small { display: block; color: var(--muted); }
@@ -258,7 +259,7 @@
       details > summary { cursor: pointer; color: var(--accent); }
 
       @media (max-width: 720px) {
-        .form, .depth, .runopts, .source { grid-template-columns: 1fr; }
+        .form, .sliders, .source { grid-template-columns: 1fr; }
         .srow { grid-template-columns: 22px minmax(0, 1fr); }
         .srow .ctl { grid-column: 2; justify-content: flex-start; }
         .parts button { padding: 8px 10px; }
@@ -361,13 +362,13 @@
                   <div class="hint">Needs at least a minute of replay after it.</div>
                 </label>
                 <label class="replay-only">
-                  <span class="label">Player to follow</span>
-                  <input name="player" />
-                  <div class="hint">The camera follows this player (slot number, 1–12).</div>
+                  <span class="label slider-head">Player to follow <output data-for="player"></output></span>
+                  <input name="player" type="range" min="1" max="12" step="1" />
+                  <div class="hint">Player slot the camera follows.</div>
                 </label>
                 <label>
-                  <span class="label">Target FPS</span>
-                  <input name="budget_fps" type="number" min="1" max="2000" />
+                  <span class="label slider-head">Target FPS <output data-for="budget_fps"></output></span>
+                  <input name="budget_fps" type="range" min="30" max="500" step="1" />
                   <div class="hint">Frames slower than this count as over budget.</div>
                 </label>
                 <div class="wide" style="margin-top:6px">
@@ -436,33 +437,58 @@
           <div id="profiles"></div>
         </section>
 
-        <section class="panel">
-          <h2>Length</h2>
-          <div class="depth" id="depth">
-            <label><input type="radio" name="preset" value="scout" class="sr-only" />
-              <strong>Quick look</strong><div class="meta" data-meta="scout"></div></label>
-            <label><input type="radio" name="preset" value="screen" class="sr-only" />
-              <strong>Shortlist</strong><div class="meta" data-meta="screen"></div></label>
-            <label><input type="radio" name="preset" value="confirm" class="sr-only" />
-              <strong>Confirm</strong><div class="meta" data-meta="confirm"></div></label>
+        <section class="panel" id="bench-settings">
+          <div class="step-head"><h2>Settings</h2><button id="bench-reset" class="small" type="button">Reset</button></div>
+          <div class="sliders">
+            <div class="slider">
+              <label for="set-rounds"><span>Rounds</span><output></output></label>
+              <input type="range" id="set-rounds" data-key="rounds" min="1" max="30" step="1" />
+              <div class="hint">Each round: your current setup, every config in shuffled order, your current setup again. 3 or more give a 95% interval.</div>
+            </div>
+            <div class="slider">
+              <label for="set-capture"><span>Capture length</span><output></output></label>
+              <input type="range" id="set-capture" data-key="sample_s" min="5" max="180" step="5" />
+              <div class="hint">Time recorded per capture.</div>
+            </div>
+            <div class="slider">
+              <label for="set-warmup"><span>Warm-up</span><output></output></label>
+              <input type="range" id="set-warmup" data-key="warmup_s" min="0" max="180" step="5" />
+              <div class="hint">Replay time before seeking back to the start tick.</div>
+            </div>
+            <div class="slider">
+              <label for="set-settle"><span>Settle</span><output></output></label>
+              <input type="range" id="set-settle" data-key="settle_s" min="0" max="30" step="1" />
+              <div class="hint">Pause on the start tick before recording.</div>
+            </div>
+            <div class="slider">
+              <label for="set-cooldown"><span>Cooldown</span><output></output></label>
+              <input type="range" id="set-cooldown" data-key="cooldown_s" min="0" max="120" step="5" />
+              <div class="hint">Wait between captures.</div>
+            </div>
           </div>
-          <div class="runopts">
-            <label><span class="label">FPS limit during the test</span>
-              <select id="fps-mode">
-                <option value="0">Uncapped</option>
-                <option value="keep">Keep my game's limit</option>
-                <option value="custom">Custom…</option>
-              </select></label>
-            <label id="fps-custom-wrap" class="hidden"><span class="label">FPS limit</span><input id="fps-custom" type="number" min="1" max="1000" value="240" /></label>
-            <label><span class="label">Graphics API</span>
-              <select id="renderer">
-                <option value="default">Game default</option>
-                <option value="vulkan">Vulkan (-vulkan)</option>
-                <option value="dx11">DirectX 11 (-dx11)</option>
-              </select></label>
-            <label><span class="label">Repeat rounds</span><input id="rounds" type="number" min="1" max="30" /></label>
+          <div class="sliders">
+            <div>
+              <span class="label">FPS limit</span>
+              <div class="seg" role="radiogroup" aria-label="FPS limit">
+                <label><input type="radio" name="fps-mode" value="0" /> Uncapped</label>
+                <label><input type="radio" name="fps-mode" value="keep" /> Game's setting</label>
+                <label><input type="radio" name="fps-mode" value="limit" /> Limit</label>
+              </div>
+              <div class="slider hidden" id="fps-limit-wrap">
+                <label for="set-fps"><span>Limit to</span><output></output></label>
+                <input type="range" id="set-fps" data-key="fpsLimit" min="30" max="500" step="1" />
+              </div>
+            </div>
+            <div>
+              <span class="label">Graphics API</span>
+              <div class="seg" role="radiogroup" aria-label="Graphics API">
+                <label><input type="radio" name="renderer" value="default" /> Game default</label>
+                <label><input type="radio" name="renderer" value="vulkan" /> Vulkan</label>
+                <label><input type="radio" name="renderer" value="dx11" /> DirectX 11</label>
+              </div>
+            </div>
           </div>
-          <p class="hint">Both apply to every capture, including your current setup.</p>
+          <p class="hint">FPS limit and graphics API apply to every capture, including your current setup.</p>
           <div class="go">
             <div>
               <div class="estimate" id="estimate"></div>
@@ -503,7 +529,6 @@
       let open = new Set(); // expanded result sessions
       let followed = null; // session shown in the progress panel
       let pollTimer = null;
-      const PRESET_LABEL = { scout: "Quick look", screen: "Shortlist", confirm: "Confirm", custom: "Custom" };
 
       async function api(path, body) {
         const init = body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json", "X-DPL": "1" }, body: JSON.stringify(body) };
@@ -641,8 +666,9 @@
         $("#replay-hint").innerHTML = S.replays.length ? "Replays in your game's <code>game/citadel</code> folder, newest first."
           : "Download a match replay in Deadlock, or copy a <code>.dem</code> file into <code>game/citadel/replays</code>, then press Check again.";
         f.tick.value = sc.tick;
-        f.player.value = sc.player || "";
+        f.player.value = /^\d+$/.test(sc.player || "") ? sc.player : 1;
         f.budget_fps.value = sc.budget_fps;
+        showSceneSliders();
         for (const key of ["resolution", "graphics_preset", "proton_version", "display_mode", "notes"]) {
           let value = c.conditions[key] ?? "";
           const tag = $(`.tag[data-for="${key}"]`);
@@ -665,7 +691,12 @@
         const replay = f.mode.value !== "bots";
         $$(".replay-only", f).forEach((el) => el.classList.toggle("hidden", !replay));
       }
-      $("#scene").addEventListener("input", () => (sceneDirty = true));
+      function showSceneSliders() {
+        const f = $("#scene");
+        $('output[data-for="player"]').textContent = `Slot ${f.player.value}`;
+        $('output[data-for="budget_fps"]').textContent = `${f.budget_fps.value} FPS`;
+      }
+      $("#scene").addEventListener("input", () => { sceneDirty = true; showSceneSliders(); });
       $("#scene").addEventListener("change", (e) => {
         sceneDirty = true;
         if (e.target.name === "mode") syncMode();
@@ -1105,9 +1136,8 @@
       function updateBatchSummary() {
         const n = $$("#batch-box .brow").reduce((sum, r) => sum + valuesOf(r).length, 0);
         const many = $$("#batch-box .brow").length > 1 && $("#batch-combined").checked ? 1 : 0;
-        const total = n + many, v = S.presets.screen;
-        const each = v.sample_s + v.warmup_s + v.settle_s + v.cooldown_s + S.launch_overhead_s;
-        $("#batch-summary").innerHTML = total ? `This creates <strong>${total}</strong> config${total === 1 ? "" : "s"}. A Shortlist benchmark of them is <strong>${total + 2}</strong> launches, ${duration((total + 2) * each)}.`
+        const total = n + many, runs = benchSettings().rounds * (total + 2);
+        $("#batch-summary").innerHTML = total ? `This creates <strong>${total}</strong> config${total === 1 ? "" : "s"}. With your benchmark settings that's <strong>${runs}</strong> launches, ${duration(runs * secondsPerCapture())}.`
           : "Enter at least one value.";
         $("#batch-create").textContent = total ? `Create ${total} config${total === 1 ? "" : "s"}` : "Create configs";
         $("#batch-create").disabled = !total;
@@ -1179,38 +1209,49 @@
       });
       $("#profiles").addEventListener("change", () => { store.set("cases", selected()); renderEstimate(); });
 
-      function preset() { return ($("#depth input:checked") || {}).value || store.get("preset", "screen"); }
-      $("#depth").addEventListener("change", () => { store.set("preset", preset()); $("#rounds").value = ""; renderEstimate(); });
-      $("#rounds").addEventListener("input", renderEstimate);
-      $("#fps-mode").value = store.get("fpsMode", "0");
-      $("#fps-custom").value = store.get("fpsCustom", 240);
-      $("#renderer").value = store.get("renderer", "default");
-      $("#fps-custom-wrap").classList.toggle("hidden", $("#fps-mode").value !== "custom");
-      $("#fps-mode").onchange = (e) => { store.set("fpsMode", e.target.value); $("#fps-custom-wrap").classList.toggle("hidden", e.target.value !== "custom"); };
-      $("#fps-custom").oninput = (e) => store.set("fpsCustom", e.target.value);
-      $("#renderer").onchange = (e) => store.set("renderer", e.target.value);
-      function fpsMax() {
-        const mode = $("#fps-mode").value;
-        return mode === "keep" ? null : mode === "custom" ? parseInt($("#fps-custom").value) || 240 : 0;
+      // Benchmark settings: remembered in this browser, starting from lab.json's timings.
+      const TIMINGS = ["sample_s", "warmup_s", "settle_s", "cooldown_s"];
+      let BS = null;
+      const benchDefaults = () => ({ rounds: S.benchmark.rounds, ...Object.fromEntries(TIMINGS.map((k) => [k, S.benchmark[k]])),
+                                     fpsMode: "0", fpsLimit: 240, renderer: "default" });
+      const benchSettings = () => (BS ||= { ...benchDefaults(), ...store.get("bench", {}) });
+      function showSlider(input) {
+        const key = input.dataset.key, v = benchSettings()[key];
+        $("output", input.closest(".slider")).textContent = key === "rounds" ? String(v) : key === "fpsLimit" ? `${v} FPS` : `${v} s`;
       }
+      function renderBenchSettings() {
+        const v = benchSettings();
+        for (const input of $$("#bench-settings input[type=range]")) { input.value = v[input.dataset.key]; showSlider(input); }
+        $$("#bench-settings input[name=fps-mode]").forEach((r) => (r.checked = r.value === v.fpsMode));
+        $$("#bench-settings input[name=renderer]").forEach((r) => (r.checked = r.value === v.renderer));
+        $("#fps-limit-wrap").classList.toggle("hidden", v.fpsMode !== "limit");
+      }
+      function onBenchInput(e) {
+        const t = e.target, v = benchSettings();
+        if (t.type === "range") { v[t.dataset.key] = +t.value; showSlider(t); }
+        else if (t.name === "fps-mode") { v.fpsMode = t.value; $("#fps-limit-wrap").classList.toggle("hidden", t.value !== "limit"); }
+        else if (t.name === "renderer") v.renderer = t.value;
+        else return;
+        store.set("bench", v);
+        renderEstimate();
+      }
+      $("#bench-settings").addEventListener("input", onBenchInput);
+      $("#bench-settings").addEventListener("change", onBenchInput);
+      $("#bench-reset").onclick = () => { BS = benchDefaults(); store.set("bench", BS); renderBenchSettings(); renderEstimate(); };
+      function fpsMax() {
+        const v = benchSettings();
+        return v.fpsMode === "keep" ? null : v.fpsMode === "limit" ? v.fpsLimit : 0;
+      }
+      const secondsPerCapture = () => TIMINGS.reduce((sum, k) => sum + benchSettings()[k], S.launch_overhead_s);
       function duration(sec) {
         const m = Math.round(sec / 60);
         return m < 1 ? "under a minute" : m < 90 ? `about ${m} min` : `about ${(sec / 3600).toFixed(1)} hours`;
       }
       function renderEstimate() {
         if (!S) return;
-        const p = preset();
-        $$("#depth input").forEach((i) => (i.checked = i.value === p));
-        for (const [name, v] of Object.entries(S.presets))
-          $(`[data-meta="${name}"]`).textContent = `${v.rounds} round${v.rounds > 1 ? "s" : ""} · ${v.sample_s} s captures`;
-        const v = S.presets[p];
-        const rounds = Math.max(1, Math.min(30, parseInt($("#rounds").value) || v.rounds));
-        $("#rounds").placeholder = v.rounds;
-        const n = selected().length;
-        const runs = rounds * (n + 2);
-        const each = v.sample_s + v.warmup_s + v.settle_s + v.cooldown_s + S.launch_overhead_s;
+        const n = selected().length, runs = benchSettings().rounds * (n + 2);
         $("#estimate").innerHTML = n
-          ? `Deadlock will launch <strong>${runs}</strong> times · <strong>${duration(runs * each)}</strong>`
+          ? `Deadlock will launch <strong>${runs}</strong> times · <strong>${duration(runs * secondsPerCapture())}</strong>`
           : "Tick at least one config above.";
         const blockers = [];
         if (!S.ready.tools) blockers.push("Fix the items in Set up → Check your PC.");
@@ -1224,8 +1265,9 @@
         $("#start").disabled = !n || hard.length > 0;
       }
       $("#start").onclick = (e) => act(e.target, async () => {
-        const res = await api("/api/benchmark", { cases: selected(), preset: preset(), rounds: parseInt($("#rounds").value) || null,
-                                                   fps_max: fpsMax(), renderer: $("#renderer").value });
+        const v = benchSettings();
+        const res = await api("/api/benchmark", { cases: selected(), rounds: v.rounds, ...Object.fromEntries(TIMINGS.map((k) => [k, v[k]])),
+                                                   fps_max: fpsMax(), renderer: v.renderer });
         toast("Benchmark started. Deadlock will launch shortly.");
         followed = res.session;
         await refresh();
@@ -1294,7 +1336,7 @@
           const kind = s.synthetic ? `<span class="badge demo">demo</span>` : s.manual ? `<span class="badge">manual</span>` : "";
           return `<div class="session" data-id="${esc(s.id)}"><div class="row">
             <div class="what"><strong>${esc(title)}</strong>${kind}
-              <div class="small muted">${esc(when)} · ${s.synthetic ? "" : esc(PRESET_LABEL[s.preset] || s.preset) + " · "}${s.rounds} round${s.rounds > 1 ? "s" : ""} ·
+              <div class="small muted">${esc(when)} · ${s.rounds} round${s.rounds > 1 ? "s" : ""}${s.sample_s ? ` of ${s.sample_s} s captures` : ""} ·
               <span class="state ${esc(st)}">${esc(STATE[st] || st)}${st !== "complete" ? ` ${s.status.completed}/${s.status.total}` : ""}</span></div></div>
             <div class="actions">
               ${s.has_results ? `<a class="primary" href="/report/${esc(s.id)}/" target="_blank">Open report</a><a href="/export/${esc(s.id)}.zip" title="A ZIP you can share: report only, no raw logs or game files">Share ZIP</a>` : ""}
@@ -1341,23 +1383,32 @@
             <td class="num ${x.delta_pct > 0 ? "delta-pos" : "delta-neg"}">${signed(x.delta_pct)}${within ? ` <span class="badge" title="Within the baseline variation (${noise.toFixed(1)}%)">≈ noise</span>` : ""}</td>
             ${withCi ? `<td class="num muted">${x.ci ? `${signed(x.ci[0])} to ${signed(x.ci[1])}` : "—"}</td>` : ""}<td class="num">${signed(x.low_1_delta_pct)}</td></tr>`;
         }).join("");
-        const v = S.presets.confirm, each = v.sample_s + v.warmup_s + v.settle_s + v.cooldown_s + S.launch_overhead_s;
-        const est = (n) => `${5 * (n + 2)} launches, ${duration(5 * (n + 2) * each)}`;
         const first = Math.min(5, r.rows.length);
         el.innerHTML = `<h3>Ranking</h3>
           <p class="small muted">Your current setup: ${num(r.baseline_fps)} FPS${noise != null ? ` · baseline variation ${noise.toFixed(1)}%` : ""}</p>
           <div class="table-wrap"><table><thead><tr><th>#</th><th>Config</th><th class="num">Avg FPS</th><th class="num">vs current</th>${withCi ? `<th class="num">95% interval</th>` : ""}<th class="num">1% low</th></tr></thead><tbody>${rows}</tbody></table></div>
-          ${r.synthetic ? "" : `<div class="retest">Re-test the top <input type="number" class="topn" min="1" max="${Math.min(30, r.rows.length)}" value="${first}" /> at Confirm length (5 rounds):
-            <span class="small muted est">${est(first)}</span><button class="primary go-retest">Re-test</button></div>`}`;
+          ${r.synthetic || r.manual ? "" : `<div class="retest"><span>Benchmark the top <strong class="topn-out">${first}</strong> again</span>
+            <input type="range" class="topn" min="1" max="${r.rows.length}" value="${first}" aria-label="How many of the best configs" />
+            <button class="primary go-again">Load into Benchmark</button></div>`}`;
         const top = $(".topn", el);
         if (top) {
-          top.oninput = () => ($(".est", el).textContent = est(Math.max(1, Math.min(30, +top.value || 1))));
-          $(".go-retest", el).onclick = (e) => act(e.target, async () => {
-            const res = await api("/api/retest", { session: id, top: +top.value || 5 });
-            toast("Confirm benchmark started with the top configs.");
-            followed = res.session;
-            await refresh();
-          });
+          top.oninput = () => ($(".topn-out", el).textContent = top.value);
+          // Tick the best configs and copy this benchmark's settings into the Benchmark tab, to adjust and start there.
+          $(".go-again", el).onclick = () => {
+            const wanted = r.rows.slice(0, +top.value).map((x) => x.case);
+            const ids = wanted.filter((c) => configs().some((p) => p.id === c));
+            const set = r.settings;
+            BS = { ...benchSettings(), rounds: set.rounds, ...Object.fromEntries(TIMINGS.map((k) => [k, set[k]])), renderer: set.renderer,
+                   fpsMode: set.fps_max == null ? "keep" : set.fps_max === 0 ? "0" : "limit", fpsLimit: set.fps_max || benchSettings().fpsLimit };
+            store.set("bench", BS);
+            store.set("cases", ids);
+            renderBenchSettings();
+            renderProfiles();
+            show("bench");
+            renderEstimate();
+            const gone = wanted.length - ids.length;
+            toast(`Loaded ${ids.length} config${ids.length === 1 ? "" : "s"} and this benchmark's settings.${gone ? ` ${gone} no longer exist.` : ""}`);
+          };
         }
       }
 
@@ -1392,6 +1443,7 @@
           await refresh();
           const first = !S.sessions.length;
           show(store.get("tab", first || !setupDone() ? "setup" : configs().length ? "bench" : "configs"));
+          renderBenchSettings();
           renderEstimate();
           const dismissed = store.get("dismissed", null);
           const latest = S.sessions.find((s) => !s.synthetic);

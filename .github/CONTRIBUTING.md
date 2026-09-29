@@ -28,7 +28,7 @@ Tests use temporary workspaces and fake game, Steam and console fixtures. They n
 | `workspace.py` | Default workspace location, settings validation, capture setup, session lookup |
 | `configs.py` | gameinfo.gi / video.txt configs: presets fetched from OptimizationLock, setting catalogue, editing, batches, the exact files a config writes |
 | `profiles.py` | Profile validation (baseline, configs, console cvars, manual) |
-| `planning.py` | Lengths, run settings, configs frozen into plans, randomized schedules, plan verification |
+| `planning.py` | Rounds and run settings, configs frozen into plans, randomized schedules, plan verification |
 | `system.py` | Steam discovery and read-only settings detection, setup checks, fingerprints, process identity |
 | `runner.py`, `vconsole.py` | Game lifecycle, replay control, capture orchestration |
 | `transaction.py`, `storage.py` | Atomic writes, backups, recovery journals, locks |

@@ -32,7 +32,7 @@ Put any options you already use after `%command%`, and don't repeat `%command%`.
 | Deadlock folder | Usually found automatically. It contains `game/citadel`. |
 | Replay file | Replays under `game/citadel`, newest first. *Other file…* takes any path inside that folder. |
 | Start at tick | Where each capture starts. The replay has to run for the warm-up plus capture time after it. |
-| Player to follow | The player slot the camera follows. |
+| Player to follow | The player slot (1–12) the camera follows. |
 | Target FPS | Frames slower than this count as over budget. |
 | Your game settings | Optional: resolution, graphics quality, Proton version and display mode, saved with each result. |
 
@@ -46,23 +46,25 @@ Your baseline ("current setup") is the game as installed, including changes you'
 
 ## 3. Benchmark
 
-On **Benchmark**, tick configs, choose a length and press **Start** with Deadlock closed.
+On **Benchmark**, tick configs, set the benchmark up and press **Start** with Deadlock closed.
 
-| Length | Rounds | Capture |
-|---|---:|---:|
-| Quick look | 1 | 5 s |
-| Shortlist | 1 | 10 s |
-| Confirm | 5 | 30 s |
+| Setting | |
+|---|---|
+| Rounds | Each round measures your current setup, every config in shuffled order, then your current setup again. 3 or more give a 95% interval. |
+| Capture length | Time recorded per capture. |
+| Warm-up | Replay time before seeking back to the start tick. |
+| Settle | Pause on the start tick before recording. |
+| Cooldown | Wait between captures. |
+| FPS limit | Uncapped, the game's own setting, or a limit you pick. |
+| Graphics API | Game default, Vulkan or DirectX 11. |
 
-*FPS limit* (default uncapped) and *Graphics API* apply to every capture, including your current setup.
-
-Each round measures your current setup, each config in shuffled order, then your current setup again, and every capture is a separate game launch. The app shows the number of launches and the time before you start.
+Rounds start at 3 and the timings at your `lab.json` values (30 s capture, 45 s warm-up, 5 s settle, 5 s cooldown). The app remembers your changes; **Reset** puts the defaults back. The FPS limit and graphics API apply to every capture, including your current setup. Every capture is a separate game launch, and the app shows the number of launches and the time before you start.
 
 While it runs, leave the game window alone. Closing the browser tab doesn't stop the benchmark. **Cancel and restore files** stops it and restores your files. After a power cut, close Deadlock and press **Restore my files**.
 
 ## 4. Results
 
-**Results** lists every benchmark. **Details** has the ranking by change in average FPS (changes within your baseline variation are marked *≈ noise*) and every capture. **Re-test the top N** runs the best configs again at Confirm length with the same run settings.
+**Results** lists every benchmark. **Details** has the ranking by change in average FPS (changes within your baseline variation are marked *≈ noise*) and every capture. **Benchmark the top N again** ticks the best configs on the Benchmark tab and loads this benchmark's settings, to adjust and start.
 
 **Open report** shows each config's change with its 95% interval, per-round results, frame-time percentiles and traces, and every capture. **Share ZIP** downloads the report (`index.html`, `summary.md`, `summary.json`, `runs.csv`) without raw logs, game files or replay paths. Config names and notes are included.
 
@@ -75,7 +77,7 @@ dpl doctor                                   # check your PC
 dpl setup                                    # print the Steam launch options line
 $EDITOR ~/.local/share/deadlock-performance-lab/lab.json   # replay, tick, player, conditions
 dpl profile add my-config --gameinfo ~/Downloads/gameinfo.gi   # and/or --video FILE
-dpl plan --cases my-config --preset confirm --fps-max 0   # freeze a plan and print its schedule
+dpl plan --cases my-config --rounds 5 --fps-max 0   # freeze a plan and print its schedule
 dpl run --live                               # close Deadlock first
 dpl report --open
 dpl export --output report.zip

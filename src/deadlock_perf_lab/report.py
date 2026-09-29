@@ -89,7 +89,7 @@ def report_payload(session: Path) -> dict:
     add_distributions(session, analysis["runs"])
     for comparison in analysis["comparisons"]:
         comparison["treatment"] = treatment(plan["profiles"].get(comparison["case"], {}))
-    analysis["plan"] = {"rounds": plan["rounds"], "preset": plan.get("preset"), "manual": bool(plan.get("manual")),
+    analysis["plan"] = {"rounds": plan["rounds"], "manual": bool(plan.get("manual")),
                         "created_at": plan.get("created_at"), "version": plan.get("version"),
                         "baseline_name": plan["profiles"]["baseline"].get("name", "Your current setup"),
                         "schedule": plan["schedule"]}

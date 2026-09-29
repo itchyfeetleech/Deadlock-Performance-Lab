@@ -1,15 +1,18 @@
 # Advanced use
 
-## Benchmark lengths
+## Benchmark settings
 
-| App name | `--preset` | Rounds | Capture | Warm-up | Settle | Cooldown |
-|---|---|---:|---:|---:|---:|---:|
-| Quick look | `scout` | 1 | 5 s | 2 s | 1 s | 0 s |
-| Shortlist | `screen` | 1 | 10 s | 5 s | 1 s | 0 s |
-| Confirm | `confirm` | 5 | 30 s | 45 s | 5 s | 5 s |
-| (command line only) | `custom` | 5 | from `lab.json` | from `lab.json` | from `lab.json` | from `lab.json` |
+| Setting | `dpl plan` | App range | Default |
+|---|---|---|---|
+| Rounds | `--rounds N` | 1–30 | 3 |
+| Capture length | `--capture SECONDS` | 5–180 s | `lab.json` (30 s) |
+| Warm-up | `--warmup SECONDS` | 0–180 s | `lab.json` (45 s) |
+| Settle | `--settle SECONDS` | 0–30 s | `lab.json` (5 s) |
+| Cooldown | `--cooldown SECONDS` | 0–120 s | `lab.json` (5 s) |
+| FPS limit | `--fps-max N` (0 = uncapped) | Uncapped, game's setting, or 30–500 | App: uncapped. Command line: the game's setting |
+| Graphics API | `--renderer default\|vulkan\|dx11` | Game default, Vulkan, DirectX 11 | Game default |
 
-`--rounds N` overrides the round count. A round is your current setup, every config once in shuffled order, then your current setup again, and every capture is a fresh game launch: 50 configs for one round is 52 launches. Steam shader preparation can make a launch much slower. `dpl timings` shows how long captures took and estimates what remains.
+On the command line, timings can go up to 600 s (capture and warm-up) and 300 s (settle and cooldown). A round is your current setup, every config once in shuffled order, then your current setup again, and every capture is a fresh game launch: 50 configs for one round is 52 launches. Steam shader preparation can make a launch much slower. `dpl timings` shows how long captures took and estimates what remains.
 
 ## Test many settings
 
@@ -22,8 +25,8 @@
    ```
 
    Each config changes or adds one setting. A row that changes nothing is rejected.
-2. **Shortlist** them (one round). **Results** ranks them by change in average FPS. From the terminal: `dpl plan --cases 'farz*,cull*' --preset screen`, `dpl run --live`, then `dpl shortlist --top 5`.
-3. **Confirm** the best ones with **Re-test the top N**, or plan them with `--preset confirm`.
+2. **Rank** them with a short run, for example one round of 10 s captures. **Results** ranks them by change in average FPS. From the terminal: `dpl plan --cases 'farz*,cull*' --rounds 1 --capture 10 --warmup 5`, `dpl run --live`, then `dpl shortlist --top 5`.
+3. **Run the best ones again** with more rounds: **Benchmark the top N again** in Results, or `dpl plan --cases … --rounds 5`.
 
 ## Console cvars
 
@@ -32,7 +35,7 @@ To test cvars set from the console at launch (a temporary `autoexec`) instead of
 ```bash
 printf 'r_farz 6000\n' > farz.cfg
 dpl profile add farz-6000 --autoexec farz.cfg --description 'Shorter far plane'
-dpl plan --cases farz-6000 --preset confirm
+dpl plan --cases farz-6000 --rounds 5
 ```
 
 Only cvar assignments and comments are accepted. The FPS limit and graphics API are run settings, not configs: `--fps-max` and `--renderer` on `dpl plan`, or the Benchmark tab.

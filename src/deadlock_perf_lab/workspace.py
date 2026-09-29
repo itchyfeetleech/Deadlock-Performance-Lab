@@ -10,6 +10,8 @@ from .storage import LabError, atomic_write, read_json, write_json
 from .system import discover_install
 
 CONDITIONS = ("resolution", "graphics_preset", "proton_version", "display_mode")
+# Seconds allowed for each capture timing, in lab.json and per benchmark.
+TIMING_LIMITS = {"sample_s": (1, 600), "warmup_s": (0, 600), "settle_s": (0, 300), "cooldown_s": (0, 300)}
 # Placeholders that workspaces from earlier versions stored for blank game settings.
 PLACEHOLDERS = {"record me", "Record upscaling, frame generation, VSync/VRR, driver overrides and background apps."}
 
@@ -40,8 +42,7 @@ def validate_config(config: dict) -> dict:
     scenario = config.get("scenario", {})
     if scenario.get("mode") not in {"replay", "bots"}:
         raise LabError("scenario.mode must be replay or bots")
-    for key, minimum, maximum in (("sample_s", 1, 600), ("warmup_s", 0, 600), ("settle_s", 0, 300),
-                                   ("cooldown_s", 0, 300), ("budget_fps", 1, 2000)):
+    for key, (minimum, maximum) in {**TIMING_LIMITS, "budget_fps": (1, 2000)}.items():
         value = scenario.get(key)
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not minimum <= value <= maximum:
             raise LabError(f"scenario.{key} must be between {minimum} and {maximum}.")

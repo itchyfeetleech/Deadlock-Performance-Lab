@@ -191,21 +191,28 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(run["warnings"], ["fps_max: requested 144, read back 120."])
         self.assertNotIn("quality_blockers", run)
 
-    def test_screen_preset_is_fast_and_does_not_edit_workspace(self):
+    def test_plan_timings_override_workspace_without_editing_it(self):
         before = (self.workspace / "lab.json").read_bytes()
-        _, plan = make_plan(self.workspace, ["example-[sl]*"], 1, 47, demo=True, preset="screen")
-        self.assertEqual(plan["context"]["scenario"]["sample_s"], 10)
-        self.assertEqual(plan["context"]["scenario"]["warmup_s"], 5)
+        _, plan = make_plan(self.workspace, ["example-[sl]*"], 1, 47, demo=True,
+                            timing={"sample_s": 10.0, "warmup_s": 5, "settle_s": 0.5, "cooldown_s": 0})
+        scenario = plan["context"]["scenario"]
+        self.assertEqual((scenario["sample_s"], scenario["warmup_s"], scenario["settle_s"], scenario["cooldown_s"]), (10, 5, 0.5, 0))
+        self.assertIsInstance(scenario["sample_s"], int)
         self.assertEqual(len(plan["schedule"]), 4)
         self.assertEqual((self.workspace / "lab.json").read_bytes(), before)
-        self.assertEqual(plan["preset"], "screen")
+        self.assertNotIn("preset", plan)
+        _, plan = make_plan(self.workspace, ["example-low-video"], None, 47, demo=True)
+        self.assertEqual(plan["rounds"], 3)
+        self.assertEqual(plan["context"]["scenario"]["sample_s"], 1)  # lab.json's value
+        for timing in ({"sample_s": 0}, {"warmup_s": -1}, {"cooldown_s": 601}, {"sample_s": "30"}, {"speed": 2}):
+            with self.subTest(timing=timing), self.assertRaises(LabError):
+                make_plan(self.workspace, ["example-low-video"], 1, 47, demo=True, timing=timing)
 
-    def test_cli_presets_use_default_rounds_and_allow_overrides(self):
-        cases = (([], 5), (["--preset", "screen"], 1), (["--preset", "confirm"], 5),
-                 (["--preset", "scout", "--rounds", "3"], 3))
-        for index, (options, expected) in enumerate(cases):
+    def test_cli_plan_takes_rounds_and_timings(self):
+        cases = (([], 3, 30), (["--rounds", "1", "--capture", "10"], 1, 10), (["--rounds", "5", "--warmup", "0"], 5, 30))
+        for index, (options, rounds, capture) in enumerate(cases):
             with self.subTest(options=options), contextlib.redirect_stdout(io.StringIO()):
-                workspace = self.root / f"preset-{index}"
+                workspace = self.root / f"plan-{index}"
                 with patch("deadlock_perf_lab.workspace.discover_install", return_value=None):
                     initialize(workspace)
                 add_profile(workspace, {"id": "manual", "kind": "manual", "description": "test"})
@@ -213,16 +220,14 @@ class WorkflowTests(unittest.TestCase):
                                "--cases", "manual", *options])
                 self.assertEqual(result, 0)
                 plan = read_json(session_path(workspace, "latest") / "plan.json")
-                self.assertEqual(plan["rounds"], expected)
-                self.assertEqual(len(plan["schedule"]), expected * 3)
+                self.assertEqual(plan["rounds"], rounds)
+                self.assertEqual(len(plan["schedule"]), rounds * 3)
+                self.assertEqual(plan["context"]["scenario"]["sample_s"], capture)
 
-    def test_scout_preserves_workspace_and_requires_confirmation(self):
-        before = (self.workspace / "lab.json").read_bytes()
-        session, plan = make_plan(self.workspace, ["example-low-video"], 1, 47, demo=True, preset="scout")
-        self.assertEqual(plan["context"]["scenario"]["sample_s"], 5)
-        self.assertEqual(plan["context"]["scenario"]["warmup_s"], 2)
-        self.assertEqual((self.workspace / "lab.json").read_bytes(), before)
+    def test_one_round_has_no_interval(self):
+        session, plan = make_plan(self.workspace, ["example-low-video"], 1, 47, demo=True)
         with contextlib.redirect_stdout(io.StringIO()):
             run_session(self.workspace, session)
         result = analyze(session)
         self.assertIsNone(result["comparisons"][0]["ci95_pct"])
+        self.assertIsNotNone(result["comparisons"][0]["delta_pct"])

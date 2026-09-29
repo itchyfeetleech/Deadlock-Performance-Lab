@@ -43,7 +43,7 @@ Benchmarks also need native (non-Flatpak) Steam, Deadlock, [MangoHud](https://gi
 
 1. **Set up:** paste one line into Deadlock's Steam launch options, then pick a replay and the moment to measure.
 2. **Configs:** start from your own files, a [Sqooky OptimizationLock](https://github.com/Sqooky/OptimizationLock) preset or an imported file, and tick the settings to change. **Test each setting separately** makes one config per setting.
-3. **Benchmark:** tick configs, pick a length and press **Start**.
+3. **Benchmark:** tick configs, set rounds, timings, FPS limit and graphics API, and press **Start**.
 4. **Results:** a ranking, the full report and a shareable ZIP.
 
 <img src="docs/images/app-results.png" width="860" alt="Results: configs ranked by FPS change against the current setup" />
@@ -72,7 +72,7 @@ To use a config, download its files from the Configs tab and copy them into the 
 | `dpl doctor` · `dpl setup` | Check your PC · print the Steam launch line |
 | `dpl profile add NAME --gameinfo FILE --video FILE` | Save your own files as a config |
 | `dpl profile sweep tests.csv` | One config per `id,cvar,value` row |
-| `dpl plan --cases A,B --preset confirm --fps-max 0` → `dpl run --live` | Plan and run a benchmark |
+| `dpl plan --cases A,B --rounds 5 --capture 30 --fps-max 0` → `dpl run --live` | Plan and run a benchmark |
 | `dpl report --open` · `dpl export --output report.zip` | Open or share a report |
 | `dpl recover` | Put game files back after an interrupted run |
 
@@ -84,7 +84,7 @@ To use a config, download its files from the Configs tab and copy them into the 
 |---|---|
 | [First benchmark](docs/QUICKSTART.md) | Setup and a first run |
 | [Configs](docs/CONFIGS.md) | Presets, settings, `video.txt`, imports, installing a config |
-| [Advanced use](docs/ADVANCED.md) | Many settings at once, run lengths, console cvars, manual captures |
+| [Advanced use](docs/ADVANCED.md) | Benchmark settings, many settings at once, console cvars, manual captures |
 | [Methodology](docs/METHODOLOGY.md) | How captures, metrics and changes are calculated |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | Common problems and recovery |
 | [Changelog](CHANGELOG.md) | Changes per version |

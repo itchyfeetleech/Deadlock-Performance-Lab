@@ -47,7 +47,7 @@ Download its files from the config list (**gameinfo.gi ↓**, **video.txt ↓**)
 ```bash
 dpl profile add my-config --gameinfo ~/Downloads/gameinfo.gi --video ~/Downloads/video.txt
 dpl profile show my-config --diff        # what it would write, against your installed files
-dpl plan --cases my-config --preset confirm --fps-max 0
+dpl plan --cases my-config --rounds 5 --fps-max 0
 dpl run --live
 ```
 

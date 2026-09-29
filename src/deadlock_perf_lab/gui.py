@@ -33,19 +33,18 @@ import webbrowser
 from . import __version__
 from .analysis import analyze, capture_notes, timings
 from . import configs
-from .planning import PRESETS, make_plan
+from .planning import DEFAULT_ROUNDS, MAX_ROUNDS, make_plan
 from .profiles import DEMO_PROFILES, add_profile, catalog
 from .report import bundle, generate_report
 from .runner import recover, request_cancel, runner_alive
 from .storage import LabError, atomic_write, read_json
 from .system import detect_conditions, discover_install, doctor, find_replays, process_start_time
-from .workspace import ensure_workspace, launch_options, save_settings
+from .workspace import TIMING_LIMITS, ensure_workspace, launch_options, save_settings
 
 NAME = "Deadlock Performance Lab"
 IDLE_EXIT_S = 30 * 60
 LAUNCH_OVERHEAD_S = 20  # Typical Steam launch, replay load and shutdown per capture.
 DEMO_CASES = [p["id"] for p in DEMO_PROFILES]
-PRESET_ROUNDS = {"scout": 1, "screen": 1, "confirm": 5}
 
 
 def state_file() -> Path:
@@ -121,7 +120,8 @@ class App:
             names = [{"id": k, "name": v.get("name", k)} for k, v in plan["profiles"].items() if k != "baseline"]
             cached = (mtime, {
                 "id": plan["id"], "created_at": plan.get("created_at"), "synthetic": plan["synthetic"],
-                "manual": bool(plan.get("manual")), "preset": plan.get("preset", "custom"), "rounds": plan["rounds"],
+                "manual": bool(plan.get("manual")), "rounds": plan["rounds"],
+                "sample_s": plan["context"]["scenario"].get("sample_s"),
                 "cases": names, "mode": plan["context"]["scenario"].get("mode"),
             })
             self.summaries[session.name] = cached
@@ -183,7 +183,8 @@ class App:
             "launch_options": launch_options(self.workspace),
             "detected": detect_conditions(install),
             "replays": find_replays(install), "profiles": profiles, "profile_error": profile_error,
-            "presets": {name: {**PRESETS[name], "rounds": PRESET_ROUNDS[name]} for name in PRESET_ROUNDS},
+            "benchmark": {"rounds": DEFAULT_ROUNDS, "max_rounds": MAX_ROUNDS,
+                          **{k: scenario[k] for k in TIMING_LIMITS}},
             "launch_overhead_s": LAUNCH_OVERHEAD_S, "sessions": sessions, "running": self.running(),
             "ready": {"tools": all(c["ok"] for c in checks if c["required"] and c["check"] != "Game closed"),
                       "game_closed": next((c["ok"] for c in checks if c["check"] == "Game closed"), True),
@@ -265,17 +266,15 @@ class App:
         cases = [str(c) for c in body.get("cases") or []]
         if not cases:
             raise LabError("Pick at least one configuration to compare with your current setup.")
-        preset = body.get("preset", "screen")
-        if preset not in PRESET_ROUNDS:
-            raise LabError("Unknown benchmark length.")
-        rounds = int(body.get("rounds") or PRESET_ROUNDS[preset])
+        rounds = body.get("rounds")
+        timing = {k: body[k] for k in TIMING_LIMITS if body.get(k) is not None}
         fps_max = body.get("fps_max")
         fps_max = None if fps_max in (None, "", "keep") else int(fps_max)
         available = catalog(self.workspace)
         experimental = any(available.get(c, {}).get("kind") == "gameinfo" for c in cases)
         self.preflight(config)
         session, _ = make_plan(self.workspace, cases, rounds, secrets.randbelow(1_000_000),
-                               experimental=experimental, preset=preset, fps_max=fps_max,
+                               experimental=experimental, timing=timing, fps_max=fps_max,
                                renderer=str(body.get("renderer") or "default"))
         self.spawn(session, live=True)
         return {"session": session.name}
@@ -295,24 +294,15 @@ class App:
                          "ci": c["ci95_pct"]})
         rows.sort(key=lambda r: r["delta_pct"], reverse=True)
         base = report["baseline"]
-        return {"rows": rows, "rounds": plan["rounds"], "synthetic": plan["synthetic"], "baseline_fps": base["avg_fps"],
-                "baseline_cv_pct": base["cv_pct"], "baseline_drift_pct": base["drift_pct"],
-                "fps_max": scenario.get("fps_max"), "launch_flags": scenario.get("launch_flags", [])}
-
-    def retest(self, body: dict) -> dict:
-        """A fresh Confirm-length benchmark of this session's top configs, with the same run settings."""
-        ranking = self.ranking(body.get("session"))
-        if ranking["synthetic"]:
-            raise LabError("The example report uses made-up data; run a real benchmark first.")
-        top = max(1, min(int(body.get("top") or 5), 30))
-        cases = [r["case"] for r in ranking["rows"][:top]]
-        available = catalog(self.workspace)
-        missing = [c for c in cases if c not in available]
-        if missing:
-            raise LabError("These configs no longer exist, so they can't be re-tested: " + ", ".join(missing))
-        flags = ranking["launch_flags"]
-        renderer = "vulkan" if "-vulkan" in flags else "dx11" if "-dx11" in flags else "default"
-        return self.benchmark({"cases": cases, "preset": "confirm", "fps_max": ranking["fps_max"], "renderer": renderer})
+        flags = scenario.get("launch_flags", [])
+        # The session's run settings, so the app can benchmark its best configs again the same way.
+        settings = {"rounds": plan["rounds"], "fps_max": scenario.get("fps_max"),
+                    "renderer": "vulkan" if "-vulkan" in flags else "dx11" if "-dx11" in flags else "default",
+                    **{k: scenario.get(k) for k in TIMING_LIMITS}}
+        return {"rows": rows, "rounds": plan["rounds"], "synthetic": plan["synthetic"], "manual": bool(plan.get("manual")),
+                "baseline_fps": base["avg_fps"],
+                "baseline_cv_pct": base["cv_pct"], "baseline_drift_pct": base["drift_pct"], "settings": settings,
+                "fps_max": scenario.get("fps_max"), "launch_flags": flags}
 
     def start(self, body: dict) -> dict:
         session = self.session(body.get("session"))
@@ -626,7 +616,6 @@ class Handler(BaseHTTPRequestHandler):
             "/api/configs/parse": lambda: app.parse_source(str(body.get("part")), str(body.get("content", ""))),
             "/api/configs/delete": lambda: app.delete_config(body),
             "/api/configs/save-each": lambda: app.save_each(body),
-            "/api/retest": lambda: app.retest(body),
             "/api/recover": lambda: {"restored": recover(app.workspace, force=False)},
             "/api/shortcut": lambda: {"path": str(install_shortcut(app.workspace))},
             "/api/open-folder": lambda: app.open_folder(body),
