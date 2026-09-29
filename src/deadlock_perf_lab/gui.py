@@ -31,7 +31,7 @@ import urllib.request
 import webbrowser
 
 from . import __version__
-from .analysis import timings
+from .analysis import analyze, timings
 from .imports import REVIEWABLE, review_run
 from . import configs
 from .planning import PRESETS, make_plan
@@ -288,6 +288,40 @@ class App:
         self.spawn(session, live=True)
         return {"session": session.name}
 
+    def ranking(self, session_id: str) -> dict:
+        """Configs ordered by average-FPS change against this session's baselines."""
+        session = self.session(session_id)
+        report = analyze(session)
+        plan = read_json(session / "plan.json")
+        scenario = plan["context"]["scenario"]
+        rows = []
+        for c in report["comparisons"]:
+            if c["delta_pct"] is None:
+                continue
+            rows.append({"case": c["case"], "name": c["name"], "avg_fps": c["avg_fps"], "delta_pct": c["delta_pct"],
+                         "low_1_delta_pct": c["low_1_delta_pct"], "rounds": len(c["paired_rounds"]),
+                         "verdict": c["verdict"], "ci": c["ci95_pct"]})
+        rows.sort(key=lambda r: r["delta_pct"], reverse=True)
+        base = report["baseline"]
+        return {"rows": rows, "rounds": plan["rounds"], "synthetic": plan["synthetic"], "baseline_fps": base["avg_fps"],
+                "baseline_cv_pct": base["cv_pct"], "baseline_drift_pct": base["drift_pct"],
+                "fps_max": scenario.get("fps_max"), "launch_flags": scenario.get("launch_flags", [])}
+
+    def retest(self, body: dict) -> dict:
+        """A fresh Confirm-length benchmark of this session's top configs, with the same run settings."""
+        ranking = self.ranking(body.get("session"))
+        if ranking["synthetic"]:
+            raise LabError("The example report uses made-up data; run a real benchmark first.")
+        top = max(1, min(int(body.get("top") or 5), 30))
+        cases = [r["case"] for r in ranking["rows"][:top]]
+        available = catalog(self.workspace)
+        missing = [c for c in cases if c not in available]
+        if missing:
+            raise LabError("These configs no longer exist, so they can't be re-tested: " + ", ".join(missing))
+        flags = ranking["launch_flags"]
+        renderer = "vulkan" if "-vulkan" in flags else "dx11" if "-dx11" in flags else "default"
+        return self.benchmark({"cases": cases, "preset": "confirm", "fps_max": ranking["fps_max"], "renderer": renderer})
+
     def start(self, body: dict) -> dict:
         session = self.session(body.get("session"))
         plan = read_json(session / "plan.json")
@@ -357,15 +391,23 @@ class App:
         except (LabError, OSError):
             current = {}
         result["video"] = configs.video_catalog(list(current))
+        try:
+            # Description, default and flags for any cvar, so every row can show them.
+            result["reference"] = {k: [v["default"], v["description"], v["flags"]] for k, v in self.reference().items()}
+        except LabError:
+            result["reference"] = {}
         return result
+
+    def reference(self) -> dict:
+        if not hasattr(self, "_reference"):
+            self._reference = configs.reference(self.workspace)
+        return self._reference
 
     def cvar_search(self, query: str) -> list[dict]:
         query = query.strip().lower()
         if len(query) < 2:
             return []
-        if not hasattr(self, "_reference"):
-            self._reference = configs.reference(self.workspace)
-        hits = [v for k, v in self._reference.items() if query in k]
+        hits = [v for k, v in self.reference().items() if query in k]
         hits.sort(key=lambda v: (not v["name"].lower().startswith(query), len(v["name"])))
         return hits[:40]
 
@@ -379,15 +421,18 @@ class App:
                 result[part]["base_settings"] = self.parse_source(part, profile[part]["content"])["settings"]
         return result
 
-    def build_config(self, body: dict) -> dict:
+    def fill_imported(self, body: dict) -> None:
+        """Imported files stay on the server: editing or copying a config reuses them."""
         available = catalog(self.workspace)
         for part in ("gameinfo", "video"):
             spec = body.get(part)
             if isinstance(spec, dict) and spec.get("source") == "file" and not spec.get("content"):
-                # Imported files stay on the server; editing or copying a config reuses them.
                 existing = available.get(body.get("id") or spec.get("copy_of") or "") or {}
                 previous = existing.get(part) or {}
                 spec.update(content=previous.get("content", ""), filename=previous.get("filename"))
+
+    def build_config(self, body: dict) -> dict:
+        self.fill_imported(body)
         return configs.build(self.workspace, body)
 
     def save_config(self, body: dict) -> dict:
@@ -400,12 +445,40 @@ class App:
         add_profile(self.workspace, profile, replace=bool(body.get("id")))
         return {"id": profile["id"], "description": profile["description"]}
 
+    def save_each(self, body: dict) -> dict:
+        """Create one config per ticked setting and value (see configs.build_each)."""
+        install = self.installed()
+        self.fill_imported(body)
+        profiles = configs.build_each(self.workspace, install, body)
+        taken = set(catalog(self.workspace))
+        created, skipped = [], []
+        for profile in profiles:
+            base, n = profile["id"], 2
+            while profile["id"] in taken:
+                profile["id"], n = f"{base[:60]}-{n}", n + 1
+            try:
+                configs.materialize(profile, install)
+            except LabError as exc:
+                skipped.append({"name": profile["name"], "reason": str(exc).replace(profile["name"], "it")})
+                continue
+            add_profile(self.workspace, profile)
+            taken.add(profile["id"])
+            created.append(profile["id"])
+        if not created:
+            raise LabError("Nothing to create: " + "; ".join(s["reason"] for s in skipped[:3]))
+        return {"created": created, "skipped": skipped, "batch": profiles[0].get("batch")}
+
     def delete_config(self, body: dict) -> dict:
-        profile = catalog(self.workspace).get(str(body.get("id")))
-        if not profile or profile.get("category") != "custom":
-            raise LabError("Only your own configs can be deleted.")
-        (self.workspace / "profiles" / f"{profile['id']}.json").unlink()
-        return {"deleted": profile["id"]}
+        available = catalog(self.workspace)
+        ids = body.get("ids") or [body.get("id")]
+        removed = []
+        for config_id in map(str, ids):
+            profile = available.get(config_id)
+            if not profile or profile.get("category") != "custom":
+                raise LabError("Only your own configs can be deleted.")
+            (self.workspace / "profiles" / f"{profile['id']}.json").unlink()
+            removed.append(config_id)
+        return {"deleted": removed}
 
     def config_file(self, config_id: str, name: str) -> bytes:
         profile = catalog(self.workspace).get(config_id)
@@ -531,6 +604,8 @@ class Handler(BaseHTTPRequestHandler):
                                  {"Content-Disposition": f'attachment; filename="{match[2]}"'})
             if match := re.fullmatch(r"/api/configs/([a-z0-9_-]+)", path):
                 return self.json(app.saved_config(match[1]))
+            if match := re.fullmatch(r"/api/session/([A-Za-z0-9_-]+)/ranking", path):
+                return self.json(app.ranking(match[1]))
             if path.startswith("/api/session/"):
                 return self.json(app.detail(unquote(path.rsplit("/", 1)[1])))
             if match := re.fullmatch(r"/report/([A-Za-z0-9_-]+)/?", path):
@@ -569,6 +644,8 @@ class Handler(BaseHTTPRequestHandler):
             "/api/configs/preview": lambda: configs.preview(app.build_config(body), app.installed()),
             "/api/configs/parse": lambda: app.parse_source(str(body.get("part")), str(body.get("content", ""))),
             "/api/configs/delete": lambda: app.delete_config(body),
+            "/api/configs/save-each": lambda: app.save_each(body),
+            "/api/retest": lambda: app.retest(body),
             "/api/recover": lambda: {"restored": recover(app.workspace, force=False)},
             "/api/shortcut": lambda: {"path": str(install_shortcut(app.workspace))},
             "/api/open-folder": lambda: app.open_folder(body),

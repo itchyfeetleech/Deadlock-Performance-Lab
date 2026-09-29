@@ -11,6 +11,7 @@ from deadlock_perf_lab import configs
 from deadlock_perf_lab.cli import main
 from deadlock_perf_lab.gui import App
 from deadlock_perf_lab.planning import make_plan
+from deadlock_perf_lab.runner import run_session
 from deadlock_perf_lab.profiles import add_profile, catalog
 from deadlock_perf_lab.storage import LabError, read_json, write_json
 from deadlock_perf_lab.workspace import initialize
@@ -237,3 +238,100 @@ class ConfigAppTests(ConfigFixture):
         self.assertNotIn("cfg-mine", catalog(self.workspace))
         with self.assertRaises(LabError):
             self.app.delete_config({"id": "baseline"})
+
+
+class BatchAndRankingTests(ConfigFixture):
+    def setUp(self):
+        super().setUp()
+        env = patch.dict(os.environ, {"HOME": str(self.root)})
+        env.start()
+        self.addCleanup(env.stop)
+        self.app = App(self.workspace)
+
+    def batch_body(self, **extra):
+        return {"batch": "Shadows", "gameinfo": {"source": "current"},
+                "tests": [{"part": "gameinfo", "name": "r_shadows", "values": ["0", "2", "2"]},
+                          {"part": "gameinfo", "name": "r_farz", "values": ["6000"]},
+                          {"part": "video", "name": "setting.r_citadel_ssao_quality", "values": ["0"]}],
+                "video": {"source": "current", "keep_display": True}, **extra}
+
+    def test_one_config_per_setting_and_value_each_changing_only_that_setting(self):
+        profiles = configs.build_each(self.workspace, self.install, self.batch_body(combined=True))
+        self.assertEqual([p["name"] for p in profiles], [
+            "Shadows: r_shadows = 0", "Shadows: r_shadows = 2", "Shadows: r_farz = 6000",
+            "Shadows: setting.r_citadel_ssao_quality = 0", "Shadows: all together"])  # duplicate value dropped
+        self.assertTrue(all(p["batch"] == "Shadows" for p in profiles))
+        first = profiles[0]
+        self.assertEqual(first["gameinfo"]["overrides"], {"r_shadows": "0"})
+        self.assertNotIn("video", first)
+        self.assertEqual(first["description"], "Changes only r_shadows: 1 → 0.")
+        self.assertEqual(profiles[3]["video"]["overrides"], {"setting.r_citadel_ssao_quality": "0"})
+        together = profiles[-1]
+        self.assertEqual(together["gameinfo"]["overrides"], {"r_shadows": "0", "r_farz": "6000"})
+        self.assertEqual(together["video"]["overrides"], {"setting.r_citadel_ssao_quality": "0"})
+
+    def test_batch_validation(self):
+        for body in ({"tests": []}, self.batch_body(tests=[{"part": "gameinfo", "name": "r_shadows", "values": []}]),
+                     self.batch_body(tests=[{"part": "gameinfo", "name": "bind", "values": ["1"]}]),
+                     self.batch_body(tests=[{"part": "gameinfo", "name": "r_shadows", "values": ['1"; quit']}]),
+                     self.batch_body(tests=[{"part": "other", "name": "x", "values": ["1"]}]),
+                     self.batch_body(tests=[{"part": "gameinfo", "name": "r_farz", "values": [str(i) for i in range(101)]}])):
+            with self.subTest(body=str(body)[:60]), self.assertRaises(LabError):
+                configs.build_each(self.workspace, self.install, body)
+
+    def test_save_each_skips_no_ops_and_never_overwrites(self):
+        app = self.app
+        body = {"batch": "Culling", "gameinfo": {"source": "current"}, "video": {"source": "current"},
+                "tests": [{"part": "gameinfo", "name": "r_shadows", "values": ["1", "0"]}]}  # 1 is what you already have
+        result = app.save_each(body)
+        self.assertEqual(len(result["created"]), 1)
+        self.assertEqual(result["skipped"][0]["reason"], "it is identical to your current files.")
+        again = app.save_each({**body, "tests": [{"part": "gameinfo", "name": "r_shadows", "values": ["0"]}]})
+        self.assertNotEqual(again["created"], result["created"])  # the same test saved twice gets its own id
+        self.assertEqual(len(catalog(self.workspace)), 3)  # baseline plus the two configs
+        with self.assertRaisesRegex(LabError, "Nothing to create"):
+            app.save_each({**body, "tests": [{"part": "gameinfo", "name": "r_shadows", "values": ["1"]}]})
+        app.delete_config({"ids": result["created"] + again["created"]})
+        self.assertEqual(list(catalog(self.workspace)), ["baseline"])
+
+    def test_batch_from_an_imported_file_reuses_it_when_editing(self):
+        imported = configs.set_convars(CURRENT_GI, {"r_shadows": "0"})
+        self.app.save_config({"name": "Mine", "gameinfo": {"source": "file", "filename": "g.gi", "content": imported,
+                                                            "overrides": {"fps_max": "300"}}})
+        result = self.app.save_each({"gameinfo": {"source": "file", "copy_of": "cfg-mine"}, "video": {"source": "current"},
+                                     "tests": [{"part": "gameinfo", "name": "r_farz", "values": ["5000"]}]})
+        profile = catalog(self.workspace)[result["created"][0]]
+        self.assertEqual(configs.convars(profile["gameinfo"]["content"])["r_shadows"], "0")
+
+    def test_reference_gives_every_row_defaults_and_flags(self):
+        reference = "Name | Description | Default Value | Flags\n---- | --- | --- | ---\nr_farz | Far plane | -1 | \nfoo_dev |  | 3 | devonly, cl\n"
+        with patch("deadlock_perf_lab.configs.fetch", return_value=(reference, {})):
+            catalog_ = self.app.config_catalog()
+        self.assertEqual(catalog_["reference"]["r_farz"], ["-1", "Far plane", ""])
+        self.assertEqual(catalog_["reference"]["foo_dev"][2], "devonly, cl")
+
+    def test_ranking_orders_by_change_and_retest_reuses_run_settings(self):
+        app = self.app
+        session, plan = make_plan(self.workspace, ["example-low-video", "example-shadows-off", "example-optimizationlock"],
+                                  2, 47, demo=True, fps_max=0, renderer="vulkan")
+        with contextlib.redirect_stdout(io.StringIO()):
+            run_session(self.workspace, session)
+        ranking = app.ranking(session.name)
+        self.assertEqual([r["case"] for r in ranking["rows"]],
+                         ["example-low-video", "example-optimizationlock", "example-shadows-off"])
+        self.assertTrue(ranking["synthetic"])
+        self.assertEqual((ranking["fps_max"], ranking["launch_flags"]), (0, ["-vulkan"]))
+        self.assertIsNotNone(ranking["baseline_cv_pct"])
+        with self.assertRaisesRegex(LabError, "made-up data"):
+            app.retest({"session": session.name})
+        # A real session inherits fps limit and renderer, and only the top N are re-tested.
+        real = {**ranking, "synthetic": False}
+        for name in ("a", "b", "c"):
+            add_profile(self.workspace, configs.build(self.workspace, {
+                "name": name, "gameinfo": {"source": "current", "overrides": {"r_farz": "5"}}, "id": f"cfg-{name}"}))
+        real["rows"] = [{**r, "case": f"cfg-{n}"} for r, n in zip(real["rows"], "abc")]
+        started = {}
+        with patch.object(app, "ranking", return_value=real), \
+                patch.object(app, "benchmark", side_effect=lambda body: started.update(body) or {"session": "s"}):
+            app.retest({"session": "s", "top": 2})
+        self.assertEqual(started, {"cases": ["cfg-a", "cfg-b"], "preset": "confirm", "fps_max": 0, "renderer": "vulkan"})

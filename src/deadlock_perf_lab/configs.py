@@ -400,9 +400,85 @@ def build(workspace: Path, body: dict) -> dict:
             raise LabError("Choose which preset to start from.")
         if out["source"] != "current" or out["overrides"]:
             profile[part] = out
+    if body.get("batch"):
+        profile["batch"] = " ".join(str(body["batch"]).split())[:80]
     profile["description"] = " ".join(str(body.get("description", "")).split())[:300] or summary(profile)
     validate_config(profile)
     return profile
+
+
+MAX_BATCH = 100
+
+
+def slug(value: str, limit: int = 40) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", str(value).lower()).strip("-")[:limit] or "x"
+
+
+def starting_settings(workspace: Path, install: Path, part: str, spec: dict) -> dict[str, str]:
+    """Settings (lowercase names) in the file a part starts from, to say what a test changes."""
+    source = spec.get("source", "current")
+    if source == "current":
+        path = install_file(install, part)
+        text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    elif source == "file":
+        text = str(spec.get("content", ""))
+    else:
+        text, _ = preset_text(workspace, part, source)
+    try:
+        values = convars(text) if part == "gameinfo" else video_settings(text)
+    except LabError:
+        return {}
+    return {k.lower(): v for k, v in values.items()}
+
+
+def build_each(workspace: Path, install: Path, body: dict) -> list[dict]:
+    """One config per (setting, value), so each setting's effect is measured on its own.
+
+    body: batch (label), gameinfo/video (how each file starts, as in build),
+    tests [{part, name, values}], combined (also one config with every first value).
+    Every config starts from the same file and changes exactly one setting.
+    """
+    tests = body.get("tests")
+    if not isinstance(tests, list) or not tests:
+        raise LabError("Tick at least one setting to test.")
+    label = " ".join(str(body.get("batch") or "").split())[:60]
+    batch = label or "Single-setting tests · " + datetime.now().strftime("%Y-%m-%d %H:%M")
+    starts = {}
+    profiles, seen = [], set()
+    for test in tests:
+        part, name = test.get("part"), str(test.get("name", "")).strip()
+        if part not in {"gameinfo", "video"} or not isinstance(body.get(part), dict):
+            raise LabError(f"Unknown file for {name or 'a setting'}.")
+        values = [str(v).strip() for v in test.get("values") or []]
+        if not name or not values or any(not v for v in values):
+            raise LabError(f"{name or 'A setting'} needs at least one value.")
+        spec = body[part]
+        if part not in starts:
+            starts[part] = starting_settings(workspace, install, part, spec)
+        before = starts[part].get(name.lower())
+        for value in dict.fromkeys(values):
+            if (part, name.lower(), value) in seen:
+                continue
+            seen.add((part, name.lower(), value))
+            title = f"{label}: {name} = {value}" if label else f"{name} = {value}"
+            profile = build(workspace, {
+                "name": title, "batch": batch, "id": f"cfg-{slug(name, 32)}-{slug(value, 12)}",
+                "description": f"Changes only {name}: {'not set' if before is None else before} → {value}."
+                               + (" (Starts from the selected preset or file.)" if spec.get("source", "current") != "current" else ""),
+                part: {**spec, "overrides": {name: value}}})
+            profiles.append(profile)
+    if body.get("combined") and len(tests) > 1:
+        combined = {"name": f"{label}: all together" if label else "All ticked settings together", "batch": batch,
+                    "id": "cfg-" + slug(label or "all-together", 40) + "-together",
+                    "description": "Every ticked setting at once, using the first value of each."}
+        for part in ("gameinfo", "video"):
+            over = {t["name"]: str(t["values"][0]).strip() for t in tests if t.get("part") == part}
+            if over:
+                combined[part] = {**body[part], "overrides": over}
+        profiles.append(build(workspace, combined))
+    if len(profiles) > MAX_BATCH:
+        raise LabError(f"That would create {len(profiles)} configs. The limit is {MAX_BATCH} at a time.")
+    return profiles
 
 
 def diff(before: str, after: str | None, name: str) -> str:

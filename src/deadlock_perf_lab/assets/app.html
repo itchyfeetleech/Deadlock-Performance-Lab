@@ -239,6 +239,18 @@
       pre.diff .del { color: var(--red); }
       pre.diff .hunk { color: var(--blue); }
       .cfg-card .what p { margin: 2px 0 0; }
+      details.cat > .cfg-card { border-radius: 0; border-width: 1px 0 0; background: none; }
+      details.cat > summary .danger { font-size: 12px; padding: 3px 8px; }
+      .flag { font: 10px var(--mono); padding: 1px 5px; margin-left: 6px; border: 1px solid #6b5a2c; color: var(--amber); border-radius: 4px; cursor: help; }
+      .delta-pos { color: var(--green); }
+      .delta-neg { color: var(--red); }
+      .rank { margin-bottom: 18px; }
+      .rank h3 { margin-bottom: 4px; }
+      .retest { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: 8px; }
+      .retest input { width: 70px; padding: 5px 8px; }
+      .batch { border: 1px solid var(--accent); border-radius: 10px; padding: 16px; margin-top: 16px; background: #1d2118; }
+      .brow { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line-soft); }
+      .brow small { display: block; color: var(--muted); }
       .empty { text-align: center; padding: 34px 20px; color: var(--muted); }
       #toast {
         position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); max-width: min(680px, calc(100% - 32px));
@@ -255,6 +267,7 @@
         .srow { grid-template-columns: 22px minmax(0, 1fr); }
         .srow .ctl { grid-column: 2; justify-content: flex-start; }
         .parts button { padding: 8px 10px; }
+        .brow { grid-template-columns: 1fr; }
         ul.checks li { grid-template-columns: 22px 1fr; }
         ul.checks .d { grid-column: 2; }
         .review ul { columns: 1; }
@@ -436,10 +449,12 @@
           <div class="go">
             <div class="estimate" id="cfg-summary"></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button id="cfg-each" title="Create one config per ticked setting, so each one's effect is measured on its own">Test each setting separately…</button>
               <button id="cfg-preview">Preview file changes</button>
               <button class="primary" id="cfg-save">Save config</button>
             </div>
           </div>
+          <div id="batch-box"></div>
           <div id="cfg-preview-box"></div>
         </section>
       </main>
@@ -736,6 +751,7 @@
         "setting.mat_vsync", "setting.monitor_index", "setting.aspectratiomode", "setting.high_dpi",
         "setting.fullscreen_min_on_focus_loss", "setting.recommendedheight", "setting.r_fullscreen_gamma"];
       let CAT = null; // settings catalogue and preset list
+      let REF = {}; // every documented cvar: lowercase name -> [default, description, flags]
       let catLoading = null;
       const CUR = { gameinfo: null, video: null }; // your installed files' settings
       let B = null; // the config being edited
@@ -747,6 +763,7 @@
         if (CAT && !refresh) return CAT;
         catLoading = catLoading || api("/api/configs/catalog" + (refresh ? "?refresh=1" : "")).finally(() => (catLoading = null));
         CAT = await catLoading;
+        REF = CAT.reference || {};
         return CAT;
       }
       async function loadCurrent(part) {
@@ -757,10 +774,7 @@
         return CUR[part];
       }
 
-      function renderConfigList() {
-        const list = configs();
-        $("#tab-configs").classList.toggle("done", list.length > 0);
-        $("#config-list").innerHTML = list.length ? list.map((p) => `<div class="session cfg-card"><div class="row">
+      const cfgCard = (p) => `<div class="session cfg-card"><div class="row">
             <div class="what"><strong>${esc(p.name)}</strong>${p.kind !== "config" ? `<span class="badge">${esc(p.kind)}</span>` : ""}
               <p class="small muted">${esc(p.description)}</p></div>
             <div class="actions">
@@ -768,7 +782,22 @@
               ${p.gameinfo ? `<a href="/api/configs/${esc(p.id)}/gameinfo.gi" title="Download the finished file to install it yourself">gameinfo.gi ↓</a>` : ""}
               ${p.video ? `<a href="/api/configs/${esc(p.id)}/video.txt" title="Download the finished file to install it yourself">video.txt ↓</a>` : ""}
               ${p.category === "custom" ? `<button data-delete="${esc(p.id)}" class="danger">Delete</button>` : ""}
-            </div></div></div>`).join("")
+            </div></div></div>`;
+      function byBatch(list) {
+        const groups = {};
+        for (const p of list) if (p.batch) (groups[p.batch] ||= []).push(p);
+        return { loose: list.filter((p) => !p.batch), batches: Object.entries(groups) };
+      }
+      let shownBatches = [];
+      function renderConfigList() {
+        const list = configs();
+        $("#tab-configs").classList.toggle("done", list.length > 0);
+        const { loose, batches } = byBatch(list);
+        shownBatches = batches;
+        $("#config-list").innerHTML = list.length
+          ? loose.map(cfgCard).join("") + batches.map(([name, items], i) => `<details class="cat" ${batches.length === 1 && !loose.length ? "open" : ""}>
+              <summary><strong>${esc(name)}</strong><span>${items.length} config${items.length === 1 ? "" : "s"}</span>
+              <button class="danger" data-delete-batch="${i}">Delete all</button></summary>${items.map(cfgCard).join("")}</details>`).join("")
           : `<div class="panel empty"><p>No configs yet. Press <strong>New config</strong> and start from your own files or Sqooky's OptimizationLock.</p></div>`;
       }
       $("#config-list").addEventListener("click", (e) => {
@@ -778,6 +807,12 @@
         if (b.dataset.copy) openBuilder(b.dataset.copy, true);
         if (b.dataset.delete && confirm("Delete this config? Past results keep their own copy."))
           act(b, async () => { await api("/api/configs/delete", { id: b.dataset.delete }); await refresh(); toast("Config deleted."); });
+        if (b.dataset.deleteBatch !== undefined) {
+          e.preventDefault(); // the button sits inside a <summary>
+          const [name, items] = shownBatches[+b.dataset.deleteBatch];
+          if (confirm(`Delete all ${items.length} configs in "${name}"? Past results keep their own copies.`))
+            act(b, async () => { await api("/api/configs/delete", { ids: items.map((p) => p.id) }); await refresh(); toast("Configs deleted."); });
+        }
       });
       $("#new-config").onclick = () => openBuilder();
       $("#builder-close").onclick = () => { $("#builder").classList.add("hidden"); B = null; };
@@ -786,6 +821,7 @@
         B = { id: copy ? null : id, part: "gameinfo", gameinfo: blankPart(), video: blankPart() };
         $("#builder").classList.remove("hidden");
         $("#cfg-preview-box").innerHTML = "";
+        $("#batch-box").innerHTML = "";
         $("#builder-title").textContent = !id ? "New config" : copy ? "Copy of config" : "Edit config";
         $("#cfg-name").value = "";
         $("#cfg-notes").value = "";
@@ -823,7 +859,9 @@
         if (kind === "bool") {
           const words = values.some((v) => /^(true|false)$/i.test(String(v)));
           const on = ["true", "1"].includes(String(value).toLowerCase());
-          return `<label class="switch"><input type="checkbox" class="v-bool" data-words="${words ? 1 : 0}" ${on ? "checked" : ""} /> <span>${on ? "On" : "Off"}</span></label>`;
+          const sw = `<label class="switch"><input type="checkbox" class="v-bool" data-words="${words ? 1 : 0}" ${on ? "checked" : ""} /> <span>${on ? "On" : "Off"}</span></label>`;
+          // 0/1 alone can't tell an on/off setting from a count or size that happens to be 0 or 1, so also offer a number box.
+          return words ? sw : `${sw}<input type="number" class="v" step="any" value="${esc(value)}" title="Type any number for settings that take more than on/off" />`;
         }
         if (kind === "num") {
           const nums = values.filter((v) => v != null && v !== "" && isFinite(Number(v))).map(Number);
@@ -838,6 +876,10 @@
       const ovKey = (P, name) => Object.keys(P.overrides).find((k) => k.toLowerCase() === name.toLowerCase());
       function settingRow(part, s, base, mine) {
         const P = B[part];
+        // Every row gets a description and default from the upstream cvar reference when its own source has none.
+        const ref = part === "gameinfo" ? REF[s.name.toLowerCase()] : null;
+        s = { ...s, default: s.default ?? (ref && ref[0] !== "" ? ref[0] : undefined), description: s.description || (ref && ref[1]) || "" };
+        const flags = ref && s.suggested === undefined ? ref[2] : ""; // only warn on settings the preset doesn't vouch for
         const key = ovKey(P, s.name);
         const on = key !== undefined;
         const locked = part === "video" && P.source !== "current" && P.keep_display && DISPLAY_KEYS.includes(s.name.toLowerCase());
@@ -852,7 +894,7 @@
         const hay = `${s.name} ${s.label || ""} ${s.description || ""}`.toLowerCase();
         return `<div class="srow ${on ? "on" : ""} ${locked ? "locked" : ""}" data-name="${esc(s.name)}" data-hay="${esc(hay)}">
           <input type="checkbox" class="tick" ${on ? "checked" : ""} ${locked ? "disabled" : ""} title="Change this setting" aria-label="Change ${esc(s.name)}" />
-          <div>${s.label ? `<span class="label2">${esc(s.label)}</span>` : ""}<code>${esc(s.name)}</code>
+          <div>${s.label ? `<span class="label2">${esc(s.label)}</span>` : ""}<code>${esc(s.name)}</code>${/devonly/.test(flags) ? `<span class="flag" title="Marked developer-only upstream: changing it may do nothing in a normal game.">dev-only</span>` : ""}${/cheat/.test(flags) ? `<span class="flag" title="Marked as needing cheats upstream: it may not apply in a replay or match.">cheat</span>` : ""}
             ${s.description ? `<p class="desc">${esc(s.description)}</p>` : ""}
             <div class="vals">${locked ? "kept from your file · " : ""}${vals.join(" · ")}</div></div>
           <div class="ctl">${locked ? "" : control(kindOf(values), value, values)}</div></div>`;
@@ -981,10 +1023,10 @@
         updateCounts();
       }
       function controlValue(r) {
-        const b = $(".v-bool", r);
-        if (b) return b.dataset.words === "1" ? (b.checked ? "true" : "false") : (b.checked ? "1" : "0");
         const v = $(".v", r);
-        return v ? v.value.trim() : "";
+        if (v) return v.value.trim();
+        const b = $(".v-bool", r);
+        return b ? (b.dataset.words === "1" ? (b.checked ? "true" : "false") : (b.checked ? "1" : "0")) : "";
       }
       $("#part-body").addEventListener("input", (e) => {
         const r = e.target.closest(".srow");
@@ -993,7 +1035,15 @@
         if (!r) return;
         if (e.target.classList.contains("v-range")) $(".v", r).value = e.target.value;
         if (e.target.classList.contains("v") && $(".v-range", r)) $(".v-range", r).value = e.target.value;
-        if (e.target.classList.contains("v-bool")) e.target.nextElementSibling.textContent = e.target.checked ? "On" : "Off";
+        if (e.target.classList.contains("v-bool")) {
+          e.target.nextElementSibling.textContent = e.target.checked ? "On" : "Off";
+          if ($(".v", r)) $(".v", r).value = e.target.checked ? "1" : "0";
+        }
+        if (e.target.classList.contains("v") && $(".v-bool", r)) {
+          const on = Number(e.target.value) !== 0 && e.target.value.trim() !== "";
+          $(".v-bool", r).checked = on;
+          $(".v-bool", r).nextElementSibling.textContent = on ? "On" : "Off";
+        }
         if (!e.target.classList.contains("tick")) setOverride(r, controlValue(r));
       });
       $("#part-body").addEventListener("change", (e) => {
@@ -1084,18 +1134,89 @@
         toast("Config saved. It's ticked on the Benchmark tab.");
       });
 
+      // ---------------------------------------------------------------- test each setting separately
+      const valuesOf = (row) => [...new Set($("input", row).value.split(",").map((v) => v.trim()).filter(Boolean))];
+      function partSpec(part) {
+        const P = B[part], spec = { source: P.source, keep_display: P.keep_display };
+        if (P.source === "file") Object.assign(spec, { content: P.content || "", filename: P.filename, copy_of: P.copyOf || B.id || null });
+        return spec;
+      }
+      function updateBatchSummary() {
+        const n = $$("#batch-box .brow").reduce((sum, r) => sum + valuesOf(r).length, 0);
+        const many = $$("#batch-box .brow").length > 1 && $("#batch-combined").checked ? 1 : 0;
+        const total = n + many, v = S.presets.screen;
+        const each = v.sample_s + v.warmup_s + v.settle_s + v.cooldown_s + S.launch_overhead_s;
+        $("#batch-summary").innerHTML = total ? `This creates <strong>${total}</strong> config${total === 1 ? "" : "s"}. A Shortlist benchmark of them is <strong>${total + 2}</strong> launches, ${duration((total + 2) * each)}.`
+          : "Enter at least one value.";
+        $("#batch-create").textContent = total ? `Create ${total} config${total === 1 ? "" : "s"}` : "Create configs";
+        $("#batch-create").disabled = !total;
+      }
+      function renderBatch() {
+        const box = $("#batch-box");
+        const rows = [];
+        for (const part of ["gameinfo", "video"]) {
+          const start = lower(B[part].source === "current" ? (CUR[part] || {}).settings : B[part].base);
+          for (const [name, value] of Object.entries(B[part].overrides))
+            rows.push(`<div class="brow" data-part="${part}" data-name="${esc(name)}"><div><code>${esc(name)}</code>
+              <small>${PARTS[part]} · starts at ${esc(start[name.toLowerCase()] ?? "not set")}</small></div>
+              <input value="${esc(value)}" aria-label="Values to test for ${esc(name)}" /></div>`);
+        }
+        if (!rows.length) { box.innerHTML = `<div class="notice">Tick at least one setting above first, then come back here.</div>`; return; }
+        box.innerHTML = `<div class="batch"><h3>Test each setting separately</h3>
+          <p class="small muted">Creates one config per value. Each starts from the same file and changes <em>only</em> that setting, so you see what each one does on its own.
+          To see how a setting scales, list several values separated by commas, for example <code>1, 2, 4, 8</code>. The name above is used as a label (optional).</p>
+          ${B.gameinfo.source !== "current" || B.video.source !== "current" ? `<div class="notice">Each config starts from the file you selected, not from your installed file. Save that starting file as a config of its own (with nothing ticked) to see its effect alone.</div>` : ""}
+          ${rows.join("")}
+          ${rows.length > 1 ? `<label class="small" style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="batch-combined" /> Also save one config with all of them together (first value of each)</label>` : ""}
+          <div class="go"><div class="estimate" id="batch-summary"></div><button class="primary" id="batch-create">Create configs</button></div></div>`;
+        updateBatchSummary();
+      }
+      $("#cfg-each").onclick = () => { if (!B) return; renderBatch(); $("#batch-box").scrollIntoView({ behavior: "smooth", block: "nearest" }); };
+      $("#batch-box").addEventListener("input", updateBatchSummary);
+      $("#batch-box").addEventListener("change", updateBatchSummary);
+      $("#batch-box").addEventListener("click", (e) => {
+        if (e.target.id !== "batch-create") return;
+        act(e.target, async () => {
+          const tests = $$("#batch-box .brow").map((r) => ({ part: r.dataset.part, name: r.dataset.name, values: valuesOf(r) }));
+          const r = await api("/api/configs/save-each", { batch: $("#cfg-name").value, gameinfo: partSpec("gameinfo"), video: partSpec("video"),
+                                                           tests, combined: !!($("#batch-combined") || {}).checked });
+          store.set("cases", [...new Set([...store.get("cases", []), ...r.created])]);
+          await refresh();
+          $("#builder").classList.add("hidden");
+          B = null;
+          toast(`Created ${r.created.length} config${r.created.length === 1 ? "" : "s"}${r.skipped.length ? `; skipped ${r.skipped.length} (${r.skipped[0].reason})` : ""}. They're ticked on the Benchmark tab.`);
+          show("bench");
+        });
+      });
+
       // ---------------------------------------------------------------- benchmark
       function selected() { return $$("#profiles input:checked").map((i) => i.value); }
       function renderProfiles() {
         const keep = new Set(store.get("cases", []));
         const list = configs();
+        const opt = (p) => `<label class="option"><input type="checkbox" value="${esc(p.id)}" ${keep.has(p.id) ? "checked" : ""} />
+              <div><strong>${esc(p.name)}</strong><p>${esc(p.description)}</p></div></label>`;
+        const { loose, batches } = byBatch(list);
+        shownBatches = batches;
         $("#profiles").innerHTML = list.length
-          ? `<div class="options">` + list.map((p) => `<label class="option"><input type="checkbox" value="${esc(p.id)}" ${keep.has(p.id) ? "checked" : ""} />
-              <div><strong>${esc(p.name)}</strong><p>${esc(p.description)}</p></div></label>`).join("") +
-            `</div><p class="small"><button class="link" data-goto="configs">Create or edit configs</button></p>`
+          ? `${list.length > 4 ? `<p class="small"><button class="link" data-sel="all:1">Select all</button> · <button class="link" data-sel="all:0">Select none</button></p>` : ""}` +
+            (loose.length ? `<div class="options">${loose.map(opt).join("")}</div>` : "") +
+            batches.map(([name, items], i) => `<div class="group"><h3>${esc(name)} <small>${items.length} configs ·
+              <button class="link" data-sel="${i}:1">select all</button> · <button class="link" data-sel="${i}:0">none</button></small></h3>
+              <div class="options">${items.map(opt).join("")}</div></div>`).join("") +
+            `<p class="small"><button class="link" data-goto="configs">Create or edit configs</button></p>`
           : `<div class="empty"><p>No configs yet. A config is the gameinfo.gi and/or video.txt you want to test.</p>
               <p><button class="primary" data-goto="configs">Build your first config</button></p></div>`;
       }
+      $("#profiles").addEventListener("click", (e) => {
+        const b = e.target.closest("[data-sel]");
+        if (!b) return;
+        const [which, on] = b.dataset.sel.split(":");
+        const ids = which === "all" ? null : new Set(shownBatches[+which][1].map((p) => p.id));
+        $$("#profiles input[type=checkbox]").forEach((i) => { if (!ids || ids.has(i.value)) i.checked = on === "1"; });
+        store.set("cases", selected());
+        renderEstimate();
+      });
       $("#profiles").addEventListener("change", () => { store.set("cases", selected()); renderEstimate(); });
 
       function preset() { return ($("#depth input:checked") || {}).value || store.get("preset", "screen"); }
@@ -1221,7 +1342,7 @@
               ${s.has_results ? `<a class="primary" href="/report/${esc(s.id)}/" target="_blank">Open report</a><a href="/export/${esc(s.id)}.zip" title="A ZIP you can share: report only, no raw logs or game files">Share ZIP</a>` : ""}
               ${st === "planned" && !s.manual ? `<button data-start="${esc(s.id)}">Start</button>` : ""}
               <button data-folder="${esc(s.id)}" title="Open this session's folder">Folder</button>
-              ${s.synthetic || !s.has_results ? "" : `<button data-open="${esc(s.id)}">${open.has(s.id) ? "Hide details" : "Details & review"}</button>`}
+              ${!s.has_results ? "" : `<button data-open="${esc(s.id)}">${open.has(s.id) ? "Hide details" : "Details & review"}</button>`}
             </div></div>${open.has(s.id) ? `<div class="body" id="body-${esc(s.id)}">Loading…</div>` : ""}</div>`;
         }).join("");
         for (const id of open) loadDetail(id);
@@ -1244,7 +1365,7 @@
           <td class="num">${num(r.avg_fps)}</td><td class="num">${num(r.low_1_fps)}</td><td class="num">${num(r.p99_frame_ms, 2)}</td>
           <td>${r.status !== "ok" ? `<span class="state failed">${esc(r.error || r.status)}</span>` : r.reviewable.length ? `<span class="state cancelled">needs your check</span>` : r.reviewed ? `<span class="state complete">checked</span>` : "—"}
           ${r.blockers.length ? `<details><summary class="small">${r.blockers.length} note${r.blockers.length > 1 ? "s" : ""}</summary><ul class="small muted">${r.blockers.map((b) => `<li>${esc(b)}</li>`).join("")}</ul></details>` : ""}</td></tr>`).join("");
-        box.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Capture</th><th>Round</th><th>Config</th><th class="num">Avg FPS</th><th class="num">1% low</th><th class="num">P99 ms</th><th>Checks</th></tr></thead><tbody>${rows}</tbody></table></div>
+        box.innerHTML = `<div class="rank" id="rank-${esc(id)}"></div><h3>All captures</h3><div class="table-wrap"><table><thead><tr><th>Capture</th><th>Round</th><th>Config</th><th class="num">Avg FPS</th><th class="num">1% low</th><th class="num">P99 ms</th><th>Checks</th></tr></thead><tbody>${rows}</tbody></table></div>
           ${d.log_tail ? `<details><summary>Error log</summary><pre class="log">${esc(d.log_tail.join("\n"))}</pre></details>` : ""}
           ${pending.length ? `<form class="review"><h3>Confirm what you saw (${pending.length} capture${pending.length > 1 ? "s" : ""})</h3>
             <p class="small muted">The lab can't see your screen, so results stay "inconclusive" until you confirm each capture was valid:
@@ -1255,6 +1376,7 @@
             <label><span class="label">How did you check? (saved with the result)</span>
               <textarea name="note" minlength="15" required placeholder="Watched every capture: camera stayed on player 1 and the replay kept playing throughout."></textarea></label>
             <p><button class="primary" type="submit">Confirm selected captures</button></p></form>` : ""}`;
+        loadRanking(id);
         const form = $("form.review", box);
         if (form) {
           $(".all", form).onchange = (e) => $$("ul input", form).forEach((i) => (i.checked = e.target.checked));
@@ -1267,6 +1389,41 @@
               loadDetail(id);
             });
           };
+        }
+      }
+
+      const signed = (v) => (v == null ? "—" : (v > 0 ? "+" : "") + Number(v).toFixed(1) + "%");
+      async function loadRanking(id) {
+        const el = document.getElementById("rank-" + id);
+        if (!el) return;
+        let r;
+        try { r = await api(`/api/session/${encodeURIComponent(id)}/ranking`); } catch { el.innerHTML = ""; return; }
+        if (!r.rows.length) { el.innerHTML = ""; return; }
+        const noise = r.baseline_cv_pct;
+        const rows = r.rows.map((x, i) => {
+          const within = noise != null && Math.abs(x.delta_pct) <= noise;
+          return `<tr><td>${i + 1}</td><td>${esc(x.name)}</td><td class="num">${num(x.avg_fps)}</td>
+            <td class="num ${x.delta_pct > 0 ? "delta-pos" : "delta-neg"}">${signed(x.delta_pct)}${within ? ` <span class="badge" title="Smaller than the variation between your two baseline captures (${noise.toFixed(1)}%), so it may just be noise.">≈ noise</span>` : ""}</td>
+            <td class="num">${signed(x.low_1_delta_pct)}</td><td>${r.rounds >= 5 ? esc(x.verdict) : ""}</td></tr>`;
+        }).join("");
+        const v = S.presets.confirm, each = v.sample_s + v.warmup_s + v.settle_s + v.cooldown_s + S.launch_overhead_s;
+        const est = (n) => `${5 * (n + 2)} launches, ${duration(5 * (n + 2) * each)}`;
+        const first = Math.min(5, r.rows.length);
+        el.innerHTML = `<h3>Ranking</h3>
+          <p class="small muted">Sorted by change in average FPS against your current setup (${num(r.baseline_fps)} FPS${noise != null ? `, baseline variation ${noise.toFixed(1)}%` : ""}).
+          ${r.rounds < 5 ? `${r.rounds === 1 ? "One round" : r.rounds + " rounds"} can rank candidates but can't prove a gain: re-test the best ones below.` : ""}</p>
+          <div class="table-wrap"><table><thead><tr><th>#</th><th>Config</th><th class="num">Avg FPS</th><th class="num">vs current</th><th class="num">1% low</th><th>${r.rounds >= 5 ? "Verdict" : ""}</th></tr></thead><tbody>${rows}</tbody></table></div>
+          ${r.synthetic ? "" : `<div class="retest">Re-test the top <input type="number" class="topn" min="1" max="${Math.min(30, r.rows.length)}" value="${first}" /> at Confirm length (5 rounds):
+            <span class="small muted est">${est(first)}</span><button class="primary go-retest">Re-test</button></div>`}`;
+        const top = $(".topn", el);
+        if (top) {
+          top.oninput = () => ($(".est", el).textContent = est(Math.max(1, Math.min(30, +top.value || 1))));
+          $(".go-retest", el).onclick = (e) => act(e.target, async () => {
+            const res = await api("/api/retest", { session: id, top: +top.value || 5 });
+            toast("Confirm benchmark started with the top configs.");
+            followed = res.session;
+            await refresh();
+          });
         }
       }
 
