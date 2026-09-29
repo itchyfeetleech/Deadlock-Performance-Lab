@@ -12,13 +12,15 @@ import random
 import re
 import signal
 import subprocess
+import threading
 import time
 import uuid
 
 from .capture import chart_series, read_mangohud
 from .profiles import validate
 from .storage import LabError, digest, exclusive_lock, read_json, write_json
-from .system import APP_ID, doctor, game_identity, game_processes, identity, install_lock, process_matches
+from .system import (APP_ID, doctor, game_identity, game_processes, identity, install_lock, process_matches,
+                     process_start_time)
 from .transaction import Transaction
 from .vconsole import VConsole
 from .planning import verify_plan
@@ -194,7 +196,9 @@ def run_live(workspace: Path, session: Path, plan: dict, item: dict, directory: 
     capture_dir.mkdir()
     game_cfg = install / "game/citadel/cfg/autoexec_dpl.cfg"
     capture_config = workspace / "capture.conf"
-    for target in (game_cfg, install / "game/citadel/gameinfo.gi"):
+    video_txt = install / "game/citadel/cfg/video.txt"
+    config_files = (profile.get("materialized") or {}) if profile["kind"] == "config" else {}
+    for target in (game_cfg, install / "game/citadel/gameinfo.gi", video_txt):
         if not target.resolve().is_relative_to(install.resolve()):
             raise LabError(f"Game config resolves outside the install: {target}")
     blockers = []
@@ -203,16 +207,26 @@ def run_live(workspace: Path, session: Path, plan: dict, item: dict, directory: 
         blockers.append("Record resolution, graphics preset, Proton and display mode in lab.json before drawing conclusions.")
     try:
         content = profile.get("content", "") if profile["kind"] == "autoexec" else ""
+        if scenario.get("fps_max") is not None:
+            content += f"\nfps_max {int(scenario['fps_max'])}\n"
         if scenario["mode"] == "bots":
             content += "\n" + files("deadlock_perf_lab").joinpath("assets/scenario_stress.cfg").read_text()
         elif scenario.get("replay_launch") == "startup":
             # Put the quoted path in a game cfg, not Steam's nested argument
             # string (Steam/Proton can turn literal quotes into backslashes).
             content += f"\necho {startup_marker}\nplaydemo " + quote_console(scenario["replay_command"]) + "\n"
-        txn.apply(game_cfg, ("// Temporary Deadlock Perf Lab configuration\n" + content).encode())
+        txn.apply(game_cfg, ("// Temporary Deadlock Performance Lab configuration\n" + content).encode())
         if profile["kind"] == "gameinfo":
             txn.apply(install / "game/citadel/gameinfo.gi", profile["content"].encode())
             blockers.append("Whole GameInfo swap: file application verified, individual cvar effects and replay fidelity require review.")
+        if config_files.get("gameinfo"):
+            txn.apply(install / "game/citadel/gameinfo.gi", config_files["gameinfo"].encode())
+        if config_files.get("video"):
+            # The game may rewrite video.txt itself; restore it regardless, keeping its copy.
+            txn.apply(video_txt, config_files["video"].encode(), tolerant=True)
+        if profile["kind"] == "config":
+            warnings.extend(config_files.get("notes", []))
+            blockers.append("Config applied: confirm the game looked as intended and the replay played normally.")
         # Per-game Steam launch options read this at each fresh process launch.
         # No interval sampling and no fixed duration which might stop mid-load.
         # NOTE: no `no_display` here. MangoHud 0.8.4 only runs its autostart
@@ -225,6 +239,7 @@ def run_live(workspace: Path, session: Path, plan: dict, item: dict, directory: 
                                    f"output_folder={capture_dir}\n").encode())
         args = ["steam", "-applaunch", APP_ID, "-insecure", "-dev", "-vconsole", "-condebug"]
         args += profile.get("flags", []) if profile["kind"] == "launch" else []
+        args += [flag for flag in scenario.get("launch_flags", []) if flag not in args]
         args += ["+exec", "autoexec_dpl"]
         if scenario["mode"] == "bots":
             if not re.fullmatch(r"[A-Za-z0-9_]+", scenario["map"]):
@@ -289,11 +304,26 @@ def run_live(workspace: Path, session: Path, plan: dict, item: dict, directory: 
         settle_started = time.monotonic()
         console.send("sv_cheats 0")
         assignments = "sv_cheats 0"
+        if scenario.get("fps_max") is not None:
+            # Applies to every capture, baseline included, so a failed readback is a note, not a blocker.
+            warnings.extend(f"FPS limit {issue}" for issue in
+                            verify_assignments(console, f"fps_max {int(scenario['fps_max'])}"))
         if profile["kind"] == "autoexec":
             assignments += "\n" + profile["content"]
         elif profile["kind"] == "gameinfo" and profile.get("cvar"):
             assignments += f'\n{profile["cvar"]} "{profile["requested_value"]}"'
         blockers += verify_assignments(console, assignments)
+        if config_files.get("cvars"):
+            # A config is measured as a whole file; settings the engine hides or
+            # overrides are reported, not treated as a failed capture.
+            readback = verify_assignments(console, "\n".join(f'{k} "{v}"' for k, v in config_files["cvars"].items()))
+            hidden = [r for r in readback if ": no readback;" in r]
+            differs = [r for r in readback if r not in hidden]
+            if differs:
+                warnings.append(f"{len(differs)} config setting(s) read back a different value: " + " ".join(differs[:10]))
+            if hidden:
+                warnings.append(f"{len(hidden)} of {len(config_files['cvars'])} changed gameinfo settings are hidden from the "
+                                "console, so the lab could not confirm them.")
         pause(max(0, scenario["settle_s"] - (time.monotonic() - settle_started)), console, processes)
         mark("camera_and_settle")
         capture = capture_file(capture_dir)
@@ -326,6 +356,16 @@ def run_live(workspace: Path, session: Path, plan: dict, item: dict, directory: 
         launched = False
         processes = {}
         mark("shutdown")
+        if config_files.get("video") and video_txt.is_file() and video_txt.read_text(errors="replace") != config_files["video"]:
+            from .configs import video_settings
+            try:
+                final = {k.lower(): v for k, v in video_settings(video_txt.read_text(encoding="utf-8")).items()}
+                changed = [f"{k}={final.get(k.lower(), 'removed')}" for k, v in config_files.get("video_changes", {}).items()
+                           if final.get(k.lower()) != v]
+            except (LabError, UnicodeDecodeError):
+                changed = ["the file could not be read"]
+            warnings.append("The game rewrote video.txt during this capture" +
+                            (f"; it changed: {', '.join(changed[:10])}." if changed else "."))
         result_capture = read_mangohud(capture, start_s=start, duration_s=scenario["sample_s"], interval_ms=0)
         if result_capture.metadata["invalid_rows"]:
             blockers.append("The raw capture contained malformed rows; inspect before drawing conclusions.")
@@ -338,6 +378,9 @@ def run_live(workspace: Path, session: Path, plan: dict, item: dict, directory: 
                   "warnings": warnings + result_capture.warnings, "quality_blockers": blockers}
         if profile["kind"] == "launch":
             result["quality_blockers"].append("Renderer flag requested; verify the selected API in steam.log or the game overlay.")
+        if scenario.get("launch_flags"):
+            result["warnings"].append(f"Every capture used {' '.join(scenario['launch_flags'])}; confirm the renderer in "
+                                      "steam.log or the game overlay.")
         mark("analysis")
         result["phase_timings_s"] = phases
         return result
@@ -370,8 +413,8 @@ def run_live(workspace: Path, session: Path, plan: dict, item: dict, directory: 
 def run_demo(plan: dict, item: dict, directory: Path) -> dict:
     seed = int(hashlib.sha256(f"{plan['seed']}:{item['index']}:{item['case']}".encode()).hexdigest()[:16], 16)
     rng = random.Random(seed)
-    factor = {"baseline": 1, "fps-unlock": 1.08, "cap-144": .6, "cap-240": .99,
-              "renderer-vulkan": 1.05, "renderer-dx11": .98}.get(item["case"], 1.12)
+    factor = {"baseline": 1, "example-optimizationlock": 1.09, "example-shadows-off": 1.04,
+              "example-low-video": 1.15}.get(item["case"], 1.06)
     baseline_ms = 1000 / (240 * factor * rng.uniform(.995, 1.005))
     elapsed = 0.0
     duration = plan["context"]["scenario"]["sample_s"]
@@ -396,6 +439,9 @@ def run_demo(plan: dict, item: dict, directory: Path) -> dict:
 
 @contextlib.contextmanager
 def interruptible():
+    if threading.current_thread() is not threading.main_thread():
+        yield  # Signal handlers can only be installed from the main thread.
+        return
     old = signal.getsignal(signal.SIGTERM)
 
     def stop(signum, frame):
@@ -425,7 +471,7 @@ def run_session(workspace: Path, session: Path) -> None:
                 if state.get("state") != "restored":
                     raise LabError(f"An earlier run needs recovery: dpl --workspace {pending['workspace']} recover")
                 guard.unlink()
-            failures = [c for c in doctor(Path(plan["install"]), workspace) if not c["ok"]]
+            failures = [c for c in doctor(Path(plan["install"]), workspace) if not c["ok"] and c.get("required", True)]
             if failures:
                 raise LabError("Preflight failed: " + "; ".join(f"{c['check']}: {c['detail']}" for c in failures))
             scenario = plan["context"]["scenario"]
@@ -433,6 +479,7 @@ def run_session(workspace: Path, session: Path) -> None:
                 raise LabError("Replay changed since planning.")
         total = len(plan["schedule"])
         completed = 0
+        write_json(session / "runner.json", {"pid": os.getpid(), "start_time": process_start_time(os.getpid())})
         try:
             for item in plan["schedule"]:
                 directory = session / "runs" / f"{item['index']:03d}-{item['case']}"
@@ -459,6 +506,27 @@ def run_session(workspace: Path, session: Path) -> None:
             write_json(session / "status.json", {"state": "cancelled" if isinstance(exc, KeyboardInterrupt) else "failed",
                                                  "completed": completed, "total": total, "error": str(exc) or "Interrupted"})
             raise
+        finally:
+            (session / "runner.json").unlink(missing_ok=True)
+
+
+def runner_alive(session: Path) -> int | None:
+    """PID of the process running this session, if it is still alive."""
+    try:
+        runner = read_json(session / "runner.json")
+    except LabError:
+        return None
+    pid, start = runner.get("pid"), runner.get("start_time")
+    return pid if isinstance(pid, int) and start and process_matches(pid, start) else None
+
+
+def request_cancel(session: Path) -> bool:
+    """Ask a running session to stop; it restores files before exiting."""
+    pid = runner_alive(session)
+    if not pid:
+        return False
+    os.kill(pid, signal.SIGTERM)
+    return True
 
 
 def recover(workspace: Path, *, force: bool = False) -> list[str]:

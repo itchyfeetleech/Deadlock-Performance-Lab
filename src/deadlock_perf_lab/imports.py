@@ -71,6 +71,7 @@ REVIEWABLE = (
     "Whole GameInfo swap:",
     "Renderer flag requested;",
     "Manual capture: confirm",
+    "Config applied: confirm",
 )
 
 

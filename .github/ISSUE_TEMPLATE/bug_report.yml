@@ -1,28 +1,35 @@
 name: Bug report
-description: Report a reproducible problem with setup, capture, analysis or recovery.
+description: Something in the app or command line doesn't work, or a benchmark failed.
+labels: [bug]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Please check [Troubleshooting](https://github.com/itchyfeetleech/Deadlock-Performance-Lab/blob/main/docs/TROUBLESHOOTING.md) first. If a run was interrupted, close Deadlock and press **Restore my files** (or run `dpl recover`) before anything else.
   - type: textarea
     id: problem
     attributes:
       label: What happened?
-      description: Include the command, expected behavior and actual result. Do not paste an entire workspace.
+      description: What you did, what you expected and what happened instead. A screenshot of the app helps.
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `dpl --version` and `dpl doctor`
+      render: text
     validations:
       required: true
   - type: textarea
     id: environment
     attributes:
-      label: Versions and environment
-      description: dpl, Python, distro/kernel, native Steam, Proton, MangoHud, game build and GPU.
-    validations:
-      required: true
-  - type: textarea
-    id: reproduce
-    attributes:
-      label: Steps to reproduce
+      label: Your setup
+      description: Distro and kernel, GPU and driver, Proton version, MangoHud version and Deadlock build.
     validations:
       required: true
   - type: textarea
     id: evidence
     attributes:
-      label: Redacted evidence
-      description: A report ZIP or a minimal error excerpt. Remove account identifiers and local paths.
+      label: Error text or logs
+      description: The error from the app, or the end of the failed session's `runner.log` (open the session's folder from the Results tab). Remove account names and personal paths. Don't upload a whole workspace.
+      render: text

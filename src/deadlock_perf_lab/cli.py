@@ -1,8 +1,7 @@
-"""One entry point for setup, experiments, analysis, recovery and sharing."""
+"""One entry point: the app (dpl), plus commands for scripting and advanced experiments."""
 from __future__ import annotations
 
 import argparse
-import csv
 import difflib
 import json
 from pathlib import Path
@@ -14,27 +13,36 @@ from .analysis import analyze, shortlist, timings
 from .capture import read_mangohud
 from .imports import import_capture, review_run
 from .planning import PRESETS, make_plan
-from .profiles import add_profile, catalog
+from .profiles import DEMO_PROFILES, add_profile, catalog
 from .report import bundle, generate_report, markdown_report
 from .runner import recover, run_session
 from .storage import LabError, atomic_write, digest, read_json
-from .sweep import create_sweep
 from .system import discover_install, doctor, identity
-from .workspace import initialize, launch_options, load_workspace, session_path
+from .workspace import default_workspace, initialize, launch_options, load_workspace, session_path
 
 
 def parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="dpl", description="Deadlock Perf Lab — Linux benchmark tools.",
-                                epilog="Start with: dpl demo --open   |   dpl init   |   dpl guide")
-    p.add_argument("--version", action="version", version=f"Deadlock Perf Lab {__version__}")
-    p.add_argument("--workspace", type=Path, default=Path(".lab"), help="experiment workspace (default: .lab)")
-    sub = p.add_subparsers(dest="command")
+    p = argparse.ArgumentParser(
+        prog="dpl", description="Deadlock Performance Lab — benchmark Deadlock settings on Linux.",
+        epilog="Run dpl with no command to open the app. dpl guide shows the terminal workflow.")
+    p.add_argument("--version", action="version", version=f"Deadlock Performance Lab {__version__}")
+    p.add_argument("--workspace", type=Path, default=None,
+                   help="where settings and results are kept (default: ~/.local/share/deadlock-performance-lab, "
+                        "or ./.lab if it exists; env DPL_WORKSPACE)")
+    sub = p.add_subparsers(dest="command", metavar="COMMAND")
 
     def command(name, help_text):
         cmd = sub.add_parser(name, help=help_text, description=help_text)
         cmd.add_argument("--workspace", type=Path, default=argparse.SUPPRESS, help=argparse.SUPPRESS)
         return cmd
 
+    gui = command("gui", "Open the app in your browser (same as running dpl on its own).")
+    gui.add_argument("--no-browser", action="store_true", help="print the address instead of opening a browser")
+    gui.add_argument("--port", type=int, default=0, help="fixed local port (default: random)")
+    demo = command("demo", "Build an example report from synthetic data; no game needed.")
+    demo.add_argument("--open", action="store_true", help="open the report in your browser")
+    demo.add_argument("--rounds", type=int, default=5)
+    command("shortcut", "Add Deadlock Performance Lab to your desktop's application menu.")
     init = command("init", "Create a workspace; discover your Steam library.")
     init.add_argument("--install", help="Deadlock installation directory")
     init.add_argument("--replay", help="absolute or citadel-relative .dem path")
@@ -49,30 +57,31 @@ def parser() -> argparse.ArgumentParser:
     show = ps.add_parser("show")
     show.add_argument("id")
     show.add_argument("--diff", action="store_true", help="diff a GameInfo snapshot against the current install")
-    sweep = ps.add_parser("sweep", help="create one-cvar GameInfo variants from id,cvar,value CSV")
+    sweep = ps.add_parser("sweep", help="save one single-setting config per row of an id,cvar,value[,name] CSV")
     sweep.add_argument("matrix", type=Path)
-    sweep.add_argument("--base", type=Path, required=True)
-    add = ps.add_parser("add")
+    sweep.add_argument("--base", type=Path, help="start from this gameinfo.gi instead of your installed one")
+    add = ps.add_parser("add", help="save a config from your own gameinfo.gi and/or video.txt (or a cvar file)")
     add.add_argument("id")
     add.add_argument("--name")
-    add.add_argument("--description", required=True)
-    types = add.add_mutually_exclusive_group(required=True)
-    types.add_argument("--autoexec", type=Path)
-    types.add_argument("--gameinfo", type=Path)
-    types.add_argument("--manual", action="store_true")
-    plan = command("plan", "Freeze profiles, conditions and randomized baseline-bracketed rounds.")
-    plan.add_argument("--cases", default="fps-unlock", help="comma-separated profile IDs")
+    add.add_argument("--description", default="")
+    add.add_argument("--gameinfo", type=Path, help="a complete gameinfo.gi to test")
+    add.add_argument("--video", type=Path, help="a complete video.txt to test (your resolution and device are kept)")
+    add.add_argument("--autoexec", type=Path, help="console cvars applied at launch instead")
+    add.add_argument("--manual", action="store_true", help="a change you make by hand (see docs/ADVANCED.md)")
+    plan = command("plan", "Freeze configs, conditions and randomized baseline-bracketed rounds.")
+    plan.add_argument("--cases", required=True, help="comma-separated config IDs (see dpl profiles); globs allowed")
+    plan.add_argument("--fps-max", type=int, default=None,
+                      help="FPS limit for every capture, baseline included (0 = uncapped; default: keep the game's)")
+    plan.add_argument("--renderer", choices=["default", "vulkan", "dx11"], default="default",
+                      help="graphics API for every capture (default: the game's)")
     plan.add_argument("--rounds", type=int, help="default: 1 for scout/screen, 5 otherwise")
     plan.add_argument("--preset", choices=list(PRESETS), default="custom", help="scout: 5s/one round; screen: 10s/one round; confirm: 30s/five rounds; custom: lab.json timings")
     plan.add_argument("--seed", type=int, default=47)
-    plan.add_argument("--experimental", action="store_true", help="allow whole GameInfo treatments after inspection")
+    plan.add_argument("--experimental", action="store_true", help="allow legacy whole-file gameinfo profiles saved by older versions")
     plan.add_argument("--manual", action="store_true", help="plan captures made by the operator")
     run = command("run", "Execute an existing plan; --live is required for game launches.")
     run.add_argument("session", nargs="?", default="latest")
     run.add_argument("--live", action="store_true")
-    demo = command("demo", "Exercise the full pipeline with conspicuously synthetic data; no game needed.")
-    demo.add_argument("--open", action="store_true")
-    demo.add_argument("--rounds", type=int, default=5)
     timing = command("timings", "Show observed iteration time and estimated remaining duration.")
     timing.add_argument("session", nargs="?", default="latest")
     short = command("shortlist", "Rank provisional screening candidates for a fresh confirmation experiment.")
@@ -110,8 +119,6 @@ def parser() -> argparse.ArgumentParser:
             cmd.add_argument("--output", type=Path, required=True)
     rec = command("recover", "Restore pending transactions after a crash; verify original checksums.")
     rec.add_argument("--force", action="store_true", help="preserve conflicting edits then restore the verified backup")
-    legacy = command("audit-legacy", "Inspect old results.csv without treating it as validated new evidence.")
-    legacy.add_argument("csv", type=Path)
     command("guide", "Show the recommended measurement and optimization workflow.")
     return p
 
@@ -129,61 +136,47 @@ def show_plan(session: Path, plan: dict) -> None:
 
 
 def guide() -> None:
-    print("""Deadlock Perf Lab
+    print("""Deadlock Performance Lab
 
-Try the report: dpl demo --open
+The easiest way in is the app: run  dpl  on its own.
 
-1. dpl init — edit .lab/lab.json with your replay, camera and conditions.
-2. dpl doctor, then dpl setup — copy the launch options into Steam.
-3. dpl profiles — inspect a treatment with dpl profile show ID.
-4. dpl plan --cases fps-unlock --rounds 5 — check the printed schedule.
-5. Close Deadlock, then dpl run --live.
-6. Verify each capture's camera, playback and settings with dpl review.
-7. dpl report --open — check variation and slow frames as well as FPS.
+Terminal workflow (same steps as the app):
+1. dpl demo --open        See an example report (no game needed).
+2. dpl doctor             Check Steam, MangoHud and the game install.
+3. dpl setup              Copy the printed line into Deadlock's Steam Launch Options.
+4. Edit lab.json in your workspace: replay, tick, player and your game settings.
+   dpl profile add my-config --gameinfo FILE --video FILE   Save a config to test.
+5. dpl plan --cases my-config --preset confirm --fps-max 0   Check the printed schedule.
+6. Close Deadlock, then:  dpl run --live
+7. dpl review --run ID --note '...'                Confirm captures you watched.
+8. dpl report --open
 
-Baseline means your current setup. Config changes are restored after each run.
-After a power loss or hard kill, close Deadlock and run dpl recover.
-For settings you change yourself, use dpl plan --manual and dpl import.
+Your current setup is the baseline. Game files are restored after every capture.
+After a power loss or hard kill, close Deadlock and run  dpl recover.
+Settings you change by hand (video options, Proton, drivers): dpl plan --manual, then dpl import.
 
-Setup and guides: https://github.com/itchyfeetleech/deadlock-perf-lab#benchmark-your-setup
+Guides: https://github.com/itchyfeetleech/Deadlock-Performance-Lab#readme
 """)
-
-
-def interactive() -> list[str]:
-    print("\n  DEADLOCK PERF LAB\n  Linux benchmark tools.\n")
-    choices = [("Try the demo and open the report", ["demo", "--open"]),
-               ("Create a workspace", ["init"]), ("Check my setup", ["doctor"]),
-               ("Browse benchmark profiles", ["profiles"]), ("Read the workflow", ["guide"]),
-               ("Open the latest report", ["report", "--open"])]
-    for i, (name, _) in enumerate(choices, 1):
-        print(f"  {i}. {name}")
-    answer = input("\nChoose 1–6 (Enter to exit): ").strip()
-    if not answer:
-        return []
-    if not answer.isdigit() or not 1 <= int(answer) <= len(choices):
-        raise LabError("Choose a number from 1 to 6.")
-    return choices[int(answer) - 1][1]
 
 
 def main(argv: list[str] | None = None) -> int:
     p = parser()
     try:
         args = p.parse_args(argv)
-        if not args.command:
-            if sys.stdin.isatty():
-                selection = interactive()
-                if selection:
-                    return main(["--workspace", str(args.workspace), *selection])
-            else:
-                p.print_help()
-            return 0
-        workspace = args.workspace.expanduser().resolve()
+        workspace = (args.workspace or default_workspace()).expanduser().resolve()
         if any(c in str(workspace) for c in "\r\n,="):
             raise LabError("Workspace path cannot contain newlines, commas or '=' (MangoHud config syntax).")
-        cmd = args.command
-        if cmd == "init":
+        cmd = args.command or "gui"
+        if cmd == "gui":
+            from .gui import serve
+            return serve(workspace, open_browser=not getattr(args, "no_browser", False), port=getattr(args, "port", 0))
+        elif cmd == "shortcut":
+            from .gui import install_shortcut
+            load_workspace(workspace) if (workspace / "lab.json").exists() else initialize(workspace)
+            print(f"Added {install_shortcut(workspace)}\nLook for Deadlock Performance Lab in your application menu.")
+        elif cmd == "init":
             initialize(workspace, args.install, args.replay)
-            print(f"Workspace created: {workspace}\nEdit {workspace / 'lab.json'} to record your conditions.\nNext: dpl doctor · dpl setup · dpl guide")
+            print(f"Workspace created: {workspace}\nEdit {workspace / 'lab.json'} to record your conditions, or run dpl to use the app.\nNext: dpl doctor · dpl setup · dpl guide")
         elif cmd == "doctor":
             config = read_json(workspace / "lab.json") if (workspace / "lab.json").exists() else {}
             install = Path(config["install"]) if config.get("install") else discover_install()
@@ -192,9 +185,10 @@ def main(argv: list[str] | None = None) -> int:
                 print(json.dumps({"checks": checks, "system": identity()}, indent=2))
             else:
                 for check in checks:
-                    print(f"{'PASS' if check['ok'] else 'FAIL'}  {check['check']}: {check['detail']}")
-                print("Steam launch-option wiring is verified by a fresh capture during the first live run.")
-            return 0 if all(c["ok"] for c in checks) else 1
+                    label = "PASS" if check["ok"] else "FAIL" if check["required"] else "WARN"
+                    print(f"{label}  {check['check']}: {check['detail']}")
+                print(f"\nWorkspace: {workspace}\nThe first live capture confirms that Steam's launch options work.")
+            return 0 if all(c["ok"] for c in checks if c["required"]) else 1
         elif cmd == "setup":
             load_workspace(workspace)
             options = launch_options(workspace)
@@ -217,8 +211,16 @@ def main(argv: list[str] | None = None) -> int:
                 entry = catalog(workspace).get(args.id)
                 if not entry:
                     raise LabError("Unknown profile. See dpl profiles.")
-                print(json.dumps({k: v for k, v in entry.items() if k != "content"}, indent=2))
-                if args.diff and entry["kind"] == "gameinfo":
+                shown = {k: v for k, v in entry.items() if k != "content"}
+                for part in ("gameinfo", "video"):
+                    if isinstance(shown.get(part), dict):
+                        shown[part] = {k: v for k, v in shown[part].items() if k != "content"}
+                print(json.dumps(shown, indent=2))
+                if args.diff and entry["kind"] == "config":
+                    from .configs import preview
+                    shown = preview(entry, Path(load_workspace(workspace)["install"]))
+                    print("\n".join(shown["notes"]) + "\n" + shown["gameinfo_diff"] + shown["video_diff"])
+                elif args.diff and entry["kind"] == "gameinfo":
                     config = load_workspace(workspace)
                     original = Path(config["install"]) / "game/citadel/gameinfo.gi"
                     print("".join(difflib.unified_diff(original.read_text().splitlines(True), entry["content"].splitlines(True),
@@ -227,22 +229,38 @@ def main(argv: list[str] | None = None) -> int:
                     print(entry["content"])
             elif args.action == "sweep":
                 load_workspace(workspace)
-                paths = create_sweep(workspace, args.base, args.matrix)
-                print(f"Created {len(paths)} one-cvar GameInfo profiles. Inspect them before an experimental run.")
-                print("\n".join(str(path) for path in paths))
+                from .configs import sweep_from_csv
+                paths = sweep_from_csv(workspace, args.matrix, args.base)
+                print(f"Saved {len(paths)} single-setting configs. They appear in the app; benchmark them with dpl plan --cases.")
+                print("\n".join(p.stem for p in paths))
             else:
                 load_workspace(workspace)
-                kind = "autoexec" if args.autoexec else "gameinfo" if args.gameinfo else "manual"
-                entry = {"id": args.id, "name": args.name or args.id, "kind": kind, "category": "custom",
-                         "status": "experimental", "description": args.description}
-                source = args.autoexec or args.gameinfo
-                if source:
-                    entry["content"] = source.read_text(encoding="utf-8")
-                    entry["source_sha256"] = digest(source)
+                chosen = [bool(args.gameinfo or args.video), bool(args.autoexec), args.manual]
+                if sum(chosen) != 1:
+                    raise LabError("Give --gameinfo and/or --video, or --autoexec, or --manual.")
+                entry = {"id": args.id, "name": args.name or args.id, "category": "custom", "status": "experimental",
+                         "description": args.description}
+                if args.autoexec:
+                    entry.update(kind="autoexec", content=args.autoexec.read_text(encoding="utf-8"),
+                                 source_sha256=digest(args.autoexec))
+                elif args.manual:
+                    entry.update(kind="manual")
+                else:
+                    entry["kind"] = "config"
+                    for part, source in (("gameinfo", args.gameinfo), ("video", args.video)):
+                        if source:
+                            entry[part] = {"source": "file", "content": source.read_text(encoding="utf-8"),
+                                           "filename": source.name, "overrides": {}, "keep_display": True}
+                    if not entry["description"]:
+                        from .configs import summary
+                        entry["description"] = summary(entry)
+                if not entry["description"]:
+                    raise LabError("Add --description to say what this change is.")
                 print(add_profile(workspace, entry))
         elif cmd == "plan":
             session, plan = make_plan(workspace, args.cases.split(","), args.rounds, args.seed,
-                                      experimental=args.experimental, manual=args.manual, preset=args.preset)
+                                      experimental=args.experimental, manual=args.manual, preset=args.preset,
+                                      fps_max=args.fps_max, renderer=args.renderer)
             show_plan(session, plan)
         elif cmd == "run":
             session = session_path(workspace, args.session)
@@ -259,7 +277,7 @@ def main(argv: list[str] | None = None) -> int:
         elif cmd == "demo":
             if not (workspace / "lab.json").exists():
                 initialize(workspace)
-            session, plan = make_plan(workspace, ["fps-unlock", "renderer-vulkan", "cap-144"], args.rounds, 47, demo=True)
+            session, plan = make_plan(workspace, [p["id"] for p in DEMO_PROFILES], args.rounds, 47, demo=True)
             run_session(workspace, session)
             output = generate_report(session)
             print(f"\nDEMO DATA ONLY — no game was launched.\nReport: {output}")
@@ -277,12 +295,12 @@ def main(argv: list[str] | None = None) -> int:
             for c in candidates:
                 print(f"  {c['case']:<28} {c['delta_pct']:+.2f}% average FPS · {len(c['paired_rounds'])} complete rounds · {c['verdict']}")
             if candidates:
-                print("\nCreate a fresh confirmation plan:\ndpl plan --preset confirm --experimental --cases " + ",".join(c["case"] for c in candidates))
+                print("\nCreate a fresh confirmation plan:\ndpl plan --preset confirm --cases " + ",".join(c["case"] for c in candidates))
             else:
                 print("No complete baseline-bracketed rounds yet.")
         elif cmd == "sessions":
             if not (workspace / "sessions").exists():
-                print("No workspace yet. Start with dpl init or dpl demo.")
+                print("No results yet. Try: dpl demo --open")
             else:
                 for session in sorted((workspace / "sessions").iterdir()):
                     if (session / "status.json").exists():
@@ -315,18 +333,11 @@ def main(argv: list[str] | None = None) -> int:
         elif cmd == "recover":
             restored = recover(workspace, force=args.force)
             print("\n".join(restored) if restored else "No pending restoration.")
-        elif cmd == "audit-legacy":
-            with args.csv.open(newline="", encoding="utf-8-sig") as f:
-                rows = list(csv.DictReader(f))
-            synthetic = sum(r.get("synthetic", "").lower() == "true" for r in rows)
-            sources = [r.get("mangohud_csv") for r in rows if r.get("mangohud_csv")]
-            print(f"Legacy rows: {len(rows)} · synthetic: {synthetic} · reused CSV names: {len(sources) - len(set(sources))}")
-            print("Legacy aggregate rows lack a verified measurement window and complete conditions.\nThey are historical observations; they are not imported into current experiments.\nUse dpl inspect on individual raw CSVs with their real --interval-ms and known time window.")
         elif cmd == "guide":
             guide()
         return 0
     except KeyboardInterrupt:
-        print("\nCancelled. Restoration was attempted; run dpl doctor to check recovery state.", file=sys.stderr)
+        print("\nCancelled. Game files were restored unless an error is shown above; run dpl doctor to confirm.", file=sys.stderr)
         return 130
     except (LabError, OSError, ValueError, KeyError, TypeError) as exc:
         print(f"dpl: {exc}", file=sys.stderr)

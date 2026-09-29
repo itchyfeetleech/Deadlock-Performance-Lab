@@ -15,7 +15,8 @@ class Transaction:
     def save(self) -> None:
         write_json(self.path, self.data)
 
-    def apply(self, target: Path, content: bytes) -> None:
+    def apply(self, target: Path, content: bytes, *, tolerant: bool = False) -> None:
+        """Back up and replace target. tolerant: the game may rewrite it, so restore even then."""
         target = target.absolute()
         if target.is_symlink():
             raise LabError(f"Refusing to replace a symlink: {target}")
@@ -34,7 +35,8 @@ class Transaction:
                 raise LabError(f"Target changed during backup: {target}")
         import hashlib
         entry = {"target": str(target), "backup": str(backup), "existed": exists,
-                 "before_sha256": before, "applied_sha256": hashlib.sha256(content).hexdigest(), "mode": mode}
+                 "before_sha256": before, "applied_sha256": hashlib.sha256(content).hexdigest(), "mode": mode,
+                 "tolerant": tolerant}
         self.data["files"].append(entry)
         self.data["state"] = "pending"
         self.save()  # Must reach disk before the live write.
@@ -61,7 +63,7 @@ class Transaction:
                 raise LabError(f"Backup missing or corrupt: {backup}. Restore stopped.")
             current = digest(target) if target.is_file() else None
             if current not in {entry["before_sha256"], entry["applied_sha256"]}:
-                if not force:
+                if not force and not entry.get("tolerant"):
                     raise LabError(f"{target} changed outside this run. Recovery stopped; inspect it, then use dpl recover --force if appropriate.")
                 if target.is_file():
                     atomic_write(self.path.parent / "conflicts" / backup.name, target.read_bytes(), 0o600)

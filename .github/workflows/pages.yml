@@ -1,12 +1,10 @@
-name: Publish community results
+name: Publish project site
 on:
   push:
     branches: [main]
     paths:
-      - 'cvar-impact.html'
-      - 'cvar-impact.png'
-      - 'particle-values.html'
-      - 'results/**'
+      - 'site/**'
+      - 'docs/images/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -23,12 +21,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
-      - name: Assemble public results
+      - name: Assemble the site
         run: |
-          mkdir -p _site/results
-          cp cvar-impact.html _site/index.html
-          cp cvar-impact.html cvar-impact.png particle-values.html _site/
-          cp results/* _site/results/
+          cp -r site _site
+          mkdir -p _site/images
+          cp docs/images/*.png _site/images/
           touch _site/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Troubleshooting guide
+    url: https://github.com/itchyfeetleech/Deadlock-Performance-Lab/blob/main/docs/TROUBLESHOOTING.md
+    about: Fixes for the most common setup and capture problems.
+  - name: A problem with an OptimizationLock preset itself
+    url: https://github.com/Sqooky/OptimizationLock/issues
+    about: Presets are maintained upstream. Report visual or gameplay problems there.

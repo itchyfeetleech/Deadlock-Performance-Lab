@@ -8,12 +8,13 @@ import random
 import uuid
 
 from . import __version__
-from .profiles import catalog, frozen
+from .profiles import DEMO_PROFILES, catalog, frozen, validate
 from .storage import LabError, digest, fingerprint, write_json
 from .system import game_identity, identity
 from .workspace import load_workspace
 
 
+RENDERERS = {"default": [], "vulkan": ["-vulkan"], "dx11": ["-dx11"]}
 PRESETS = {
     "custom": {},
     "scout": {"sample_s": 5, "warmup_s": 2, "settle_s": 1, "cooldown_s": 0},
@@ -23,8 +24,18 @@ PRESETS = {
 
 
 def make_plan(workspace: Path, cases: list[str], rounds: int | None, seed: int, *, demo: bool = False,
-              experimental: bool = False, manual: bool = False, preset: str = "custom") -> tuple[Path, dict]:
+              experimental: bool = False, manual: bool = False, preset: str = "custom",
+              fps_max: int | None = None, renderer: str = "default") -> tuple[Path, dict]:
+    """Freeze a randomized, baseline-bracketed schedule.
+
+    fps_max and renderer are run settings: they apply to every capture,
+    baseline included (fps_max None keeps the game's own setting).
+    """
     config = load_workspace(workspace)
+    if fps_max is not None and (isinstance(fps_max, bool) or not isinstance(fps_max, int) or not 0 <= fps_max <= 1000):
+        raise LabError("FPS limit must be 0 (uncapped) to 1000, or unset to keep the game's setting.")
+    if renderer not in RENDERERS:
+        raise LabError("Renderer must be default, vulkan or dx11.")
     if preset not in PRESETS:
         raise LabError("Preset must be scout, screen, confirm or custom.")
     if rounds is None:
@@ -32,6 +43,8 @@ def make_plan(workspace: Path, cases: list[str], rounds: int | None, seed: int, 
     if not 1 <= rounds <= 30:
         raise LabError("rounds must be between 1 and 30; use at least 5 for a comparison.")
     available = catalog(workspace)
+    if demo:
+        available.update({p["id"]: validate(dict(p)) for p in DEMO_PROFILES})
     expanded = []
     for expression in cases:
         expression = expression.strip()
@@ -47,12 +60,16 @@ def make_plan(workspace: Path, cases: list[str], rounds: int | None, seed: int, 
             raise LabError(f"{case} is a manual treatment. Capture it separately and use dpl import.")
         if available[case]["kind"] == "gameinfo" and not experimental:
             raise LabError("Whole GameInfo swaps require --experimental. Review dpl profile show ID first.")
+        if available[case]["kind"] == "config" and manual:
+            raise LabError(f"{case} is a config, which the lab applies itself. Run it as a live benchmark.")
     scenario = dict(config["scenario"])
     scenario["load_guard_s"] = 0
     scenario["ready_protocol"] = "source2-demo-signon-v3"
     scenario["replay_launch"] = "startup"
     scenario["camera_guard_s"] = .1
     scenario.update(PRESETS[preset])
+    scenario["fps_max"] = fps_max
+    scenario["launch_flags"] = RENDERERS[renderer]
     install = Path(config["install"]) if config["install"] else None
     if not demo and not manual:
         if not install or not (install / "game/citadel/gameinfo.gi").is_file():
@@ -80,7 +97,13 @@ def make_plan(workspace: Path, cases: list[str], rounds: int | None, seed: int, 
         for case in cases:
             if available[case].get("base_sha256") and available[case]["base_sha256"] != current_base:
                 raise LabError(f"{case}: sweep base differs from your current GameInfo. Generate the sweep from the intended live baseline.")
-    plan_profiles = {key: frozen(available[key]) for key in ["baseline", *cases]}
+    plan_profiles = {}
+    for key in ["baseline", *cases]:
+        profile = available[key]
+        if profile["kind"] == "config" and not demo:
+            from .configs import materialize
+            profile = {**profile, "materialized": materialize(profile, install)}
+        plan_profiles[key] = frozen(profile)
     rng = random.Random(seed)
     schedule = []
     for round_index in range(1, rounds + 1):

@@ -8,6 +8,7 @@ from unittest.mock import patch
 from deadlock_perf_lab.runner import run_live, run_session, stop_owned, verify_assignments, wait_startup_replay
 from deadlock_perf_lab.storage import LabError, read_json, write_json
 from deadlock_perf_lab.planning import make_plan
+from deadlock_perf_lab.profiles import add_profile
 from deadlock_perf_lab.workspace import initialize
 from deadlock_perf_lab.vconsole import HEADER, VConsole
 from tests.helpers import mangohud
@@ -44,7 +45,10 @@ class RunnerTests(unittest.TestCase):
         self.install = self.root / "Steam/game-install"
         (self.install / "game/citadel/cfg").mkdir(parents=True)
         self.gi = self.install / "game/citadel/gameinfo.gi"
-        self.gi.write_text('GameInfo { "game" "test" }')
+        self.gi.write_text('GameInfo { "game" "test" ConVars { fps_max 400 r_shadows 1 } }')
+        self.video = self.install / "game/citadel/cfg/video.txt"
+        self.video.write_text('"video.cfg"\n{\n\t"Version"\t\t"20"\n\t"VendorID"\t\t"4098"\n'
+                              '\t"setting.defaultres"\t\t"2560"\n\t"setting.r_citadel_shadow_quality"\t\t"2"\n}\n')
         self.existing = self.install / "game/citadel/cfg/autoexec_dpl.cfg"
         self.existing.write_text("user's pre-existing lab file\n")
         replay = self.install / "game/citadel/replay.dem"
@@ -54,11 +58,17 @@ class RunnerTests(unittest.TestCase):
         config["scenario"].update(sample_s=1, warmup_s=0, settle_s=0, cooldown_s=0, player="1")
         config["conditions"] = {"resolution":"1920x1080"}
         write_json(self.workspace / "lab.json", config)
-        self.session, self.plan = make_plan(self.workspace, ["community-boot"], 1, 47, experimental=True)
+        add_profile(self.workspace, {
+            "id": "cfg-test", "name": "Test config", "kind": "config", "category": "custom", "description": "test",
+            "gameinfo": {"source": "file", "content": 'GameInfo { "game" "test" ConVars { fps_max 300 r_shadows 1 } }',
+                         "overrides": {"r_shadows": "0"}},
+            "video": {"source": "current", "overrides": {"setting.r_citadel_shadow_quality": "0"}}})
+        self.session, self.plan = make_plan(self.workspace, ["cfg-test"], 1, 47, fps_max=0, renderer="vulkan")
         # Keep coverage of older frozen plans that start replay via VConsole.
         self.plan['context']['scenario']['replay_launch'] = 'console'
         self.item = self.plan["schedule"][1]
-        self.directory = self.session / "runs/002-community-boot"
+        self.directory = self.session / "runs/002-cfg-test"
+        self.rewrite_video = False
         self.directory.mkdir(parents=True)
         self.alive = {}
         self.env = patch.dict("os.environ", {"XDG_CACHE_HOME": str(self.root / "cache")})
@@ -67,6 +77,10 @@ class RunnerTests(unittest.TestCase):
 
     def launch(self, args, **kwargs):
         self.launch_args = args
+        self.run_gi, self.run_video = self.gi.read_text(), self.video.read_text()
+        self.run_autoexec = (self.install / "game/citadel/cfg/autoexec_dpl.cfg").read_text()
+        if self.rewrite_video:  # Some games normalize video.txt themselves.
+            self.video.write_text(self.run_video.replace('"0"', '"1"'))
         self.run_capture_conf = (self.workspace / "capture.conf").read_bytes()
         self.alive[12345] = "987"
         mangohud(self.directory / "capture/deadlock_fixture.csv", [5.] * 1000)
@@ -98,6 +112,40 @@ class RunnerTests(unittest.TestCase):
         self.assertIn("-insecure", self.launch_args)
         self.assertEqual(read_json(self.directory / "transaction.json")["state"], "restored")
         self.assertFalse(list((self.root / "cache").rglob("*.json")))
+
+    def run_fixture(self):
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(patch("deadlock_perf_lab.runner.game_processes", side_effect=lambda: dict(self.alive)))
+            stack.enter_context(patch("deadlock_perf_lab.runner.subprocess.Popen", side_effect=self.launch))
+            stack.enter_context(patch("deadlock_perf_lab.runner.VConsole", FakeConsole))
+            stack.enter_context(patch("deadlock_perf_lab.runner.pause"))
+            stack.enter_context(patch("deadlock_perf_lab.runner.last_elapsed", return_value=1))
+            stack.enter_context(patch("deadlock_perf_lab.runner.stop_owned", side_effect=self.stop))
+            stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+            return run_live(self.workspace, self.session, self.plan, self.item, self.directory)
+
+    def test_config_files_and_run_settings_apply_then_restore(self):
+        gi, video = self.gi.read_bytes(), self.video.read_bytes()
+        result = self.run_fixture()
+        self.assertIn('fps_max 300', self.run_gi)  # from the imported file
+        self.assertIn('r_shadows "0"', self.run_gi)  # ticked override on top
+        self.assertIn('"setting.r_citadel_shadow_quality"\t\t"0"', self.run_video)
+        self.assertIn('"VendorID"\t\t"4098"', self.run_video)
+        self.assertIn("fps_max 0", self.run_autoexec)  # run setting, applied to every capture
+        self.assertIn("-vulkan", self.launch_args)
+        self.assertEqual((self.gi.read_bytes(), self.video.read_bytes()), (gi, video))
+        self.assertTrue(any(b.startswith("Config applied: confirm") for b in result["quality_blockers"]))
+        # Hidden gameinfo settings are reported, not treated as a failed capture.
+        self.assertFalse(any("no readback" in b for b in result["quality_blockers"]))
+        self.assertTrue(any("hidden from the console" in w for w in result["warnings"]))
+
+    def test_game_rewriting_video_txt_is_reported_and_still_restored(self):
+        video = self.video.read_bytes()
+        self.rewrite_video = True
+        result = self.run_fixture()
+        self.assertEqual(self.video.read_bytes(), video)
+        self.assertEqual(read_json(self.directory / "transaction.json")["state"], "restored")
+        self.assertTrue(any("rewrote video.txt" in w and "r_citadel_shadow_quality" in w for w in result["warnings"]))
 
     def test_missing_capture_fails_and_restores_instead_of_generating_fps(self):
         original = self.gi.read_bytes()
@@ -155,7 +203,7 @@ class RunnerTests(unittest.TestCase):
 
     def test_cancellation_persists_failure_without_metrics(self):
         # Use a fresh session so the existing fixture run directory is irrelevant.
-        session, _ = make_plan(self.workspace, ["fps-unlock"], 1, 47, demo=True)
+        session, _ = make_plan(self.workspace, ["example-shadows-off"], 1, 47, demo=True)
         with patch("deadlock_perf_lab.runner.run_demo", side_effect=KeyboardInterrupt), contextlib.redirect_stdout(io.StringIO()):
             with self.assertRaises(KeyboardInterrupt):
                 run_session(self.workspace, session)

@@ -32,14 +32,14 @@ class WorkflowTests(unittest.TestCase):
         write_json(self.workspace / "lab.json", config)
 
     def demo(self, rounds=5):
-        session, plan = make_plan(self.workspace, ["fps-unlock"], rounds, 47, demo=True)
+        session, plan = make_plan(self.workspace, ["example-shadows-off"], rounds, 47, demo=True)
         with contextlib.redirect_stdout(io.StringIO()):
             run_session(self.workspace, session)
         return session, plan
 
     def test_rounds_bracketed_and_seed_reproducible(self):
-        _, a = make_plan(self.workspace, ["fps-unlock", "cap-144"], 5, 47, demo=True)
-        _, b = make_plan(self.workspace, ["fps-unlock", "cap-144"], 5, 47, demo=True)
+        _, a = make_plan(self.workspace, ["example-shadows-off", "example-low-video"], 5, 47, demo=True)
+        _, b = make_plan(self.workspace, ["example-shadows-off", "example-low-video"], 5, 47, demo=True)
         self.assertEqual(a["schedule"], b["schedule"])
         for r in range(1,6):
             cases = [s["case"] for s in a["schedule"] if s["round"] == r]
@@ -122,15 +122,14 @@ class WorkflowTests(unittest.TestCase):
         for content in ('fps_max 0; connect x', 'exec other.cfg', 'bind x quit', 'demo_pause 1'):
             with self.subTest(content=content), self.assertRaises(LabError):
                 validate_autoexec(content)
-        profiles = catalog()
-        self.assertEqual(len(profiles), 10)
-        self.assertIn("GameInfo", profiles["community-sqooky"]["content"])
+        # Nothing but the baseline is bundled; configs are the user's own or fetched on request.
+        self.assertEqual(list(catalog()), ["baseline"])
 
     def test_html_escapes_profile_labels_and_script_breakouts(self):
         session, plan = self.demo()
         # Modify via a fresh valid plan hash to model an operator-created label.
         from deadlock_perf_lab.storage import fingerprint
-        plan["profiles"]["fps-unlock"]["name"] = '</script><script>alert("bad")</script>'
+        plan["profiles"]["example-shadows-off"]["name"] = '</script><script>alert("bad")</script>'
         plan["context"]["conditions"]["notes"] = "</script><script>alert('note')</script>"
         plan["plan_sha256"] = fingerprint({k:v for k,v in plan.items() if k != "plan_sha256"})
         write_json(session / "plan.json", plan)
@@ -140,7 +139,7 @@ class WorkflowTests(unittest.TestCase):
 
     def test_cli_returns_actionable_errors(self):
         with contextlib.redirect_stderr(io.StringIO()) as output:
-            result = main(["--workspace", str(self.workspace), "plan", "--rounds", "0"])
+            result = main(["--workspace", str(self.workspace), "plan", "--cases", "x", "--rounds", "0"])
         self.assertEqual(result, 1)
         self.assertIn("rounds", output.getvalue())
 
@@ -183,7 +182,7 @@ class WorkflowTests(unittest.TestCase):
 
     def test_screen_preset_is_fast_and_does_not_edit_workspace(self):
         before = (self.workspace / "lab.json").read_bytes()
-        _, plan = make_plan(self.workspace, ["cap-*"], 1, 47, demo=True, preset="screen")
+        _, plan = make_plan(self.workspace, ["example-[sl]*"], 1, 47, demo=True, preset="screen")
         self.assertEqual(plan["context"]["scenario"]["sample_s"], 10)
         self.assertEqual(plan["context"]["scenario"]["warmup_s"], 5)
         self.assertEqual(len(plan["schedule"]), 4)
@@ -208,7 +207,7 @@ class WorkflowTests(unittest.TestCase):
 
     def test_scout_preserves_workspace_and_requires_confirmation(self):
         before = (self.workspace / "lab.json").read_bytes()
-        session, plan = make_plan(self.workspace, ["cap-144"], 1, 47, demo=True, preset="scout")
+        session, plan = make_plan(self.workspace, ["example-low-video"], 1, 47, demo=True, preset="scout")
         self.assertEqual(plan["context"]["scenario"]["sample_s"], 5)
         self.assertEqual(plan["context"]["scenario"]["warmup_s"], 2)
         self.assertEqual((self.workspace / "lab.json").read_bytes(), before)

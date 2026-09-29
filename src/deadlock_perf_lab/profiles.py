@@ -1,8 +1,6 @@
 """Declarative benchmark treatments, copied and hashed into every plan."""
 from __future__ import annotations
 
-from importlib.resources import files
-import json
 from pathlib import Path
 import re
 
@@ -47,8 +45,12 @@ def validate_gameinfo(content: str) -> None:
 
 def validate(profile: dict) -> dict:
     valid_id(profile.get("id", ""))
-    if profile.get("kind") not in {"none", "autoexec", "gameinfo", "launch", "manual"}:
-        raise LabError("Profile kind must be none, autoexec, gameinfo, launch or manual.")
+    # "gameinfo" and "launch" are legacy kinds from 0.1-0.2: profiles saved then still load and run.
+    if profile.get("kind") not in {"none", "config", "autoexec", "gameinfo", "launch", "manual"}:
+        raise LabError("Profile kind must be none, config, autoexec, gameinfo, launch or manual.")
+    if profile["kind"] == "config":
+        from .configs import validate_config
+        validate_config(profile)
     if profile["id"] == "baseline" and profile["kind"] != "none":
         raise LabError("baseline is reserved for the unchanged installation.")
     if profile["kind"] in {"autoexec", "gameinfo"}:
@@ -65,13 +67,28 @@ def validate(profile: dict) -> dict:
     return profile
 
 
+# Synthetic configs used only by the demo; they are never applied to a game.
+DEMO_PROFILES = [
+    {"id": "example-optimizationlock", "name": "Example: Sqooky's OptimizationLock", "kind": "config",
+     "category": "example", "status": "example", "description": "Illustrates a community gameinfo.gi preset.",
+     "gameinfo": {"source": "current", "overrides": {"r_citadel_shadow_quality": "0"}}},
+    {"id": "example-shadows-off", "name": "Example: shadows off", "kind": "config", "category": "example",
+     "status": "example", "description": "Illustrates a single gameinfo.gi setting.",
+     "gameinfo": {"source": "current", "overrides": {"r_shadows": "0"}}},
+    {"id": "example-low-video", "name": "Example: low video.txt", "kind": "config", "category": "example",
+     "status": "example", "description": "Illustrates a video.txt change.",
+     "video": {"source": "current", "overrides": {"setting.r_citadel_ssao_quality": "0"}}},
+]
+
+
+BASELINE = {"id": "baseline", "name": "Your current setup", "kind": "none", "category": "control", "status": "control",
+            "description": "The installation as it is now, including your existing gameinfo.gi, video.txt and autoexec. "
+                           "This is not necessarily Valve stock."}
+
+
 def catalog(workspace: Path | None = None) -> dict[str, dict]:
-    profiles = json.loads(files("deadlock_perf_lab").joinpath("assets/profiles.json").read_text())
-    result = {}
-    for profile in profiles:
-        if "asset" in profile:
-            profile["content"] = files("deadlock_perf_lab").joinpath("assets/gameinfo", profile["asset"]).read_text()
-        result[profile["id"]] = validate(profile)
+    """The baseline plus your saved configs. Nothing else is bundled."""
+    result = {"baseline": validate(dict(BASELINE))}
     if workspace:
         for path in sorted((workspace / "profiles").glob("*.json")):
             profile = validate(read_json(path))
@@ -81,9 +98,11 @@ def catalog(workspace: Path | None = None) -> dict[str, dict]:
     return result
 
 
-def add_profile(workspace: Path, profile: dict) -> Path:
+def add_profile(workspace: Path, profile: dict, *, replace: bool = False) -> Path:
+    """Save a custom profile. Plans keep their own frozen copy, so replacing never changes past results."""
     validate(profile)
-    if profile["id"] in catalog(workspace):
+    existing = catalog(workspace).get(profile["id"])
+    if existing and not (replace and existing.get("category") == "custom"):
         raise LabError("Profile already exists. Use a new ID to preserve experiment history.")
     path = workspace / "profiles" / f"{profile['id']}.json"
     write_json(path, profile)

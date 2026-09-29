@@ -38,7 +38,7 @@ def fmt(value: float | None, suffix: str = "", signed: bool = False) -> str:
 
 def markdown_report(result: dict) -> str:
     base = result["baseline"]
-    lines = ["# Deadlock Perf Lab", "", f"Session: `{result['session']}`", "",
+    lines = ["# Deadlock Performance Lab", "", f"Session: `{result['session']}`", "",
              "**DEMO DATA — not game measurements.**" if result["synthetic"] else "Measured capture report.", "",
              f"Baseline: {fmt(base['avg_fps'], ' FPS')} · CV {fmt(base['cv_pct'], '%')} · drift {fmt(base['drift_pct'], '%', True)}.", "",
              "| Treatment | Rounds | Average FPS | Change | 95% interval | Verdict |",

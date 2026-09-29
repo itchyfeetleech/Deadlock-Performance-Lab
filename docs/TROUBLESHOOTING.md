@@ -2,10 +2,18 @@
 
 | Symptom | Action |
 |---|---|
-| `dpl` not found | Activate the venv or add pipx's application directory to PATH. `python -m deadlock_perf_lab` is an equivalent entry point. |
-| Game install not discovered | Set `install` in workspace `lab.json`; it should contain `game/citadel/gameinfo.gi`. Native Steam is the supported launcher. |
+| `dpl` not found | Run `pipx ensurepath` and open a new terminal (or activate your venv). `python3 -m deadlock_perf_lab` is an equivalent entry point. |
+| The app doesn't open in a browser | Open the `http://127.0.0.1:…` address that `dpl` prints. Over SSH, use `dpl gui --no-browser --port 8765` with `ssh -L 8765:127.0.0.1:8765`. |
+| "This link has expired" | The app was closed, or it quit after 30 idle minutes. Run `dpl` again. |
+| Steam launch options "not detected" | Steam may save them only when it closes. If you pasted the line from the app, carry on: the first capture fails with a clear message if MangoHud isn't recording. "Points elsewhere" means the line was pasted from another workspace; paste it again. |
+| Presets "couldn't download" | The app fetches OptimizationLock presets from `raw.githubusercontent.com`. Check your connection or proxy, then press **Refresh**/**Try again**. A previously downloaded copy is used offline. Your own files and imports work without internet. |
+| "Made for a different game version" | The preset's `PGIVersion` differs from your installed `gameinfo.gi`, usually after a game update. Pick the preset again for the latest version. If the game misbehaves with a whole-file preset, test your own file plus ticked settings instead. |
+| "The game rewrote video.txt" | Deadlock normalized or rejected some video settings. The listed values are what the game actually used; your file was still restored. |
+| Many settings "hidden from the console" | Normal for `gameinfo.gi` cvars. The whole file was still applied and measured; only individual confirmation is missing. |
+| Where are my results? | In `~/.local/share/deadlock-performance-lab` (shown at the bottom of the app), or `./.lab` for workspaces made by earlier versions. `dpl --workspace PATH` picks another. |
+| Game install not discovered | Type the folder into the app's **Set up** tab (or set `install` in `lab.json`); it contains `game/citadel/gameinfo.gi`. Native Steam is the supported launcher. |
 | No game within 180 seconds | Sign into Steam, launch Deadlock once normally, finish updates and shader processing, close it, then retry with a new plan. See the run's `steam.log` and Steam's own logs. |
-| No MangoHud file | Use the per-game wrapper printed by `dpl setup`; inherited variables on an already-running Steam client are insufficient. Confirm MangoHud works in your Proton game. |
+| No MangoHud file | Paste the launch options line from the app (or `dpl setup`) into Deadlock's Steam properties; environment variables given to an already-running Steam client don't reach the game. Confirm MangoHud works in your Proton game. |
 | Old 100 ms / 10 Hz logs | Import/inspect with `--interval-ms 100`; never relabel them `0`. True 1%/0.1% lows and directional verdicts are unavailable. |
 | Missing measurement window | Check logging duration and replay length. The parser rejects partial windows instead of treating them as the full test. |
 | No VConsole / missing seek confirmation | Game protocol or console output may have changed. Inspect `vconsole.log`; test a local replay using `-dev -vconsole -insecure`. Never expose port 29000 beyond localhost. |
@@ -24,7 +32,7 @@
 
 Ctrl+C and SIGTERM request cleanup. SIGKILL, host shutdown and power loss cannot run a handler, so file operations use a durable journal. The backup and original checksum are persisted before each write. A per-install lock prevents simultaneous lab instances, including separate workspaces; a pending journal must be recovered before a new suite.
 
-Close Deadlock, then:
+Close Deadlock, then press **Restore my files** in the app, or:
 
 ```bash
 dpl --workspace /path/to/workspace recover

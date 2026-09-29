@@ -1,0 +1,38 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check the tag matches the package version
+        run: |
+          version=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          test "v$version" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME does not match version $version"; exit 1; }
+      - run: python -m pip install build
+      - run: python -m build
+      - name: Build single-file dpl.pyz
+        run: |
+          mkdir -p /tmp/pyz
+          cp -r src/deadlock_perf_lab /tmp/pyz/
+          find /tmp/pyz -name __pycache__ -prune -exec rm -rf {} +
+          printf 'from deadlock_perf_lab.cli import main\n\nraise SystemExit(main())\n' > /tmp/pyz/__main__.py
+          python -m zipapp /tmp/pyz -p '/usr/bin/env python3' -c -o dist/dpl.pyz
+          python dist/dpl.pyz --workspace /tmp/dpl-pyz-demo demo --rounds 1
+          cd dist && sha256sum * > SHA256SUMS
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --prerelease
+          --title "Deadlock Performance Lab ${GITHUB_REF_NAME#v}"
+          --notes "See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/$GITHUB_REF_NAME/CHANGELOG.md). Install: \`pipx install git+https://github.com/${{ github.repository }}.git@$GITHUB_REF_NAME\`, or download dpl.pyz and run \`python3 dpl.pyz\`."
