@@ -1,1418 +1,1185 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark" class="nojs">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta name="color-scheme" content="dark" />
-    <title>Deadlock Performance Lab · __TITLE__</title>
+    <meta name="color-scheme" content="dark light" />
+    <title>Benchmark report · __TITLE__</title>
+    <script>
+      document.documentElement.classList.remove("nojs");
+      try {
+        document.documentElement.dataset.theme =
+          localStorage.getItem("dpl-report-theme") ||
+          (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+      } catch {}
+    </script>
     <style>
       :root {
-        --bg: #121612;
-        --panel: #1b201b;
-        --line: #363e33;
-        --text: #ecebdf;
-        --muted: #a9b09e;
-        --accent: #d8cf9a;
-        --green: #afd0a0;
-        --red: #e3a399;
-        --blue: #90bccc;
-        --mono: ui-monospace, Consolas, monospace;
-      }
-      * {
-        box-sizing: border-box;
-      }
-      body {
-        margin: 0;
-        background: var(--bg);
-        color: var(--text);
-        font:
-          13px/1.5 system-ui,
-          sans-serif;
-      }
-      a {
-        color: var(--accent);
-      }
-      button,
-      input,
-      select {
-        font: inherit;
-        color: var(--text);
-        background: #151a15;
-        border: 1px solid var(--line);
-        border-radius: 3px;
-        padding: 7px 10px;
-      }
-      button,
-      select {
-        cursor: pointer;
-      }
-      button:hover {
-        border-color: var(--accent);
-      }
-      :focus-visible {
-        outline: 2px solid var(--accent);
-        outline-offset: 2px;
-      }
-      h1 {
-        font:
-          26px Georgia,
-          serif;
-        margin: 0;
-      }
-      h2 {
-        font-size: 15px;
-        font-weight: 650;
-        margin: 0;
-      }
-      h3 {
-        font-size: 13px;
-        margin: 0 0 8px;
-      }
-      p {
-        color: var(--muted);
-        margin: 7px 0;
-      }
-      .shell {
-        max-width: 1560px;
-        margin: auto;
-        padding: 0 24px;
-      }
-      .top {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 20px;
-        padding: 16px 0;
-        border-bottom: 1px solid var(--line);
-      }
-      .brand {
-        font:
-          700 14px Georgia,
-          serif;
-        letter-spacing: 0.1em;
-      }
-      .brand span {
-        color: var(--accent);
-        font-weight: 400;
-      }
-      .actions,
-      .toolbar,
-      .heading {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex-wrap: wrap;
-      }
-      .heading {
-        justify-content: space-between;
-        margin-bottom: 12px;
-      }
-      .actions button:first-child {
-        background: var(--accent);
-        color: var(--bg);
-      }
-      .mode {
-        font: 10px var(--mono);
-        color: var(--accent);
-        border: 1px solid #6b6344;
-        padding: 4px 7px;
-      }
-      .title {
-        padding: 18px 0 12px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 15px;
-      }
-      .id {
-        color: var(--muted);
-        font: 11px var(--mono);
-        overflow-wrap: anywhere;
-      }
-      .nav {
-        display: flex;
-        gap: 23px;
-        border-bottom: 1px solid var(--line);
-        padding-bottom: 10px;
-        margin-bottom: 16px;
-      }
-      .nav a {
-        color: var(--muted);
-        text-decoration: none;
-      }
-      .nav a:hover {
-        color: var(--accent);
-      }
-      .overview {
-        display: grid;
-        grid-template-columns: repeat(5, 1fr);
-        background: var(--panel);
-        border: 1px solid var(--line);
-        margin-bottom: 12px;
-      }
-      .overview > div {
-        padding: 12px 16px;
-        border-right: 1px solid var(--line);
-      }
-      .overview > div:last-child {
-        border: 0;
-      }
-      .label {
-        font-size: 11px;
-        color: var(--muted);
-      }
-      .value {
-        font: 23px/1.5 var(--mono);
-      }
-      .value span {
-        font-size: 12px;
-        color: var(--muted);
-      }
-      .notice {
-        padding: 9px 13px;
-        background: #29291e;
-        border-left: 3px solid var(--accent);
-        margin: 0 0 16px;
-        font-size: 12px;
-      }
-      .notice a {
-        float: right;
-      }
-      .grid {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 330px;
-        gap: 16px;
-        align-items: start;
-      }
-      .panel {
-        min-width: 0;
-        background: var(--panel);
-        border: 1px solid var(--line);
-        padding: 16px;
-        margin-bottom: 16px;
-        scroll-margin-top: 15px;
-      }
-      .toolbar {
-        margin-bottom: 10px;
-      }
-      .toolbar input {
-        min-width: 130px;
-        flex: 1;
-      }
-      .small {
-        font-size: 11px;
-        color: var(--muted);
-      }
-      .table-wrap {
-        overflow: auto;
-        max-height: 460px;
-      }
-      table {
-        border-collapse: collapse;
-        width: 100%;
-        font-size: 12px;
-        text-align: right;
-        font-variant-numeric: tabular-nums;
-      }
-      th {
-        color: var(--muted);
-        font-weight: 500;
-        font-size: 11px;
-        padding: 9px 10px;
-        white-space: nowrap;
-        background: var(--panel);
-        position: sticky;
-        top: 0;
-        z-index: 1;
-        border-bottom: 1px solid var(--line);
-      }
-      th button {
-        padding: 0;
-        border: 0;
-        background: none;
-        color: inherit;
-        font: inherit;
-      }
-      td {
-        padding: 10px;
-        border-bottom: 1px solid #30372e;
-        white-space: nowrap;
-      }
-      td:first-child,
-      th:first-child {
-        text-align: left;
-      }
-      td small {
-        display: block;
-        color: var(--muted);
-        font-size: 10px;
-      }
-      tr:last-child td {
-        border-bottom: 0;
-      }
-      tbody tr.active {
-        background: #323728;
-        box-shadow: inset 3px 0 var(--accent);
-      }
-      tbody tr:hover {
-        background: #272e24;
-      }
-      .case-button {
-        border: 0;
-        background: none;
-        padding: 0;
-        text-align: left;
-        max-width: 270px;
-        white-space: normal;
-        line-height: 1.4;
-      }
-      .case-button strong {
-        font-weight: 550;
-      }
-      .badge {
-        font: 10px var(--mono);
-        padding: 3px 6px;
-        background: #333527;
-        border: 1px solid #53593e;
-        color: var(--accent);
-        white-space: nowrap;
-      }
-      .badge.improved {
-        color: var(--green);
-      }
-      .badge.regressed {
-        color: var(--red);
-      }
-      .badge.inconclusive {
-        color: var(--muted);
-      }
-      .delta-positive {
-        color: var(--green);
-      }
-      .delta-negative {
-        color: var(--red);
-      }
-      .detail-name {
-        font:
-          20px/1.25 Georgia,
-          serif;
-        overflow-wrap: anywhere;
-        margin-bottom: 8px;
-      }
-      .detail-delta {
-        font: 30px var(--mono);
-        margin-top: 16px;
-      }
-      .plot {
-        width: 100%;
-        height: 250px;
-        display: block;
-      }
-      .short-plot {
-        height: 150px;
-      }
-      .interval-plot {
-        height: 85px;
-      }
-      .legend {
-        display: flex;
-        gap: 15px;
-        flex-wrap: wrap;
-        color: var(--muted);
-        font-size: 11px;
-        margin: 8px 0;
-      }
-      .swatch {
-        display: inline-block;
-        width: 16px;
-        height: 3px;
-        background: var(--accent);
-        vertical-align: middle;
-        margin-right: 5px;
-      }
-      .swatch.blue {
-        background: var(--blue);
-      }
-      .swatch.dash {
-        background: repeating-linear-gradient(
-          to right,
-          var(--accent) 0 3px,
-          transparent 3px 6px
-        );
-      }
-      .divider {
-        border-top: 1px solid var(--line);
-        padding-top: 13px;
-        margin-top: 13px;
-      }
-      .reasons {
-        padding-left: 16px;
-        color: var(--muted);
-        font-size: 11px;
-      }
-      .reasons li {
-        margin: 7px 0;
-      }
-      .two {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 16px;
-      }
-      .trace-wrap {
-        position: relative;
-      }
-      #tooltip {
-        position: absolute;
-        display: none;
-        background: #101510;
-        border: 1px solid var(--line);
-        padding: 8px;
-        pointer-events: none;
-        font: 11px var(--mono);
-        top: 8px;
-        left: 50px;
-      }
-      .capture-controls {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-        margin-bottom: 10px;
-      }
-      .capture-controls label {
-        flex: 1;
-        min-width: 190px;
-      }
-      .capture-controls select {
-        width: 100%;
-        margin-top: 4px;
-      }
-      .capture-controls span {
-        display: block;
-        color: var(--muted);
-        font-size: 11px;
-      }
-      .facts {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 15px;
-      }
-      .facts dt {
-        color: var(--muted);
-        font-size: 11px;
-      }
-      .facts dd {
-        margin: 4px 0;
-        overflow-wrap: anywhere;
-      }
-      .notes {
-        color: var(--muted);
-        padding-left: 20px;
-      }
-      .notes li {
-        margin: 5px 0;
-      }
-      details summary {
-        cursor: pointer;
-        color: var(--accent);
-        padding: 5px 0;
-      }
-      pre {
-        white-space: pre-wrap;
-        overflow-wrap: anywhere;
-        font: 11px/1.6 var(--mono);
-        color: var(--muted);
-      }
-      .foot {
-        padding: 16px 0 24px;
-        font-size: 11px;
-        color: var(--muted);
-        border-top: 1px solid var(--line);
-      }
-      .sr-only {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-      }
-      .empty {
-        padding: 20px;
-        color: var(--muted);
-      }
-      @media (max-width: 1100px) {
-        .grid {
-          grid-template-columns: 1fr;
-        }
-        .detail {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 20px;
-        }
-        .overview {
-          grid-template-columns: repeat(3, 1fr);
-        }
-      }
-      @media (max-width: 650px) {
-        .shell {
-          padding: 0 12px;
-        }
-        .top,
-        .title {
-          align-items: flex-start;
-          flex-direction: column;
-          gap: 8px;
-        }
-        .overview {
-          grid-template-columns: 1fr 1fr;
-        }
-        .overview > div {
-          border-bottom: 1px solid var(--line);
-        }
-        .two,
-        .detail,
-        .facts {
-          grid-template-columns: 1fr;
-        }
-        .notice a {
-          float: none;
-          display: block;
-        }
-        .panel {
-          padding: 12px;
-        }
-        .nav {
-          gap: 16px;
-        }
-        .capture-controls label {
-          min-width: 0;
-          width: 100%;
-          flex: auto;
-        }
-        .plot {
-          height: 220px;
-        }
-        .interval-plot {
-          height: 85px;
-        }
-        .short-plot {
-          height: 150px;
-        }
+        --bg: #121612; --panel: #1b201b; --panel-2: #171c17; --sel: #262d22; --line: #363e33; --grid: #293027;
+        --axis: #4b5446; --text: #ecebdf; --muted: #a9b09e; --faint: #8a917f; --accent: #d8cf9a; --accent-ink: #1a1d14;
+        --wash: rgba(169, 176, 158, 0.12);
+        /* Chart series, validated for colour-vision deficiency on the panel colour: baseline and config. */
+        --base: #3987e5; --cfg: #d95926; --other: #6f776a;
+        --good: #0ca30c; --good-text: #3fbf3f; --bad: #d03b3b; --bad-text: #e66767; --warn: #e2c27a;
+        --mono: ui-monospace, "SFMono-Regular", Consolas, monospace; --serif: Georgia, "Times New Roman", serif;
+        --nav-h: 52px;
+        color-scheme: dark;
+      }
+      :root[data-theme="light"] {
+        --bg: #f3f2eb; --panel: #fdfdf9; --panel-2: #f7f6f0; --sel: #efecd9; --line: #d6d5c8; --grid: #e7e6dd;
+        --axis: #b3b2a5; --text: #1c211a; --muted: #555b4f; --faint: #6f7568; --accent: #66581c; --accent-ink: #fdfdf9;
+        --wash: rgba(85, 91, 79, 0.1);
+        --base: #2a78d6; --cfg: #eb6834; --other: #a4a99a;
+        --good: #0ca30c; --good-text: #006300; --bad: #d03b3b; --bad-text: #b42f2f; --warn: #8a6a00;
+        color-scheme: light;
       }
       @media print {
-        body {
-          --bg: white;
-          --panel: white;
-          --text: #1a2018;
-          --muted: #4b5246;
-          --line: #bbb;
-          --accent: #66581c;
-          --green: #315d22;
-          --blue: #235b79;
-          background: white;
+        :root, :root[data-theme] {
+          --bg: #fff; --panel: #fff; --panel-2: #fff; --sel: #f3f1e4; --line: #cfcfc4; --grid: #e4e4dc;
+          --axis: #aaa99c; --text: #111; --muted: #4a5046; --faint: #666c61; --accent: #66581c; --accent-ink: #fff;
+          --wash: rgba(85, 91, 79, 0.1);
+          --base: #2a78d6; --cfg: #eb6834; --other: #a4a99a;
+          --good: #0ca30c; --good-text: #006300; --bad: #d03b3b; --bad-text: #b42f2f; --warn: #8a6a00;
+          color-scheme: light;
         }
-        .shell {
-          padding: 0;
-          max-width: none;
-        }
-        .actions,
-        .nav,
-        .toolbar {
-          display: none;
-        }
-        .grid,
-        .two {
-          display: block;
-        }
-        .panel {
-          break-inside: avoid;
-        }
-        .table-wrap {
-          max-height: none;
-          overflow: visible;
-        }
-        th {
-          position: static;
-        }
-        .notice {
-          background: white;
-        }
-        .overview {
-          background: white;
-        }
-        .top {
-          padding-top: 0;
-        }
+      }
+      * { box-sizing: border-box; }
+      html { scroll-padding-top: calc(var(--nav-h) + 12px); scrollbar-color: var(--line) var(--bg); }
+      body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+      a { color: var(--accent); }
+      h1, h2, h3 { margin: 0; font-weight: 600; }
+      h1 { font: 26px/1.2 var(--serif); }
+      h2 { font: 19px/1.3 var(--serif); }
+      h3 { font-size: 13px; letter-spacing: 0.01em; }
+      p { margin: 6px 0; }
+      button, input, select { font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+      button { cursor: pointer; white-space: nowrap; }
+      button:hover { border-color: var(--accent); }
+      :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .muted { color: var(--muted); }
+      .small { font-size: 12px; }
+      .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+      .mono { font-family: var(--mono); }
+      .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+      [hidden] { display: none !important; }
+      .nojs .nav, .nojs .tools, .nojs .summary, .nojs main > section:not(#summary) { display: none; }
+
+      /* ------------------------------------------------------------ header */
+      .bar { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+      .bar-in { max-width: 1320px; margin: 0 auto; padding: 0 24px; height: var(--nav-h); display: flex; align-items: center; gap: 22px; }
+      .brand { font: 700 13px var(--serif); letter-spacing: 0.1em; white-space: nowrap; }
+      .brand span { color: var(--accent); font-weight: 400; letter-spacing: 0.02em; }
+      .nav { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; flex: 1; }
+      .nav a { color: var(--muted); text-decoration: none; padding: 6px 10px; border-radius: 6px; white-space: nowrap; font-size: 13px; }
+      .nav a:hover, .nav a.on { color: var(--text); background: var(--wash); }
+      .tools { display: flex; gap: 8px; align-items: center; }
+      .tools button, .menu > summary { font-size: 12px; padding: 5px 10px; }
+      .menu { position: relative; }
+      .menu > summary { list-style: none; cursor: pointer; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2); white-space: nowrap; }
+      .menu > summary::-webkit-details-marker { display: none; }
+      .menu[open] > summary { border-color: var(--accent); }
+      .menu-list { position: absolute; right: 0; top: calc(100% + 6px); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px; display: grid; gap: 2px; min-width: 210px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); }
+      .menu-list button { border: 0; background: none; text-align: left; padding: 7px 10px; border-radius: 5px; font-size: 13px; }
+      .menu-list button:hover { background: var(--wash); }
+      .menu-list small { display: block; color: var(--muted); font-size: 11px; }
+
+      /* ------------------------------------------------------------ layout */
+      .shell { max-width: 1320px; margin: 0 auto; padding: 0 24px 40px; }
+      section.block { padding-top: 28px; }
+      .head { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+      .head p { margin: 4px 0 0; color: var(--muted); font-size: 13px; max-width: 760px; }
+      .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+      .title { padding: 24px 0 4px; display: flex; justify-content: space-between; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
+      .meta { color: var(--muted); font-size: 13px; margin-top: 6px; }
+      .meta span + span::before { content: "·"; margin: 0 7px; color: var(--faint); }
+      .demo { margin-top: 14px; padding: 10px 14px; border: 1px solid color-mix(in srgb, var(--warn) 55%, var(--line)); background: color-mix(in srgb, var(--warn) 9%, var(--panel)); border-radius: 8px; font-size: 13px; }
+      .demo strong { color: var(--text); }
+
+      /* ------------------------------------------------------------ summary */
+      .hero-label { color: var(--muted); font-size: 13px; }
+      .hero-row { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin: 2px 0 4px; }
+      .hero { font: 600 48px/1.1 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: -0.02em; }
+      .hero-sub { font-size: 15px; }
+      .hero-name { font-size: 17px; font-weight: 600; overflow-wrap: anywhere; }
+      .kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-top: 16px; }
+      .kpi { background: var(--panel-2); padding: 10px 14px; }
+      .kpi .k { color: var(--muted); font-size: 12px; }
+      .kpi .v { font-size: 22px; font-weight: 600; line-height: 1.3; }
+      .kpi .v small { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 3px; }
+      .kpi .s { color: var(--muted); font-size: 12px; }
+      .ic { width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 11px; font-weight: 700; line-height: 1; margin-top: 1px; }
+      .ic.good { background: color-mix(in srgb, var(--good) 22%, transparent); color: var(--good-text); }
+      .ic.bad { background: color-mix(in srgb, var(--bad) 22%, transparent); color: var(--bad-text); }
+      .ic.warn { background: color-mix(in srgb, var(--warn) 22%, transparent); color: var(--warn); }
+      .ic.info { background: var(--wash); color: var(--muted); }
+
+      /* ------------------------------------------------------------ badges */
+      .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 2px 8px 2px 6px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel-2); white-space: nowrap; color: var(--text); }
+      .up { color: var(--good-text); }
+      .down { color: var(--bad-text); }
+
+      /* ------------------------------------------------------------ controls */
+      .toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+      .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+      .seg button { border: 0; border-radius: 0; background: var(--panel-2); color: var(--muted); padding: 6px 12px; font-size: 13px; }
+      .seg button + button { border-left: 1px solid var(--line); }
+      .seg button[aria-pressed="true"] { background: var(--sel); color: var(--text); box-shadow: inset 0 -2px var(--accent); }
+      .toolbar input[type="search"] { min-width: 220px; flex: 0 1 300px; }
+      .toolbar .note { color: var(--muted); font-size: 12px; margin-left: auto; }
+      label.check { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); cursor: pointer; }
+      label.check input { accent-color: var(--accent); }
+
+      /* ------------------------------------------------------------ tables */
+      .table-wrap { min-width: 0; }
+      table { border-collapse: collapse; width: 100%; font-size: 13px; }
+      th { color: var(--muted); font-weight: 500; font-size: 12px; text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: bottom; }
+      td { padding: 8px 10px; border-bottom: 1px solid var(--grid); vertical-align: middle; }
+      tbody tr:last-child td { border-bottom: 0; }
+      th.num, td.num { text-align: right; }
+      th button { border: 0; background: none; padding: 0; color: inherit; font: inherit; }
+      th button:hover { color: var(--text); }
+      th[aria-sort="ascending"] button::after { content: " ↑"; }
+      th[aria-sort="descending"] button::after { content: " ↓"; }
+      .compare th { position: sticky; top: var(--nav-h); background: var(--panel); z-index: 2; }
+      .compare tbody tr { cursor: pointer; --ring: var(--panel); }
+      .compare tbody tr:hover { background: var(--panel-2); --ring: var(--panel-2); }
+      .compare tbody tr.on { background: var(--sel); box-shadow: inset 3px 0 var(--accent); --ring: var(--sel); }
+      .compare tbody tr.ref td { border-bottom: 1px solid var(--line); }
+      .compare .name { border: 0; background: none; padding: 0; text-align: left; white-space: normal; font-weight: 600; max-width: 300px; overflow-wrap: anywhere; line-height: 1.35; }
+      .compare .name small, td small.sub { display: block; font-weight: 400; color: var(--muted); font-size: 11px; margin-top: 1px; }
+      .compare .delta { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+      .compare td.forest-cell, .compare th.forest-head { padding-left: 4px; padding-right: 4px; width: 38%; min-width: 180px; }
+      .compare th.forest-head { padding-bottom: 2px; }
+      .compare svg { display: block; overflow: visible; }
+      .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; color: var(--muted); font-size: 12px; margin-top: 10px; }
+      .legend span { display: inline-flex; align-items: center; gap: 6px; }
+      .legend svg { overflow: visible; flex: none; }
+      .runs-table { max-height: 520px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+      .runs-table th { position: sticky; top: 0; background: var(--panel); z-index: 1; }
+      .runs-table tbody tr { cursor: pointer; }
+      .runs-table tbody tr:hover { background: var(--panel-2); }
+      .runs-table tbody tr.on { background: var(--sel); }
+      .runs-table tbody tr.missing { cursor: default; color: var(--muted); }
+      .status { display: inline-flex; gap: 6px; align-items: center; white-space: nowrap; }
+      .status .ic { width: 17px; height: 17px; font-size: 10px; margin: 0; }
+      .key { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; flex: none; }
+      .key.base { background: var(--base); }
+      .key.cfg { background: var(--cfg); }
+      .dotkey { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: none; }
+      .dotkey.base { background: var(--base); }
+      .dotkey.cfg { background: var(--cfg); }
+      .dotkey.other { background: var(--other); }
+
+      /* ------------------------------------------------------------ detail */
+      .detail-head { display: flex; gap: 16px; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; }
+      .detail-name { font: 22px/1.25 var(--serif); overflow-wrap: anywhere; }
+      .detail-sum { color: var(--muted); font-size: 13px; margin-top: 4px; }
+      .detail-fig { text-align: right; }
+      .detail-fig .big { font-size: 32px; font-weight: 600; line-height: 1.1; }
+      .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+      .cards.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0; }
+      .card h3 { margin-bottom: 2px; }
+      .card .cap { color: var(--muted); font-size: 12px; margin: 0 0 8px; }
+      .card table td, .card table th { padding: 6px 6px; }
+      .changes { margin-top: 14px; }
+      .changes summary { cursor: pointer; color: var(--accent); font-size: 13px; }
+      .changes table { margin-top: 8px; }
+      .changes td { font-size: 12px; }
+      .changes .mono { overflow-wrap: anywhere; }
+
+      /* ------------------------------------------------------------ charts */
+      .chart { display: block; width: 100%; overflow: visible; touch-action: pan-y; }
+      .chart text { fill: var(--faint); font-size: 11px; font-variant-numeric: tabular-nums; }
+      .chart text.lbl { fill: var(--muted); }
+      .chart text.strong { fill: var(--text); font-weight: 600; }
+      .chart .grid { stroke: var(--grid); stroke-width: 1; shape-rendering: crispEdges; }
+      .chart .axis, .forest .zero, .chart .zero { stroke: var(--axis); stroke-width: 1; shape-rendering: crispEdges; }
+      .forest .grid { stroke: var(--grid); stroke-width: 1; shape-rendering: crispEdges; }
+      .band { fill: var(--wash); }
+      .budget { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 4; }
+      .ci { stroke-width: 2; stroke-linecap: round; stroke: var(--muted); }
+      .ciwash { fill: var(--cfg); opacity: 0.14; }
+      .pt { stroke: var(--ring, var(--panel)); stroke-width: 2; fill: var(--text); }
+      .pt.open { fill: var(--ring, var(--panel)); stroke: var(--text); stroke-width: 2; }
+      .line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+      .line.thin { stroke-width: 1; opacity: 0.55; }
+      .s-base { stroke: var(--base); } .s-cfg { stroke: var(--cfg); } .s-other { stroke: var(--other); }
+      .f-base { fill: var(--base); } .f-cfg { fill: var(--cfg); } .f-other { fill: var(--other); }
+      .dot { stroke: var(--card-bg, var(--panel)); stroke-width: 2; }
+      .mean { stroke: var(--cfg); stroke-width: 2; }
+      .cross { stroke: var(--muted); stroke-width: 1; }
+      .hit { fill: transparent; }
+      .roundbg { fill: var(--wash); opacity: 0.55; }
+      .miss { stroke: var(--faint); stroke-width: 1.5; }
+      .card .chart { --card-bg: var(--panel-2); }
+      .empty { color: var(--muted); font-size: 13px; padding: 24px 4px; }
+      #tip { position: fixed; z-index: 30; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35); max-width: 320px; }
+      #tip .t { color: var(--muted); margin-bottom: 4px; }
+      #tip .r { display: flex; gap: 7px; align-items: center; white-space: nowrap; }
+      #tip .r strong { font-variant-numeric: tabular-nums; }
+      #tip .r span { color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+
+      /* ------------------------------------------------------------ frames */
+      .pick { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 10px; align-items: end; margin-bottom: 12px; }
+      .pick label { display: block; min-width: 0; }
+      .pick label > span { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+      .pick select { width: 100%; }
+      .step { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+      .step .rounds { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+      .step .rounds button { padding: 3px 9px; }
+      .frames { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; }
+      .frames .card { background: var(--panel); border: 0; padding: 0; }
+      .frames .card .chart { --card-bg: var(--panel); }
+      .twocol { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin-top: 12px; }
+      details.more summary { cursor: pointer; color: var(--accent); font-size: 13px; padding: 4px 0; }
+
+      /* ------------------------------------------------------------ setup */
+      .facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px 20px; margin: 0; }
+      .facts dt { color: var(--muted); font-size: 12px; }
+      .facts dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+      .notes { margin: 6px 0 0; padding-left: 18px; color: var(--muted); font-size: 13px; }
+      .notes li { margin: 4px 0; }
+      .notes li b { color: var(--text); font-weight: 500; }
+      .defs { display: grid; grid-template-columns: 180px 1fr; gap: 6px 16px; font-size: 13px; margin: 8px 0 0; }
+      .defs dt { font-weight: 600; }
+      .defs dd { margin: 0; color: var(--muted); }
+      pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 11px/1.6 var(--mono); color: var(--muted); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px; max-height: 420px; overflow: auto; }
+      .foot { max-width: 1320px; margin: 0 auto; padding: 16px 24px 28px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); }
+      noscript table { margin: 12px 0; }
+      noscript td, noscript th { border-bottom: 1px solid var(--line); }
+
+      @media (max-width: 1100px) {
+        .cards { grid-template-columns: 1fr 1fr; }
+        .cards .card:last-child { grid-column: 1 / -1; }
+        .frames { grid-template-columns: 1fr; }
+      }
+      @media (max-width: 760px) {
+        :root { --nav-h: 0px; }
+        .bar { position: static; }
+        .bar-in { height: auto; flex-wrap: wrap; padding: 8px 16px; gap: 4px 12px; }
+        .brand { flex: 1; }
+        .nav { order: 3; flex-basis: 100%; margin: 0 -10px; }
+        #print { display: none; }
+        .detail-head > div { flex-basis: 100%; }
+        /* Each config becomes a two-line card: its name, then the change and its interval chart. */
+        .compare, .compare thead, .compare tbody { display: block; }
+        .compare tr { display: grid; grid-template-columns: 92px minmax(0, 1fr) auto; grid-template-areas: "name name name" "delta forest forest"; align-items: center; }
+        .compare thead tr { grid-template-areas: "delta forest forest"; border-bottom: 1px solid var(--line); }
+        .compare th, .compare td { border: 0; padding: 3px 4px; }
+        .compare th.c-name { display: none; }
+        .compare tbody tr { padding: 8px 0; border-bottom: 1px solid var(--grid); }
+        .compare tbody tr.ref { border-bottom: 1px solid var(--line); }
+        .compare tbody tr.on { box-shadow: inset 3px 0 var(--accent); padding-left: 6px; }
+        .compare .c-name { grid-area: name; }
+        .compare .c-delta { grid-area: delta; text-align: left; }
+        .compare td.forest-cell, .compare th.forest-head { grid-area: forest; width: auto; min-width: 0; }
+        .compare tbody tr.ref td { border: 0; }
+        .compare .name { max-width: none; }
+        .compare td[colspan] { grid-column: 1 / -1; }
+        .shell { padding: 0 16px 32px; }
+        .hero { font-size: 40px; }
+        .kpis { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+        .kpi { padding: 8px 10px; }
+        .kpi .v { font-size: 18px; }
+        .cards, .twocol { grid-template-columns: 1fr; }
+        .compare .opt, .runs-table .opt { display: none; }
+        .pick { grid-template-columns: 1fr; }
+        .pick .swap { justify-self: start; }
+        .toolbar input[type="search"] { flex: 1 1 100%; min-width: 0; }
+        .toolbar .note { margin-left: 0; }
+        .detail-fig { text-align: left; }
+        .defs { grid-template-columns: 1fr; }
+        .defs dd { margin-bottom: 6px; }
+        .table-scroll { overflow-x: auto; }
+        .foot { padding: 16px; }
+      }
+      @media print {
+        body { background: #fff; font-size: 12px; }
+        .bar { position: static; backdrop-filter: none; }
+        .nav, .tools, .toolbar, .pick, .step, #tip { display: none !important; }
+        .panel, .card { break-inside: avoid; }
+        .compare th { position: static; }
+        .runs-table { max-height: none; overflow: visible; }
+        details:not([open]) > :not(summary) { display: block; }
+        section.block { break-inside: avoid-page; }
+        @page { margin: 12mm; }
       }
     </style>
   </head>
   <body>
-    <div class="shell">
-      <header class="top">
+    <header class="bar">
+      <div class="bar-in">
         <div class="brand">DEADLOCK <span>Performance Lab</span></div>
-        <div class="actions">
-          <button id="export">Export JSON</button
-          ><button id="export-csv">Export CSV</button>
-        </div>
-      </header>
-      <main>
-        <div class="title">
-          <h1>Benchmark results</h1>
-          <div class="id">__TITLE__</div>
-        </div>
         <nav class="nav" aria-label="Report sections">
-          <a href="#comparison">Configurations</a
-          ><a href="#captures">Captures</a
-          ><a href="#quality">Checks & conditions</a>
+          <a href="#summary">Summary</a><a href="#compare">Compare</a><a href="#detail">Selected config</a
+          ><a href="#frames">Frame times</a><a href="#captures">Captures</a><a href="#setup">Setup &amp; method</a>
         </nav>
-        <section class="overview" aria-label="Session summary">
-          <div>
-            <div class="label">Baseline average</div>
-            <div class="value">__FPS__ <span>FPS</span></div>
-          </div>
-          <div>
-            <div class="label">Baseline 1% low</div>
-            <div class="value" id="base-low"></div>
-          </div>
-          <div>
-            <div class="label">Baseline variation / drift</div>
-            <div class="value" style="font-size: 19px">__CV__ / __DRIFT__</div>
-          </div>
-          <div>
-            <div class="label">Recorded / planned captures</div>
-            <div class="value">__RUNS__</div>
-          </div>
-          <div>
-            <div class="label">Capture / warm-up</div>
-            <div class="value" id="durations" style="font-size: 19px"></div>
-          </div>
-        </section>
-        <div class="notice">
-          <span id="session-note"></span
-          ><a href="#quality">Review checks and exclusions</a>
+        <div class="tools">
+          <button type="button" id="theme" aria-label="Switch colour theme"></button>
+          <details class="menu" id="download">
+            <summary>Download</summary>
+            <div class="menu-list">
+              <button type="button" data-download="configs">Configs (CSV)<small>One row per config, with intervals</small></button>
+              <button type="button" data-download="captures">Captures (CSV)<small>One row per capture</small></button>
+              <button type="button" data-download="json">Everything (JSON)<small>The data this page is built from</small></button>
+            </div>
+          </details>
+          <button type="button" id="print">Print</button>
         </div>
-        <div class="grid">
-          <section id="comparison" class="panel">
-            <div class="heading">
-              <h2>Configurations</h2>
-              <span class="small" id="row-count"></span>
-            </div>
-            <div class="toolbar">
-              <input
-                id="search"
-                type="search"
-                aria-label="Search configurations"
-                placeholder="Search name or convar…"
-              />
-            </div>
-            <div class="table-wrap">
-              <table id="comparison-table">
-                <caption class="sr-only">
-                  Configuration metrics: means across captures. Select a
-                  configuration for uncertainty and checks.
-                </caption>
-                <thead>
-                  <tr>
-                    <th scope="col" aria-sort="none">
-                      <button
-                        type="button"
-                        data-sort="name"
-                        data-label="Configuration"
-                      >
-                        Configuration <span aria-hidden="true">↕</span>
-                      </button>
-                    </th>
-                    <th scope="col" aria-sort="none">
-                      <button
-                        type="button"
-                        data-sort="avg_fps"
-                        data-label="Avg FPS"
-                      >
-                        Avg FPS <span aria-hidden="true">↕</span>
-                      </button>
-                    </th>
-                    <th scope="col" aria-sort="none">
-                      <button
-                        type="button"
-                        data-sort="low_1_fps"
-                        data-label="1% low"
-                      >
-                        1% low <span aria-hidden="true">↕</span>
-                      </button>
-                    </th>
-                    <th scope="col" aria-sort="none">
-                      <button
-                        type="button"
-                        data-sort="p99_frame_ms"
-                        data-label="P99 ms"
-                      >
-                        P99 ms <span aria-hidden="true">↕</span>
-                      </button>
-                    </th>
-                    <th scope="col" aria-sort="none">
-                      <button
-                        type="button"
-                        data-sort="delta_pct"
-                        data-label="FPS change"
-                      >
-                        FPS change <span aria-hidden="true">↕</span>
-                      </button>
-                    </th>
-                    <th scope="col" aria-sort="none">
-                      <button
-                        type="button"
-                        data-sort="rounds"
-                        data-label="Rounds"
-                      >
-                        Rounds <span aria-hidden="true">↕</span>
-                      </button>
-                    </th>
-                    <th scope="col" aria-sort="none">
-                      <button
-                        type="button"
-                        data-sort="verdict"
-                        data-label="Verdict"
-                      >
-                        Verdict <span aria-hidden="true">↕</span>
-                      </button>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody id="comparison-rows">
-                  __ROWS__
-                </tbody>
-              </table>
-            </div>
-            <p class="small">
-              Metrics are equal-weight means across captures. FPS change pairs
-              each treatment with its round’s two baselines. Select a row to
-              inspect its interval and verification checks.
-            </p>
-          </section>
-          <aside class="panel detail" aria-label="Selected configuration">
-            <div>
-              <div class="label">Selected configuration</div>
-              <h2 class="detail-name" id="detail-name">
-                Select a configuration
-              </h2>
-              <span id="detail-verdict" class="badge"></span>
-              <div id="detail-delta" class="detail-delta"></div>
-              <div class="small">Average FPS change vs paired baseline</div>
-              <canvas
-                id="interval"
-                class="plot interval-plot"
-                role="img"
-                aria-label="Selected FPS change and 95 percent interval"
-              ></canvas>
-              <p class="small" id="interval-label"></p>
-              <ul id="reasons" class="reasons"></ul>
-            </div>
-            <div>
-              <h3 class="divider">FPS comparison</h3>
-              <canvas
-                id="metric-bars"
-                class="plot short-plot"
-                role="img"
-                aria-label="Average FPS and 1 percent low, selected configuration against baseline"
-              ></canvas>
-              <div class="legend">
-                <span><i class="swatch"></i>Selected</span
-                ><span><i class="swatch blue"></i>Baseline</span>
-              </div>
-              <p class="small">
-                Both metrics share a zero-based FPS scale. The 1% low uses the
-                slowest-frame mean; it is not inverse P99.
-              </p>
-              <a href="#captures" id="inspect"
-                >Inspect this configuration’s captures</a
-              >
-            </div>
-          </aside>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section id="summary">
+        <div class="title">
+          <div>
+            <h1 id="title">Benchmark report</h1>
+            <div class="meta" id="meta"></div>
+          </div>
         </div>
-        <section id="captures" class="panel">
-          <div class="heading">
-            <h2>Capture comparison</h2>
-            <span class="small"
-              >Frame time · milliseconds · lower is faster</span
-            >
+        <div id="demo-note"></div>
+        <div class="panel" id="headline" style="margin-top: 16px"></div>
+        <noscript><div class="panel" style="margin-top: 16px">__FALLBACK__</div></noscript>
+      </section>
+
+      <section id="compare" class="block">
+        <div class="head">
+          <div>
+            <h2>Configs</h2>
           </div>
-          <div class="capture-controls">
-            <label
-              ><span>Capture A</span
-              ><select
-                id="run-select"
-                aria-label="Select a capture"
-              ></select></label
-            ><label
-              ><span>Capture B</span
-              ><select
-                id="reference-select"
-                aria-label="Reference capture"
-              ></select
-            ></label>
+        </div>
+        <div class="panel">
+          <div class="toolbar">
+            <div class="seg" role="group" aria-label="Compare by">
+              <button type="button" data-metric="avg" aria-pressed="true">Average FPS</button
+              ><button type="button" data-metric="low" aria-pressed="false">1% low FPS</button>
+            </div>
+            <input type="search" id="search" placeholder="Filter configs or settings…" aria-label="Filter configs" />
+            <span class="note" id="compare-note"></span>
           </div>
-          <div class="trace-wrap">
-            <canvas
-              id="trace"
-              class="plot"
-              role="img"
-              aria-label="Two captures on shared time and frame-time axes; peaks retain long stalls"
-            ></canvas>
-            <div id="tooltip"></div>
-          </div>
-          <div class="legend">
-            <span><i class="swatch"></i>Capture A</span
-            ><span><i class="swatch blue"></i>Capture B</span
-            ><span><i class="swatch dash"></i>Bin maximum</span
-            ><span
-              >Solid lines: bin means · dotted horizontal line: frame
-              budget</span
-            >
-          </div>
-          <div class="table-wrap">
-            <table>
-              <caption class="sr-only">
-                Full-capture metrics for selected traces
-              </caption>
-              <thead>
-                <tr>
-                  <th>Capture</th>
-                  <th>Avg FPS</th>
-                  <th>1% low</th>
-                  <th>0.1% low</th>
-                  <th>P99 ms</th>
-                  <th>Max ms</th>
-                  <th>Over budget</th>
-                  <th>Frames &gt;50 ms</th>
-                  <th>Samples</th>
-                </tr>
-              </thead>
-              <tbody id="capture-metrics"></tbody>
+          <div class="table-wrap table-scroll">
+            <table class="compare" id="compare-table">
+              <caption class="sr-only">Configs with their change against your current setup, 95% interval and frame-rate metrics</caption>
+              <thead id="compare-head"></thead>
+              <tbody id="compare-rows"></tbody>
             </table>
           </div>
-          <p class="small">
-            Time starts at each capture window; this is not automatic scene
-            alignment. Display bins retain their maximum. Metrics use all
-            captured frames; long stalls are never clipped.
-          </p>
-          <details>
-            <summary>Sensor readings for these captures</summary>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Sensor</th>
-                    <th>A mean</th>
-                    <th>A max</th>
-                    <th>B mean</th>
-                    <th>B max</th>
-                  </tr>
-                </thead>
-                <tbody id="sensors"></tbody>
-              </table>
-            </div>
-            <p class="small">
-              Available MangoHud readings only. GPU utilization is not GPU Busy;
-              these readings do not establish a bottleneck.
-            </p>
-          </details>
-        </section>
-        <section id="quality" class="panel">
-          <div class="heading">
-            <h2>Checks & conditions</h2>
-            <span class="small">Review before accepting a result</span>
+          <div class="legend" id="compare-legend"></div>
+        </div>
+      </section>
+
+      <section id="detail" class="block">
+        <div class="panel" id="detail-panel"></div>
+      </section>
+
+      <section id="frames" class="block">
+        <div class="head">
+          <div>
+            <h2>Frame times</h2>
           </div>
-          <details>
-            <summary id="checks-summary">Capture checks</summary>
-            <ul class="notes">
-              __NOTES__
-            </ul>
-            <div id="excluded"></div>
+        </div>
+        <div class="panel">
+          <div class="pick">
+            <label><span><i class="key cfg"></i>Capture A</span><select id="pick-a"></select></label>
+            <button type="button" class="swap" id="swap" title="Swap A and B">⇄ Swap</button>
+            <label><span><i class="key base"></i>Capture B</span><select id="pick-b"></select></label>
+          </div>
+          <div class="step">
+            <div class="rounds">
+              <button type="button" id="round-prev" aria-label="Previous round">‹</button>
+              <span id="round-label"></span>
+              <button type="button" id="round-next" aria-label="Next round">›</button>
+            </div>
+            <label class="check"><input type="checkbox" id="clip" /> Cut off spikes</label>
+          </div>
+          <div class="frames">
+            <div class="card">
+              <h3>Frame time during the capture</h3>
+              <p class="cap">Thick line: average per slice · thin line: slowest frame</p>
+              <div id="trace"></div>
+            </div>
+            <div class="card">
+              <h3>Frame-time percentiles</h3>
+              <div id="pct-frames"></div>
+            </div>
+          </div>
+          <div class="twocol">
+            <div class="table-scroll"><table id="frame-stats"></table></div>
+            <details class="more">
+              <summary>Sensor readings (MangoHud)</summary>
+              <div class="table-scroll"><table id="sensors"></table></div>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <section id="captures" class="block">
+        <div class="head">
+          <div>
+            <h2>Captures in run order</h2>
+          </div>
+        </div>
+        <div class="panel">
+          <div id="runs-chart"></div>
+          <div class="legend" id="runs-legend"></div>
+          <div class="runs-table" style="margin-top: 14px"><table id="runs-rows"></table></div>
+        </div>
+      </section>
+
+      <section id="setup" class="block">
+        <div class="head"><div><h2>Setup &amp; method</h2></div></div>
+        <div class="panel">
+          <dl class="facts" id="facts"></dl>
+          <h3 style="margin-top: 20px">Notes</h3>
+          <ul class="notes" id="notes"></ul>
+          <details class="more" style="margin-top: 14px">
+            <summary>How each number is calculated</summary>
+            <dl class="defs" id="defs"></dl>
           </details>
-          <dl id="facts" class="facts"></dl>
-          <details>
-            <summary>Metric definitions and full context</summary>
-            <p class="small">
-              Average FPS = 1000 ÷ mean frame time. 1% low = 1000 ÷ mean of the
-              slowest ceil(1% × N) frame times. P99 is the 99th percentile of
-              frame time. True lows require per-frame capture; 0.1% low needs at
-              least 1,000 samples. Verdicts describe average FPS, not pacing,
-              visibility or input latency. Confidence intervals resample
-              complete paired rounds and are not corrected for multiple
-              comparisons. A cap can lower average FPS while improving pacing.
-            </p>
+          <details class="more">
+            <summary>Full test conditions (JSON)</summary>
             <pre id="context"></pre>
           </details>
-        </section>
-        <noscript
-          ><p>
-            JavaScript enables sorting, filtering and charts. The configuration
-            table and checks remain readable without it.
-          </p></noscript
-        >
-      </main>
-      <footer class="foot">
-        Deadlock Performance Lab · Linux · Offline report · No analytics or external
-        assets · Independent community project
-      </footer>
-    </div>
+        </div>
+      </section>
+    </main>
+    <footer class="foot">Deadlock Performance Lab · not affiliated with Valve</footer>
+    <div id="tip" role="status" hidden></div>
+
     <script type="application/json" id="report-data">
       __DATA__
     </script>
     <script>
       "use strict";
-      const data = JSON.parse(
-          document.getElementById("report-data").textContent,
-        ),
-        $ = (id) => document.getElementById(id);
-      const num = (v, s = "") => (v == null ? "—" : Number(v).toFixed(1) + s),
-        signed = (v) =>
-          v == null ? "—" : (v > 0 ? "+" : "") + Number(v).toFixed(2) + "%";
-      const C = {
-        text: "#a9b09e",
-        line: "#363e33",
-        a: "#d8cf9a",
-        b: "#90bccc",
-        red: "#e3a399",
-      };
-      const make = (tag, text, cls) => {
+      const data = JSON.parse(document.getElementById("report-data").textContent);
+      const $ = (id) => document.getElementById(id);
+      // Baseline variation: the scale of run-to-run noise, drawn as a band and used for the "≈ noise" mark.
+      const NOISE = typeof data.baseline.cv_pct === "number" ? data.baseline.cv_pct : null;
+      const plan = data.plan || { rounds: 0, schedule: [] };
+      const scenario = data.context.scenario || {};
+      const BUDGET_MS = scenario.budget_fps ? 1000 / scenario.budget_fps : null;
+      const BASE_NAME = plan.baseline_name || "Your current setup";
+      const byCase = Object.fromEntries(data.comparisons.map((c) => [c.case, c]));
+      const byId = Object.fromEntries(data.runs.map((r) => [r.id, r]));
+      const nameOf = (c) => (c === "baseline" ? BASE_NAME : byCase[c]?.name || c);
+
+      // ---------------------------------------------------------------- formatting
+      const isNum = (v) => typeof v === "number" && Number.isFinite(v);
+      const fixed = (v, d = 1, unit = "") => (isNum(v) ? v.toFixed(d) + unit : "—");
+      const pct = (v, d = 1) => (isNum(v) ? (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(d) + "%" : "—");
+      const span = (ci, d = 1) => (ci ? `${pct(ci[0], d)} to ${pct(ci[1], d)}` : "no interval");
+      const count = (v) => (isNum(v) ? Math.round(v).toLocaleString("en") : "—");
+      const pLabel = (p) => (p < 90 ? p.toFixed(0) : p < 99 ? p.toFixed(1) : p < 99.9 ? p.toFixed(2) : p.toFixed(3)).replace(/\.?0+$/, "") + "%";
+      const tLabel = (v) => (Number.isInteger(+v.toFixed(6)) ? v.toFixed(0) : String(+v.toFixed(2)));
+
+      // ---------------------------------------------------------------- DOM helpers
+      function h(tag, attrs, ...kids) {
         const e = document.createElement(tag);
-        if (text != null) e.textContent = text;
-        if (cls) e.className = cls;
+        for (const [k, v] of Object.entries(attrs || {})) {
+          if (v == null || v === false) continue;
+          if (k === "class") e.className = v;
+          else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+          else e.setAttribute(k, v === true ? "" : v);
+        }
+        e.append(...kids.flat().filter((k) => k != null && k !== false));
         return e;
-      };
-      function setup(id) {
-        const c = $(id),
-          r = c.getBoundingClientRect(),
-          d = window.devicePixelRatio || 1;
-        c.width = r.width * d;
-        c.height = r.height * d;
-        const ctx = c.getContext("2d");
-        ctx.scale(d, d);
-        ctx.font = "11px system-ui";
-        ctx.lineWidth = 1;
-        return { ctx, w: r.width, h: r.height };
       }
-      function empty(ctx, text) {
-        ctx.fillStyle = C.text;
-        ctx.fillText(text, 12, 35);
+      function s(tag, attrs, ...kids) {
+        const e = document.createElementNS("http://www.w3.org/2000/svg", tag);
+        for (const [k, v] of Object.entries(attrs || {})) if (v != null && v !== false) e.setAttribute(k, v);
+        e.append(...kids.flat().filter((k) => k != null && k !== false));
+        return e;
       }
-      const base = {
-        case: "baseline",
-        name: "Baseline",
-        metrics: data.baseline.metrics || { avg_fps: data.baseline.avg_fps },
-        avg_fps: data.baseline.avg_fps,
-        delta_pct: 0,
-        paired_rounds: [],
-        verdict: "control",
-        reasons: [],
+      function scale([d0, d1], [r0, r1]) {
+        const f = (v) => r0 + ((v - d0) / (d1 - d0 || 1)) * (r1 - r0);
+        f.invert = (p) => d0 + ((p - r0) / (r1 - r0 || 1)) * (d1 - d0);
+        return f;
+      }
+      function step(min, max, n) {
+        const raw = (max - min || 1) / n, mag = 10 ** Math.floor(Math.log10(raw));
+        return [1, 2, 2.5, 5, 10].map((m) => m * mag).find((x) => x >= raw * 0.999);
+      }
+      function nice(min, max, n = 5) {
+        const k = step(min, max, n);
+        return [Math.floor(min / k + 1e-9) * k, Math.ceil(max / k - 1e-9) * k];
+      }
+      function ticks([min, max], n = 5) {
+        const k = step(min, max, n), out = [];
+        for (let v = Math.ceil(min / k - 1e-9) * k; v <= max + k * 1e-6; v += k) out.push(Math.abs(v) < k * 1e-6 ? 0 : +v.toFixed(10));
+        return out;
+      }
+      const path = (pts) => pts.map(([x, y], i) => (i ? "L" : "M") + x.toFixed(1) + " " + y.toFixed(1)).join("");
+      const mean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+
+      // Chart canvas: an SVG sized to its container, with a plot rectangle inside the margins.
+      function canvas(container, height, m, label) {
+        const width = Math.max(260, Math.floor(container.clientWidth || 600));
+        const svg = s("svg", { class: "chart", width, height, viewBox: `0 0 ${width} ${height}`, role: "img", "aria-label": label });
+        container.replaceChildren(svg);
+        return { svg, width, height, x0: m.l, x1: width - m.r, y0: height - m.b, y1: m.t };
+      }
+      function yGrid(c, y, values, format) {
+        for (const v of values) {
+          c.svg.append(s("line", { class: v === 0 ? "zero" : "grid", x1: c.x0, x2: c.x1, y1: y(v), y2: y(v) }));
+          c.svg.append(s("text", { x: c.x0 - 7, y: y(v) + 4, "text-anchor": "end" }, format(v)));
+        }
+      }
+
+      // One tooltip for every chart: values lead, labels follow.
+      const tip = $("tip");
+      function showTip(ev, title, rows) {
+        tip.replaceChildren(
+          h("div", { class: "t" }, title),
+          ...rows.map(([key, value, label]) => h("div", { class: "r" }, key ? h("i", { class: key }) : null, h("strong", {}, value), label ? h("span", {}, label) : null)),
+        );
+        tip.hidden = false;
+        const box = tip.getBoundingClientRect();
+        let x = ev.clientX + 14, y = ev.clientY + 14;
+        if (x + box.width > innerWidth - 8) x = ev.clientX - box.width - 14;
+        if (y + box.height > innerHeight - 8) y = ev.clientY - box.height - 14;
+        tip.style.left = Math.max(8, x) + "px";
+        tip.style.top = Math.max(8, y) + "px";
+      }
+      const hideTip = () => (tip.hidden = true);
+
+      // ---------------------------------------------------------------- model
+      const METRICS = {
+        avg: {
+          label: "Average FPS", short: "avg FPS", key: "avg_fps",
+          delta: (c) => c.delta_pct, ci: (c) => c.ci95_pct, rounds: (c) => c.round_deltas_pct || [],
+        },
+        low: {
+          label: "1% low FPS", short: "1% low", key: "low_1_fps",
+          delta: (c) => c.low_1_delta_pct, ci: (c) => c.low_1_ci95_pct, rounds: (c) => c.round_low_1_deltas_pct || [],
+        },
       };
-      let chosen = data.comparisons[0] || base,
-        selected = 0,
-        reference = -1,
-        traceScale = null;
-      let sortKey = "delta_pct",
-        sortDirection = -1;
-      function sortedRows() {
-        const q = $("search").value.toLowerCase();
-        const value = (r) =>
-          sortKey === "rounds"
-            ? r.paired_rounds.length
-            : ["name", "verdict", "delta_pct"].includes(sortKey)
-              ? r[sortKey]
-              : r.metrics?.[sortKey];
+      // Average-FPS changes are coloured by direction unless they're within the baseline
+      // variation (marked ≈ noise) or their 95% interval includes zero.
+      const noisy = (d) => state.metric === "avg" && isNum(d) && NOISE !== null && Math.abs(d) <= NOISE;
+      const noiseTag = () => h("span", { class: "badge", title: `Within the baseline variation (±${fixed(NOISE, 1)}%)` }, "≈ noise");
+      const deltaClass = (d, ci) => (state.metric !== "avg" || !isNum(d) || noisy(d) || (ci && ci[0] <= 0 && ci[1] >= 0) ? "" : d > 0 ? "up" : "down");
+
+      const RUN_METRICS = [
+        ["avg_fps", "Average FPS", 1, "", 1],
+        ["low_1_fps", "1% low FPS", 1, "", 1],
+        ["low_01_fps", "0.1% low FPS", 1, "", 1],
+        ["median_frame_ms", "Median frame time", 2, " ms", -1],
+        ["p95_frame_ms", "95th percentile frame", 2, " ms", -1],
+        ["p99_frame_ms", "99th percentile frame", 2, " ms", -1],
+        ["max_frame_ms", "Slowest frame", 1, " ms", -1, "max"],
+        ["over_budget_pct", BUDGET_MS ? `Frames slower than ${scenario.budget_fps} FPS` : "Frames over budget", 2, "%", -1],
+        ["stalls_over_50ms", "Frames over 50 ms", 1, "", -1],
+      ];
+      // Equal weight per capture, like the analysis; a missing value makes the mean unavailable.
+      function aggregate(runs, key, how) {
+        const values = runs.map((r) => r.metrics?.[key]);
+        if (!values.length || values.some((v) => !isNum(v))) return null;
+        return how === "max" ? Math.max(...values) : mean(values);
+      }
+      const runsOf = (c) => data.runs.filter((r) => r.case === c);
+      function averageDistribution(runs) {
+        const dists = runs.map((r) => r.distribution).filter((d) => d?.length);
+        if (!dists.length || dists.some((d) => d.length !== dists[0].length)) return null;
+        return {
+          points: dists[0].map(([p], i) => [p, mean(dists.map((d) => d[i][1]))]),
+          samples: Math.min(...runs.filter((r) => r.distribution).map((r) => r.metrics.samples || 0)),
+          captures: dists.length,
+        };
+      }
+
+      const state = { metric: "avg", selected: null, sortKey: "delta", sortDir: -1, query: "", a: null, b: null, clip: false };
+
+      // ---------------------------------------------------------------- header & summary
+      function renderSummary() {
+        const created = plan.created_at ? new Date(plan.created_at) : null;
+        const scene = scenario.mode === "replay" ? `Replay at tick ${count(scenario.tick)}` : scenario.mode === "bots" ? "Bot match" : scenario.mode === "manual" ? "Manual captures" : null;
+        $("meta").replaceChildren(
+          ...[
+            created && !isNaN(created) ? created.toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : null,
+            data.synthetic ? "Example with made-up data" : null,
+            plan.rounds ? `${plan.rounds} round${plan.rounds > 1 ? "s" : ""}` : null,
+            scenario.sample_s ? `${scenario.sample_s} s per capture` : null,
+            scene,
+            data.valid_runs === data.expected_runs ? `${data.valid_runs} captures` : `${data.valid_runs} of ${data.expected_runs} captures usable`,
+            h("span", { class: "mono small" }, data.session),
+          ].filter(Boolean).map((x) => (x instanceof Node ? x : h("span", {}, x))),
+        );
+        const n = data.comparisons.length;
+        $("title").textContent = n ? `${n} config${n > 1 ? "s" : ""} compared with ${BASE_NAME.toLowerCase()}` : "Baseline check";
+        if (data.synthetic)
+          $("demo-note").replaceChildren(h("div", { class: "demo" }, h("strong", {}, "Example report with made-up data.")));
+
+        // Headline: the largest change, with its interval.
+        const ranked = data.comparisons.filter((c) => isNum(c.delta_pct)).sort((a, b) => b.delta_pct - a.delta_pct);
+        const best = ranked[0], base = data.baseline;
+        const head = $("headline");
+        head.replaceChildren();
+        if (best) {
+          const gain = best.delta_pct > 0;
+          head.append(
+            h("div", { class: "hero-label" }, gain ? "Biggest change in average FPS" : "No config was faster than your current setup. Closest:"),
+            h("div", { class: "hero-row" }, h("span", { class: "hero" }, pct(best.delta_pct)), noisy(best.delta_pct) ? noiseTag() : null),
+            h("div", { class: "hero-name" }, best.name),
+            h("div", { class: "hero-sub muted" },
+              best.ci95_pct ? `95% interval ${span(best.ci95_pct)}` : "no interval",
+              ` · ${fixed(best.avg_fps)} FPS vs ${fixed(base.avg_fps)} FPS`),
+          );
+        } else {
+          head.append(
+            h("div", { class: "hero-label" }, BASE_NAME),
+            h("div", { class: "hero-row" }, h("span", { class: "hero" }, fixed(base.avg_fps)), h("span", { class: "hero-sub muted" }, "average FPS")),
+            h("div", { class: "hero-sub muted" }, n ? "No config has a complete round yet." : "Only your current setup was measured."),
+          );
+        }
+        const kpi = (k, v, unit, sub) => h("div", { class: "kpi" }, h("div", { class: "k" }, k), h("div", { class: "v" }, v, unit ? h("small", {}, unit) : null), sub ? h("div", { class: "s" }, sub) : null);
+        head.append(
+          h("div", { class: "kpis" },
+            kpi("Current setup", fixed(base.avg_fps), "FPS", "average"),
+            kpi("Current 1% low", fixed(base.metrics?.low_1_fps), "FPS", "slowest 1% of frames"),
+            kpi("Current 99th pct.", fixed(base.metrics?.p99_frame_ms, 2), "ms", "frame time"),
+            kpi("Baseline variation", fixed(base.cv_pct, 1), "%", "spread of its captures"),
+            kpi("Baseline drift", pct(base.drift_pct), null, "first to last capture")),
+        );
+      }
+
+      // ---------------------------------------------------------------- compare table + forest plot
+      const COLUMNS = [
+        { key: "name", label: "Config", dir: 1 },
+        { key: "delta", label: "Change", num: true, dir: -1 },
+        { key: "forest", label: "" },
+        { key: "avg_fps", label: "Avg FPS", num: true, opt: true, dir: -1 },
+        { key: "low_1_fps", label: "1% low", num: true, opt: true, dir: -1 },
+        { key: "p99_frame_ms", label: "99th pct. ms", num: true, opt: true, dir: 1 },
+        { key: "rounds", label: "Rounds", num: true, opt: true, dir: -1 },
+      ];
+      function sortValue(c, key) {
+        const m = METRICS[state.metric];
+        if (key === "delta") return m.delta(c);
+        if (key === "name") return c.name.toLowerCase();
+        if (key === "rounds") return c.paired_rounds.length;
+        return c.metrics?.[key];
+      }
+      function visibleConfigs() {
+        const q = state.query.trim().toLowerCase();
         return data.comparisons
-          .filter((r) => (r.name + " " + r.case).toLowerCase().includes(q))
+          .filter((c) => !q || [c.name, c.case, c.treatment?.summary, ...(c.treatment?.changes || []).map((x) => x[1])].join(" ").toLowerCase().includes(q))
           .sort((a, b) => {
-            const va = value(a),
-              vb = value(b);
+            const va = sortValue(a, state.sortKey), vb = sortValue(b, state.sortKey);
             if (va == null) return vb == null ? 0 : 1;
             if (vb == null) return -1;
-            const order =
-              typeof va === "string" ? va.localeCompare(vb) : va - vb;
-            return sortDirection * order || a.case.localeCompare(b.case);
+            return state.sortDir * (typeof va === "string" ? va.localeCompare(vb) : va - vb) || a.case.localeCompare(b.case);
           });
       }
-      function updateSortHeaders() {
-        document.querySelectorAll("[data-sort]").forEach((button) => {
-          const active = button.dataset.sort === sortKey;
-          button.parentElement.setAttribute(
-            "aria-sort",
-            active
-              ? sortDirection === 1
-                ? "ascending"
-                : "descending"
-              : "none",
-          );
-          button.querySelector("span").textContent = active
-            ? sortDirection === 1
-              ? "↑"
-              : "↓"
-            : "↕";
+      function forestDomain() {
+        const edge = (state.metric === "avg" && NOISE !== null ? NOISE : 1) * 1.6, m = METRICS[state.metric], values = [-edge, edge];
+        for (const c of data.comparisons) {
+          if (isNum(m.delta(c))) values.push(m.delta(c));
+          if (m.ci(c)) values.push(...m.ci(c));
+        }
+        const lo = Math.min(...values), hi = Math.max(...values), pad = (hi - lo) * 0.04;
+        return nice(lo - pad, hi + pad, 5);
+      }
+      function forest(width, domain, c) {
+        const H = 30, x = scale(domain, [6, width - 6]), y = H / 2;
+        const svg = s("svg", { class: "forest", width, height: H, "aria-hidden": "true" },
+          state.metric === "avg" && NOISE !== null ? s("rect", { class: "band", x: x(-NOISE), y: 3, width: x(NOISE) - x(-NOISE), height: H - 6, rx: 3 }) : null,
+          ticks(domain, 5).map((t) => s("line", { class: t === 0 ? "zero" : "grid", x1: x(t), x2: x(t), y1: 0, y2: H })));
+        if (!c) return svg;
+        const m = METRICS[state.metric], d = m.delta(c), ci = m.ci(c);
+        if (ci) svg.append(
+          s("line", { class: "ci", x1: x(ci[0]), x2: x(ci[1]), y1: y, y2: y }),
+          s("line", { class: "ci", x1: x(ci[0]), x2: x(ci[0]), y1: y - 5, y2: y + 5 }),
+          s("line", { class: "ci", x1: x(ci[1]), x2: x(ci[1]), y1: y - 5, y2: y + 5 }));
+        if (isNum(d)) svg.append(s("circle", { class: `pt${ci ? "" : " open"}`, cx: x(d), cy: y, r: 4.5 }));
+        return svg;
+      }
+      function renderCompare() {
+        const m = METRICS[state.metric];
+        document.querySelectorAll("[data-metric]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.metric === state.metric));
+        $("compare-note").textContent = state.metric === "avg" && NOISE !== null ? `Baseline variation ±${fixed(NOISE, 1)}%` : "";
+        const headRow = h("tr", {}, ...COLUMNS.map((col) => {
+          const th = h("th", { class: [col.num ? "num" : "", col.opt ? "opt" : "", col.key === "forest" ? "forest-head" : "c-" + col.key].join(" "), scope: "col" });
+          if (col.key === "forest") th.append(h("span", { class: "sr-only" }, "Interval chart"));
+          else if (col.key === "delta") th.append(h("button", { type: "button", "data-sort": "delta", title: `Change in ${m.label}` }, "Change"));
+          else th.append(h("button", { type: "button", "data-sort": col.key }, col.label));
+          if (col.key === state.sortKey) th.setAttribute("aria-sort", state.sortDir === 1 ? "ascending" : "descending");
+          return th;
+        }));
+        $("compare-head").replaceChildren(headRow);
+        const rows = visibleConfigs(), body = $("compare-rows");
+        const cell = (v, d, cls = "num opt") => h("td", { class: cls }, fixed(v, d));
+        const base = data.baseline;
+        const out = [h("tr", { class: "ref" + (state.selected === "baseline" ? " on" : ""), "data-case": "baseline" },
+          h("td", { class: "c-name" }, h("button", { type: "button", class: "name", "aria-pressed": state.selected === "baseline" }, BASE_NAME, h("small", {}, "Baseline: the reference for every change"))),
+          h("td", { class: "num c-delta" }, h("span", { class: "muted" }, "0%")), h("td", { class: "forest-cell" }),
+          cell(base.metrics?.avg_fps ?? base.avg_fps, 1), cell(base.metrics?.low_1_fps, 1), cell(base.metrics?.p99_frame_ms, 2),
+          h("td", { class: "num opt muted" }, "—"))];
+        for (const c of rows) {
+          const d = m.delta(c), ci = m.ci(c);
+          out.push(h("tr", { class: state.selected === c.case ? "on" : "", "data-case": c.case },
+            h("td", { class: "c-name" }, h("button", { type: "button", class: "name", "aria-pressed": state.selected === c.case }, c.name, c.treatment?.summary ? h("small", {}, c.treatment.summary) : null)),
+            h("td", { class: "num c-delta" }, h("span", { class: "delta " + deltaClass(d, ci) }, pct(d)),
+              h("small", { class: "sub" }, noisy(d) ? noiseTag() : ci ? span(ci) : `${c.paired_rounds.length} round${c.paired_rounds.length === 1 ? "" : "s"}`)),
+            h("td", { class: "forest-cell" }),
+            cell(c.metrics?.avg_fps ?? c.avg_fps, 1), cell(c.metrics?.low_1_fps, 1), cell(c.metrics?.p99_frame_ms, 2),
+            h("td", { class: "num opt" }, `${c.paired_rounds.length}/${plan.rounds}`)));
+        }
+        if (!data.comparisons.length) out.push(h("tr", {}, h("td", { colspan: COLUMNS.length, class: "empty" }, "Only your current setup was measured in this session.")));
+        else if (!rows.length) out.push(h("tr", {}, h("td", { colspan: COLUMNS.length, class: "empty" }, "No config matches the filter.")));
+        body.replaceChildren(...out);
+        // Forest cells share one scale, drawn once the column has its width.
+        const headCell = document.querySelector(".forest-head");
+        const width = Math.max(110, Math.floor(headCell.getBoundingClientRect().width) - 8), domain = forestDomain();
+        const x = scale(domain, [6, width - 6]);
+        headCell.append(s("svg", { class: "forest", width, height: 18, "aria-hidden": "true" },
+          ticks(domain, width < 200 ? 3 : 5).map((t) => s("text", { x: x(t), y: 12, "text-anchor": x(t) < 22 ? "start" : x(t) > width - 22 ? "end" : "middle", fill: "currentColor", "font-size": 11 }, pct(t, Number.isInteger(t) ? 0 : 1)))));
+        body.querySelectorAll("tr[data-case]").forEach((tr) => tr.querySelector(".forest-cell").append(forest(width, domain, byCase[tr.dataset.case])));
+        renderLegend();
+        document.querySelector("#compare .toolbar").hidden = $("compare-legend").hidden = !data.comparisons.length;
+      }
+      function renderLegend() {
+        const sw = (...kids) => s("svg", { width: 26, height: 14, "aria-hidden": "true" }, ...kids);
+        $("compare-legend").replaceChildren(...[
+          h("span", {}, sw(s("line", { class: "ci", x1: 2, x2: 24, y1: 7, y2: 7 }), s("circle", { class: "pt", cx: 13, cy: 7, r: 4 })), "Mean change, 95% interval"),
+          h("span", {}, sw(s("circle", { class: "pt open", cx: 13, cy: 7, r: 4 })), "No interval (under 3 rounds)"),
+          state.metric === "avg" && NOISE !== null ? h("span", {}, sw(s("rect", { class: "band", x: 1, y: 1, width: 24, height: 12, rx: 2 })), "±baseline variation") : null,
+        ].filter(Boolean));
+      }
+
+      // ---------------------------------------------------------------- selected config
+      function roundChart(container, c) {
+        const m = METRICS[state.metric], values = m.rounds(c), ci = m.ci(c), avg = m.delta(c);
+        const pts = c.paired_rounds.map((r, i) => [r, values[i]]).filter((p) => isNum(p[1]));
+        if (!pts.length) return container.replaceChildren(h("p", { class: "empty" }, `No complete round has a ${m.short} value.`));
+        const f = canvas(container, 210, { l: 46, r: 12, t: 12, b: 26 }, `${m.label} change in each round`);
+        const band = state.metric === "avg" ? NOISE : null, edge = (band ?? 1) * 1.3;
+        const domain = nice(Math.min(-edge, ...pts.map((p) => p[1]), ...(ci || [])), Math.max(edge, ...pts.map((p) => p[1]), ...(ci || [])), 4);
+        const y = scale(domain, [f.y0, f.y1]), N = Math.max(plan.rounds || 1, ...c.paired_rounds);
+        const x = (r) => f.x0 + ((r - 0.5) / N) * (f.x1 - f.x0);
+        if (band !== null) f.svg.append(s("rect", { class: "band", x: f.x0, width: f.x1 - f.x0, y: y(band), height: y(-band) - y(band) }));
+        yGrid(f, y, ticks(domain, 4), (v) => pct(v, Number.isInteger(v) ? 0 : 1));
+        if (ci) f.svg.append(s("rect", { class: "ciwash", x: f.x0, width: f.x1 - f.x0, y: y(ci[1]), height: Math.max(1, y(ci[0]) - y(ci[1])) }));
+        if (isNum(avg)) f.svg.append(s("line", { class: "mean", x1: f.x0, x2: f.x1, y1: y(avg), y2: y(avg) }));
+        const every = Math.ceil(N / Math.max(1, Math.floor((f.x1 - f.x0) / 34)));
+        for (let r = 1; r <= N; r++) if ((r - 1) % every === 0) f.svg.append(s("text", { x: x(r), y: f.height - 8, "text-anchor": "middle" }, String(r)));
+        const runsFor = (r, cs) => data.runs.filter((x) => x.round === r && x.case === cs);
+        for (const [r, v] of pts) {
+          const g = s("g", {}, s("circle", { class: "dot f-cfg", cx: x(r), cy: y(v), r: 5 }), s("circle", { class: "hit", cx: x(r), cy: y(v), r: 13 }));
+          g.addEventListener("pointermove", (ev) => {
+            const own = runsFor(r, c.case)[0], bases = runsFor(r, "baseline");
+            showTip(ev, `Round ${r}`, [
+              ["key cfg", pct(v), "change"],
+              [null, fixed(own?.metrics?.[m.key]), `${m.short} · ${c.name}`],
+              [null, fixed(mean(bases.map((b) => b.metrics?.[m.key]).filter(isNum))), `${m.short} · baseline (mean of ${bases.length})`],
+            ]);
+          });
+          g.addEventListener("pointerleave", hideTip);
+          g.addEventListener("click", () => pickRound(r));
+          f.svg.append(g);
+        }
+        if (isNum(avg)) f.svg.append(s("text", { class: "lbl", x: f.x1, y: y(avg) - 6, "text-anchor": "end" }, `mean ${pct(avg)}`));
+      }
+      function percentileChart(container, series, label) {
+        const usable = series.filter((x) => x.dist?.points?.length);
+        if (!usable.length) return container.replaceChildren(h("p", { class: "empty" }, "Percentiles weren't recorded for these captures."));
+        const tail = (p) => (p >= 100 ? 4 : -Math.log10(1 - p / 100));
+        const tmax = Math.min(4, Math.max(1, Math.log10(Math.min(...usable.map((x) => x.dist.samples || 10))) - 0.0001));
+        const pts = usable.map((x) => ({ ...x, pts: x.dist.points.filter(([p]) => tail(p) <= tmax + 1e-6) }));
+        const all = pts.flatMap((x) => x.pts.map((p) => p[1]));
+        const f = canvas(container, 240, { l: 42, r: 14, t: 24, b: 26 }, label);
+        const domain = nice(0, Math.max(BUDGET_MS || 0, ...all) * 1.05, 4);
+        const x = scale([0, tmax], [f.x0, f.x1]), y = scale(domain, [f.y0, f.y1]);
+        yGrid(f, y, ticks(domain, 4), (v) => tLabel(v));
+        f.svg.append(s("text", { class: "lbl", x: f.x0 - 7, y: f.y1 - 12, "text-anchor": "end" }, "ms"));
+        let last = -Infinity;
+        for (const [t, lab] of [[0, "0%"], [Math.log10(2), "50%"], [1, "90%"], [2, "99%"], [3, "99.9%"], [4, "99.99%"]])
+          if (t <= tmax + 1e-6 && x(t) - last >= 38 && (last = x(t))) f.svg.append(s("line", { class: "grid", x1: x(t), x2: x(t), y1: f.y1, y2: f.y0 }), s("text", { x: x(t), y: f.height - 8, "text-anchor": t === 0 ? "start" : "middle" }, lab));
+        if (BUDGET_MS && BUDGET_MS < domain[1]) f.svg.append(s("line", { class: "budget", x1: f.x0, x2: f.x1, y1: y(BUDGET_MS), y2: y(BUDGET_MS) }));
+        for (const x0 of pts) f.svg.append(s("path", { class: "line s-" + x0.cls, d: path(x0.pts.map(([p, v]) => [x(tail(p)), y(v)])) }));
+        crosshair(f, (px) => {
+          const t = x.invert(px), grid = pts[0].pts;
+          let i = 0;
+          grid.forEach(([p], j) => { if (Math.abs(tail(p) - t) < Math.abs(tail(grid[i][0]) - t)) i = j; });
+          return { x: x(tail(grid[i][0])), title: `${pLabel(grid[i][0])} of frames are faster than`, rows: pts.map((x0) => [`key ${x0.cls}`, fixed(x0.pts[i]?.[1], 2, " ms"), x0.label]), dots: pts.map((x0) => [x0.cls, y(x0.pts[i]?.[1])]) };
         });
       }
-      function table() {
-        const rows = sortedRows();
-        $("row-count").textContent =
-          `${rows.length} / ${data.comparisons.length} treatments`;
-        const body = $("comparison-rows");
-        body.replaceChildren();
-        for (const r of [base, ...rows]) {
-          const tr = make("tr");
-          if (r.case === chosen.case) tr.className = "active";
-          const cell = make("td"),
-            button = make("button", null, "case-button");
-          button.append(make("strong", r.name), make("small", r.case));
-          button.setAttribute("aria-pressed", r.case === chosen.case);
-          button.addEventListener("click", () => choose(r));
-          cell.append(button);
-          tr.append(cell);
-          for (const k of ["avg_fps", "low_1_fps", "p99_frame_ms"])
-            tr.append(
-              make(
-                "td",
-                k === "p99_frame_ms" && r.metrics?.[k] != null
-                  ? r.metrics[k].toFixed(2)
-                  : num(r.metrics?.[k]),
-              ),
-            );
-          const delta = make(
-            "td",
-            r.case === "baseline" ? "Reference" : signed(r.delta_pct),
-          );
-          if (r.verdict === "improved") delta.className = "delta-positive";
-          else if (r.verdict === "regressed")
-            delta.className = "delta-negative";
-          tr.append(
-            delta,
-            make(
-              "td",
-              r.case === "baseline"
-                ? `${data.baseline.runs} runs`
-                : r.paired_rounds.length,
-            ),
-          );
-          const status = make("td");
-          status.append(
-            make("span", r.verdict, "badge " + r.verdict.replaceAll(" ", "-")),
-          );
-          tr.append(status);
-          body.append(tr);
-        }
-        if (!rows.length && data.comparisons.length)
-          body.append(make("tr", null));
+      // A vertical hairline that snaps to the nearest data position; the tooltip lists every series there.
+      function crosshair(f, find) {
+        const line = s("line", { class: "cross", y1: f.y1, y2: f.y0, visibility: "hidden" }), dots = s("g", {});
+        const hit = s("rect", { class: "hit", x: f.x0, y: f.y1, width: Math.max(0, f.x1 - f.x0), height: Math.max(0, f.y0 - f.y1) });
+        f.svg.append(line, dots, hit);
+        hit.addEventListener("pointermove", (ev) => {
+          const box = f.svg.getBoundingClientRect(), found = find(((ev.clientX - box.left) / box.width) * f.width);
+          if (!found) return;
+          line.setAttribute("x1", found.x); line.setAttribute("x2", found.x); line.setAttribute("visibility", "visible");
+          dots.replaceChildren(...(found.dots || []).filter((d) => isNum(d[1])).map(([cls, cy]) => s("circle", { class: "dot f-" + cls, cx: found.x, cy, r: 4 })));
+          showTip(ev, found.title, found.rows);
+        });
+        hit.addEventListener("pointerleave", () => { line.setAttribute("visibility", "hidden"); dots.replaceChildren(); hideTip(); });
       }
-      function choose(r) {
-        chosen = r;
-        table();
-        detail();
-        const i = data.runs.findIndex((x) => x.case === r.case);
-        if (i >= 0) {
-          selected = i;
-          $("run-select").value = i;
-          reference = data.runs.findIndex(
-            (x, j) =>
-              j !== i &&
-              x.case === "baseline" &&
-              x.round === data.runs[i].round,
+      function renderDetail() {
+        const panel = $("detail-panel"), c = byCase[state.selected];
+        panel.replaceChildren();
+        if (!c) {
+          const runs = runsOf("baseline");
+          panel.append(
+            h("div", { class: "detail-head" }, h("div", {}, h("div", { class: "small muted" }, "Selected"), h("div", { class: "detail-name" }, BASE_NAME))),
+            h("div", { class: "cards two" },
+              card("Frame-time percentiles", null, (el) => percentileChart(el, [{ cls: "base", label: BASE_NAME, dist: averageDistribution(runs) }], "Frame-time percentiles of your current setup")),
+              card("Numbers", `Mean of ${runs.length} captures`, (el) => el.append(metricsTable(runs, null)))),
           );
-          $("reference-select").value = reference;
-        } else {
-          selected = -1;
-          reference = -1;
-          $("run-select").selectedIndex = -1;
-          $("reference-select").value = -1;
-        }
-        trace();
-      }
-      function detail() {
-        const r = chosen;
-        $("detail-name").textContent = r.name;
-        $("detail-verdict").textContent = r.verdict;
-        $("detail-verdict").className =
-          "badge " + r.verdict.replaceAll(" ", "-");
-        $("detail-delta").textContent =
-          r.case === "baseline" ? "Reference" : signed(r.delta_pct);
-        $("reasons").replaceChildren(...r.reasons.map((s) => make("li", s)));
-        $("interval-label").textContent =
-          r.case === "baseline"
-            ? "Your current configuration, not necessarily Valve defaults."
-            : r.ci95_pct
-              ? `95% interval: ${signed(r.ci95_pct[0])} to ${signed(r.ci95_pct[1])} · threshold ±${data.threshold_pct}%`
-              : `No interval: need at least 3 paired rounds. Verdicts need at least 5.`;
-        interval();
-        bars();
-      }
-      function interval() {
-        const { ctx, w, h } = setup("interval"),
-          r = chosen;
-        if (r.delta_pct == null || r.case === "baseline") {
-          empty(ctx, "No paired effect to plot.");
           return;
         }
-        const values = [r.delta_pct, ...(r.ci95_pct || [])],
-          limit =
-            Math.max(data.threshold_pct * 2, ...values.map(Math.abs)) * 1.2,
-          x = (v) => 18 + ((v + limit) / (2 * limit)) * (w - 36),
-          y = 32;
-        ctx.fillStyle = "#a9b09e18";
-        ctx.fillRect(
-          x(-data.threshold_pct),
-          10,
-          x(data.threshold_pct) - x(-data.threshold_pct),
-          42,
+        const m = METRICS[state.metric];
+        panel.append(
+          h("div", { class: "detail-head" },
+            h("div", { style: "min-width:0;flex:1" }, h("div", { class: "small muted" }, "Selected config"), h("div", { class: "detail-name" }, c.name), c.treatment?.summary ? h("div", { class: "detail-sum" }, c.treatment.summary) : null, c.treatment?.description ? h("div", { class: "detail-sum" }, c.treatment.description) : null),
+            h("div", { class: "detail-fig" }, h("div", { class: "small muted" }, `${m.label} vs current setup`), h("div", { class: "big" }, pct(m.delta(c))), h("div", { class: "small muted" }, m.ci(c) ? `95% interval ${span(m.ci(c))}` : "no interval"), noisy(m.delta(c)) ? h("div", { style: "margin-top:6px" }, noiseTag()) : null)),
         );
-        ctx.strokeStyle = C.line;
-        ctx.beginPath();
-        ctx.moveTo(18, y);
-        ctx.lineTo(w - 18, y);
-        ctx.stroke();
-        ctx.fillStyle = C.text;
-        ctx.textAlign = "center";
-        for (const v of [-limit, 0, limit])
-          ctx.fillText(signed(v), x(v), h - 12);
-        ctx.strokeStyle = C.a;
-        ctx.lineWidth = 2;
-        if (r.ci95_pct) {
-          ctx.beginPath();
-          ctx.moveTo(x(r.ci95_pct[0]), y);
-          ctx.lineTo(x(r.ci95_pct[1]), y);
-          ctx.stroke();
-          for (const v of r.ci95_pct) {
-            ctx.beginPath();
-            ctx.moveTo(x(v), y - 6);
-            ctx.lineTo(x(v), y + 6);
-            ctx.stroke();
-          }
-        }
-        ctx.fillStyle = C.a;
-        ctx.beginPath();
-        ctx.arc(x(r.delta_pct), y, 4, 0, 7);
-        ctx.fill();
-      }
-      function bars() {
-        const { ctx, w } = setup("metric-bars"),
-          keys = ["avg_fps", "low_1_fps"],
-          limit =
-            Math.max(
-              1,
-              ...keys.flatMap((k) => [
-                chosen.metrics?.[k] || 0,
-                base.metrics?.[k] || 0,
-              ]),
-            ) * 1.15;
-        for (let i = 0; i < 2; i++) {
-          const y = i * 72;
-          ctx.fillStyle = C.text;
-          ctx.fillText(i ? "1% low" : "Average FPS", 0, y + 11);
-          for (const [r, color, offset] of [
-            [chosen, C.a, 20],
-            [base, C.b, 39],
-          ]) {
-            const v = r.metrics?.[keys[i]];
-            if (v == null) {
-              ctx.fillText("Unavailable", 0, y + offset + 11);
-              continue;
-            }
-            ctx.fillStyle = color;
-            ctx.fillRect(0, y + offset, (v / limit) * (w - 48), 12);
-            ctx.fillText(num(v), (v / limit) * (w - 48) + 5, y + offset + 11);
-          }
+        const own = runsOf(c.case), base = runsOf("baseline");
+        panel.append(h("div", { class: "cards" },
+          card(`${m.label} change per round`, `Line: mean · shaded: 95% interval${state.metric === "avg" && NOISE !== null ? " · grey band: ±baseline variation" : ""}`, (el) => roundChart(el, c)),
+          card("Frame-time percentiles", null, (el) => {
+            percentileChart(el, [{ cls: "cfg", label: c.name, dist: averageDistribution(own) }, { cls: "base", label: BASE_NAME, dist: averageDistribution(base) }], `Frame-time percentiles, ${c.name} against your current setup`);
+            el.append(h("div", { class: "legend" }, h("span", {}, h("i", { class: "key cfg" }), c.name), h("span", {}, h("i", { class: "key base" }), BASE_NAME)));
+          }),
+          card("Numbers", `Means over ${base.length} current and ${own.length} config captures; slowest frame is the maximum`, (el) => el.append(metricsTable(base, own))),
+        ));
+        const t = c.treatment;
+        if (t?.changes?.length || t?.notes?.length) {
+          const box = h("details", { class: "changes" }, h("summary", {}, `Settings this config changes (${t.changes.length + (t.more_changes || 0)})`));
+          if (t.changes.length <= 8) box.open = true;
+          if (t.changes.length)
+            box.append(h("div", { class: "table-scroll" }, h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, "File"), h("th", {}, "Setting"), h("th", {}, "Value"))),
+              h("tbody", {}, t.changes.map(([file, name, value]) => h("tr", {}, h("td", { class: "muted" }, file), h("td", { class: "mono" }, name), h("td", { class: "mono" }, value)))))));
+          if (t.more_changes) box.append(h("p", { class: "small muted" }, `…and ${t.more_changes} more.`));
+          if (t.notes?.length) box.append(h("ul", { class: "notes" }, t.notes.map((n) => h("li", {}, n))));
+          panel.append(box);
         }
       }
-      function axis(ctx, w, h, maxX, maxY, xLabel) {
-        const left = 48,
-          right = 18,
-          top = 17,
-          bottom = 28,
-          x = (v) => left + (v / maxX) * (w - left - right),
-          y = (v) => h - bottom - (v / maxY) * (h - top - bottom);
-        ctx.lineWidth = 1;
-        for (let i = 0; i <= 4; i++) {
-          const v = (maxY * i) / 4;
-          ctx.strokeStyle = C.line;
-          ctx.beginPath();
-          ctx.moveTo(left, y(v));
-          ctx.lineTo(w - right, y(v));
-          ctx.stroke();
-          ctx.fillStyle = C.text;
-          ctx.textAlign = "right";
-          ctx.fillText(v.toFixed(1), left - 7, y(v) + 4);
-          ctx.textAlign = "center";
-          ctx.fillText(
-            ((maxX * i) / 4).toFixed(xLabel === "s" ? 1 : 0) + xLabel,
-            x((maxX * i) / 4),
-            h - 7,
-          );
-        }
-        ctx.textAlign = "left";
-        return { x, y, left, right };
+      function card(title, caption, fill) {
+        const body = h("div", {}), el = h("div", { class: "card" }, h("h3", {}, title), caption ? h("p", { class: "cap" }, caption) : null, body);
+        requestAnimationFrame(() => fill(body));
+        return el;
       }
-      function trace() {
-        const { ctx, w, h } = setup("trace"),
-          a = data.runs[selected],
-          b = data.runs[reference],
-          runs = [a, b].filter(Boolean),
-          series = (r) => r.series || [],
-          all = runs.flatMap(series);
-        $("tooltip").style.display = "none";
-        $("capture-metrics").replaceChildren();
-        $("sensors").replaceChildren();
-        if (!all.length) {
-          traceScale = null;
-          empty(ctx, "No usable captures. See checks and exclusions.");
-          return;
+      // Relative change from a reference value, marked better or worse from 1% (lower frame times are better).
+      function change(reference, value, better) {
+        const v = isNum(reference) && isNum(value) && reference !== 0 ? (value / reference - 1) * 100 : null;
+        if (!isNum(v) || !better || Math.abs(v) < 1) return h("span", { class: "muted" }, pct(v));
+        const good = v > 0 === better > 0;
+        return h("span", { title: good ? "Better" : "Worse" }, h("span", { class: good ? "up" : "down", "aria-hidden": "true" }, good ? "✓ " : "✕ "), pct(v), h("span", { class: "sr-only" }, good ? " (better)" : " (worse)"));
+      }
+      function metricsTable(base, own) {
+        const rows = RUN_METRICS.map(([key, label, d, unit, better, how]) => {
+          const b = aggregate(base, key, how), o = own ? aggregate(own, key, how) : null;
+          return h("tr", {}, h("td", {}, label), h("td", { class: "num" }, fixed(b, d, unit)), own ? h("td", { class: "num" }, fixed(o, d, unit)) : null,
+            own ? h("td", { class: "num" }, change(b, o, better)) : null);
+        });
+        return h("div", { class: "table-scroll" }, h("table", {},
+          h("thead", {}, h("tr", {}, h("th", {}, "Metric"), h("th", { class: "num" }, own ? "Current" : "Mean"), own ? h("th", { class: "num" }, "Config") : null, own ? h("th", { class: "num" }, "Change") : null)),
+          h("tbody", {}, rows)));
+      }
+
+      // ---------------------------------------------------------------- frame times (two captures)
+      const runLabel = (r) => `#${r.index} · round ${r.round} · ${nameOf(r.case)}`;
+      function defaultPair(caseId) {
+        const own = runsOf(caseId);
+        if (caseId === "baseline" || !own.length) {
+          const b = runsOf("baseline");
+          return [b[0]?.id ?? data.runs[0]?.id ?? null, (b.find((x) => x.round === b[0]?.round && x.id !== b[0]?.id) || b[1])?.id ?? null];
         }
-        const budget = data.context.scenario.budget_fps
-            ? 1000 / data.context.scenario.budget_fps
-            : 0,
-          maxY = Math.max(budget, 1, ...all.map((v) => v[3])) * 1.1,
-          maxX = Math.max(0.01, ...all.map((v) => v[0])),
-          { x, y, left, right } = axis(ctx, w, h, maxX, maxY, "s");
-        traceScale = { w, left, right, maxX };
-        ctx.fillStyle = C.text;
-        ctx.fillText("ms", 5, 12);
-        ctx.setLineDash([2, 4]);
-        ctx.strokeStyle = C.text;
-        ctx.beginPath();
-        ctx.moveTo(left, y(budget));
-        ctx.lineTo(w - right, y(budget));
-        ctx.stroke();
-        for (const [r, color] of [
-          [b, C.b],
-          [a, C.a],
-        ]) {
-          if (!r) continue;
-          for (const col of [3, 2]) {
-            ctx.strokeStyle = color;
-            ctx.lineWidth = col === 2 ? 1.5 : 1;
-            ctx.globalAlpha = col === 2 ? 1 : 0.65;
-            ctx.setLineDash(col === 3 ? [2, 3] : []);
-            ctx.beginPath();
-            series(r).forEach((v, i) =>
-              i
-                ? ctx.lineTo(x(v[0]), y(v[col]))
-                : ctx.moveTo(x(v[0]), y(v[col])),
-            );
-            ctx.stroke();
-          }
-        }
-        ctx.setLineDash([]);
-        ctx.globalAlpha = 1;
-        for (const [r, label] of [
-          [a, "A"],
-          [b, "B"],
-        ]) {
-          if (!r) continue;
-          const tr = make("tr");
-          tr.append(make("td", `${label} · ${r.id}`));
-          for (const k of [
-            "avg_fps",
-            "low_1_fps",
-            "low_01_fps",
-            "p99_frame_ms",
-            "max_frame_ms",
-            "over_budget_pct",
-            "stalls_over_50ms",
-            "samples",
-          ])
-            tr.append(
-              make(
-                "td",
-                ["samples", "stalls_over_50ms"].includes(k)
-                  ? String(r.metrics[k] ?? "—")
-                  : num(r.metrics[k], k === "over_budget_pct" ? "%" : ""),
-              ),
-            );
-          $("capture-metrics").append(tr);
-        }
-        const units = {
-          cpu_load: "%",
-          gpu_load: "%",
-          cpu_temp: "°C",
-          gpu_temp: "°C",
-          gpu_core_clock: "MHz",
-          gpu_mem_clock: "MHz",
-          gpu_vram_used: "GiB",
-          ram_used: "GiB",
-          gpu_power: "W",
-          cpu_power: "W",
+        const a = own[0], b = data.runs.find((x) => x.case === "baseline" && x.round === a.round);
+        return [a.id, b?.id ?? null];
+      }
+      function pickRound(round) {
+        const move = (id, other) => {
+          const r = byId[id];
+          if (!r) return id;
+          const peers = data.runs.filter((x) => x.case === r.case && x.round === r.round);
+          const slot = Math.max(0, peers.indexOf(r));
+          const next = data.runs.filter((x) => x.case === r.case && x.round === round);
+          return (next[slot] && next[slot].id !== other ? next[slot] : next.find((x) => x.id !== other) || next[0])?.id ?? id;
         };
-        const keys = new Set(
-          runs.flatMap((r) => Object.keys(r.metrics.telemetry || {})),
-        );
-        for (const k of keys) {
-          const tr = make("tr");
-          tr.append(make("td", k.replaceAll("_", " ")));
-          for (const r of [a, b])
-            for (const stat of ["mean", "max"])
-              tr.append(
-                make(
-                  "td",
-                  num(
-                    r?.metrics.telemetry?.[k]?.[stat],
-                    units[k] ? " " + units[k] : "",
-                  ),
-                ),
-              );
-          $("sensors").append(tr);
-        }
-        if (!keys.size) {
-          const tr = make("tr"),
-            td = make("td", "No sensor readings recorded.");
-          td.colSpan = 5;
-          tr.append(td);
-          $("sensors").append(tr);
-        }
+        const a = move(state.a, null);
+        state.a = a;
+        state.b = move(state.b, a);
+        renderFrames();
+        renderRuns();
       }
-      $("reference-select").append(new Option("None", -1));
-      data.runs.forEach((r, i) => {
-        const label = `${r.case} · round ${r.round} · run ${r.index}`;
-        $("run-select").append(new Option(label, i));
-        $("reference-select").append(new Option(label, i));
-      });
-      $("run-select").addEventListener("change", (e) => {
-        selected = Number(e.target.value);
-        trace();
-      });
-      $("reference-select").addEventListener("change", (e) => {
-        reference = Number(e.target.value);
-        trace();
-      });
-      $("search").addEventListener("input", table);
-      document.querySelectorAll("[data-sort]").forEach((button) =>
-        button.addEventListener("click", () => {
-          const key = button.dataset.sort;
-          sortDirection =
-            key === sortKey
-              ? -sortDirection
-              : ["name", "verdict", "p99_frame_ms"].includes(key)
-                ? 1
-                : -1;
-          sortKey = key;
-          updateSortHeaders();
-          table();
-        }),
-      );
-      updateSortHeaders();
-      $("trace").addEventListener("mousemove", (e) => {
-        if (!traceScale) return;
-        const rect = e.currentTarget.getBoundingClientRect(),
-          t =
-            ((e.clientX - rect.left - traceScale.left) /
-              (traceScale.w - traceScale.left - traceScale.right)) *
-            traceScale.maxX;
-        const parts = [];
-        for (const [i, label] of [
-          [selected, "A"],
-          [reference, "B"],
-        ]) {
-          const s = data.runs[i]?.series;
-          if (!s?.length || t < 0 || t > s[s.length - 1][0]) continue;
-          const v = s.reduce((a, b) =>
-            Math.abs(a[0] - t) < Math.abs(b[0] - t) ? a : b,
-          );
-          parts.push(`${label}: ${num(v[2])} mean / ${num(v[3])} max ms`);
-        }
-        const tip = $("tooltip");
-        tip.textContent = num(t, " s") + " · " + parts.join(" · ");
-        tip.style.display = parts.length ? "block" : "none";
-      });
-      $("trace").addEventListener(
-        "mouseleave",
-        () => ($("tooltip").style.display = "none"),
-      );
-      const context = data.context;
-      $("base-low").textContent = num(base.metrics?.low_1_fps, " FPS");
-      $("durations").textContent =
-        `${context.scenario.sample_s}s / ${context.scenario.warmup_s}s`;
-      const pending = data.runs.filter(
-        (r) => r.quality_blockers?.length,
-      ).length;
-      $("session-note").textContent = data.synthetic
-        ? "Synthetic demo. These values demonstrate the interface; they are not game measurements."
-        : `${pending} captures need operator review · ${data.excluded.length} excluded · ${data.comparisons.filter((c) => c.verdict === "inconclusive").length} inconclusive comparisons.`;
-      $("checks-summary").textContent =
-        `Capture checks · ${pending} need review · ${data.excluded.length} excluded`;
-      for (const r of data.excluded)
-        $("excluded").append(make("p", `${r.id}: ${r.reasons.join("; ")}`));
-      const facts = [
-        ["Processor", context.system.cpu || "Unrecorded"],
-        ["Game build", context.game?.build_id || "Unrecorded"],
-        [
-          "Scenario",
-          `${context.scenario.mode} · tick ${context.scenario.tick ?? "—"} · ${context.scenario.sample_s}s`,
-        ],
-        ...Object.entries(context.conditions),
-        ["Capture source", context.capture],
-      ];
-      for (const [k, v] of facts) {
-        const div = make("div");
-        div.append(
-          make("dt", k.replaceAll("_", " ")),
-          make("dd", typeof v === "string" ? v : JSON.stringify(v)),
-        );
-        $("facts").append(div);
+      function fillSelect(select, value) {
+        const groups = {};
+        for (const r of data.runs) (groups[r.case] ||= []).push(r);
+        select.replaceChildren(h("option", { value: "" }, "None"), ...Object.entries(groups).map(([cs, runs]) => h("optgroup", { label: nameOf(cs) }, runs.map((r) => h("option", { value: r.id }, `${nameOf(cs)} · round ${r.round} (#${r.index})`)))));
+        select.value = value ?? "";
       }
-      $("context").textContent = JSON.stringify(context, null, 2);
+      function traceChart(container, series) {
+        const usable = series.filter((x) => x.run?.series?.length);
+        if (!usable.length) return container.replaceChildren(h("p", { class: "empty" }, "No capture selected."));
+        const all = usable.flatMap((x) => x.run.series);
+        const maxT = Math.max(0.01, ...all.map((v) => v[0]));
+        const peaks = all.map((v) => v[3]).sort((a, b) => a - b);
+        const typical = peaks[Math.floor((peaks.length - 1) * 0.98)] * 1.35;
+        const top = state.clip ? Math.max(typical, (BUDGET_MS || 0) * 1.3) : Math.max(...peaks, BUDGET_MS || 0) * 1.05;
+        const f = canvas(container, 280, { l: 42, r: 14, t: 24, b: 26 }, "Frame time over the capture for the selected captures");
+        const domain = nice(0, top, 5), x = scale([0, maxT], [f.x0, f.x1]), y = scale(domain, [f.y0, f.y1]);
+        yGrid(f, y, ticks(domain, 5), (v) => tLabel(v));
+        f.svg.append(s("text", { class: "lbl", x: f.x0 - 7, y: f.y1 - 12, "text-anchor": "end" }, "ms"));
+        for (const t of ticks([0, maxT], Math.max(2, Math.floor((f.x1 - f.x0) / 80)))) f.svg.append(s("text", { x: x(t), y: f.height - 8, "text-anchor": t === 0 ? "start" : "middle" }, tLabel(t) + " s"));
+        const clipId = "clip-" + Math.random().toString(36).slice(2);
+        f.svg.append(s("clipPath", { id: clipId }, s("rect", { x: f.x0, y: f.y1 - 1, width: f.x1 - f.x0, height: f.y0 - f.y1 + 1 })));
+        if (BUDGET_MS && BUDGET_MS < domain[1])
+          f.svg.append(s("line", { class: "budget", x1: f.x0, x2: f.x1, y1: y(BUDGET_MS), y2: y(BUDGET_MS) }), s("text", { class: "lbl", x: f.x1, y: y(BUDGET_MS) - 5, "text-anchor": "end" }, `${scenario.budget_fps} FPS budget`));
+        const g = s("g", { "clip-path": `url(#${clipId})` });
+        for (const x0 of [...usable].reverse()) {
+          g.append(s("path", { class: "line thin s-" + x0.cls, d: path(x0.run.series.map((v) => [x(v[0]), y(Math.min(v[3], domain[1] * 1.02))])) }));
+          g.append(s("path", { class: "line s-" + x0.cls, d: path(x0.run.series.map((v) => [x(v[0]), y(Math.min(v[2], domain[1] * 1.02))])) }));
+        }
+        f.svg.append(g);
+        const cut = usable.reduce((n, x0) => n + x0.run.series.filter((v) => v[3] > domain[1]).length, 0);
+        if (cut) f.svg.append(s("text", { class: "lbl", x: f.x0 + 4, y: f.y1 + 11 }, `▲ ${cut} slice${cut > 1 ? "s" : ""} with spikes above ${tLabel(domain[1])} ms cut off`));
+        crosshair(f, (px) => {
+          const t = x.invert(px), rows = [], dots = [];
+          for (const x0 of usable) {
+            const ser = x0.run.series;
+            if (t < -0.05 || t > ser[ser.length - 1][0] + 0.2) continue;
+            const v = ser.reduce((a, b) => (Math.abs(b[0] - t) < Math.abs(a[0] - t) ? b : a));
+            rows.push([`key ${x0.cls}`, `${fixed(v[2], 2)} ms`, `${x0.name} · slowest ${fixed(v[3], 1)} ms`]);
+            dots.push([x0.cls, y(Math.min(v[2], domain[1]))]);
+          }
+          return rows.length ? { x: x(Math.min(maxT, Math.max(0, t))), title: `${fixed(Math.max(0, t), 1)} s`, rows, dots } : null;
+        });
+      }
+      function renderFrames() {
+        const a = byId[state.a], b = byId[state.b];
+        $("pick-a").value = state.a ?? "";
+        $("pick-b").value = state.b ?? "";
+        const rounds = [...new Set(data.runs.map((r) => r.round))].sort((x, y) => x - y), cur = a?.round ?? b?.round;
+        $("round-label").textContent = cur ? `Round ${cur} of ${plan.rounds || rounds.length}` : "No round";
+        $("round-prev").disabled = !cur || cur <= rounds[0];
+        $("round-next").disabled = !cur || cur >= rounds[rounds.length - 1];
+        const series = [a && { cls: "cfg", run: a, name: "A · " + runLabel(a) }, b && { cls: "base", run: b, name: "B · " + runLabel(b) }].filter(Boolean);
+        traceChart($("trace"), series);
+        percentileChart($("pct-frames"), series.map((x) => ({ cls: x.cls, label: x.name, dist: x.run.distribution ? { points: x.run.distribution, samples: x.run.metrics.samples } : null })), "Frame-time percentiles of the selected captures");
+        // Numbers for A and B side by side.
+        const rows = [...RUN_METRICS, ["stalls_over_100ms", "Frames over 100 ms", 0, "", -1], ["samples", "Frames captured", 0, "", 0], ["duration_s", "Capture length", 1, " s", 0]];
+        const val = (r, [key, , d, unit]) => (!r ? "—" : key === "samples" || key.startsWith("stalls") ? count(r.metrics[key]) : fixed(r.metrics[key], d, unit));
+        $("frame-stats").replaceChildren(
+          h("thead", {}, h("tr", {}, h("th", {}, "Metric"), h("th", { class: "num" }, h("i", { class: "key cfg" }), " A"), h("th", { class: "num" }, h("i", { class: "key base" }), " B"), h("th", { class: "num" }, "A vs B"))),
+          h("tbody", {}, rows.map((m) => h("tr", {}, h("td", {}, m[1]), h("td", { class: "num" }, val(a, m)), h("td", { class: "num" }, val(b, m)),
+            h("td", { class: "num" }, a && b ? change(b.metrics[m[0]], a.metrics[m[0]], m[4]) : "—")))));
+        const units = { cpu_load: "%", gpu_load: "%", cpu_temp: "°C", gpu_temp: "°C", gpu_core_clock: "MHz", gpu_mem_clock: "MHz", gpu_vram_used: "GiB", ram_used: "GiB", gpu_power: "W", cpu_power: "W" };
+        const keys = [...new Set([a, b].filter(Boolean).flatMap((r) => Object.keys(r.metrics.telemetry || {})))];
+        $("sensors").replaceChildren(
+          h("thead", {}, h("tr", {}, h("th", {}, "Sensor"), h("th", { class: "num" }, "A mean"), h("th", { class: "num" }, "A max"), h("th", { class: "num" }, "B mean"), h("th", { class: "num" }, "B max"))),
+          h("tbody", {}, keys.length ? keys.map((k) => h("tr", {}, h("td", {}, k.replaceAll("_", " ")), ...[a, b].flatMap((r) => ["mean", "max"].map((st) => h("td", { class: "num" }, fixed(r?.metrics.telemetry?.[k]?.[st], 1, units[k] ? " " + units[k] : "")))))) : h("tr", {}, h("td", { colspan: 5, class: "muted" }, "No sensor readings recorded."))));
+      }
+
+      // ---------------------------------------------------------------- captures (run order)
+      const excludedByIndex = Object.fromEntries(data.excluded.map((e) => [parseInt(e.id, 10), e]));
+      const runByIndex = Object.fromEntries(data.runs.map((r) => [r.index, r]));
+      function renderRuns() {
+        const m = METRICS[state.metric], schedule = plan.schedule.length ? plan.schedule : data.runs.map((r) => ({ index: r.index, round: r.round, case: r.case }));
+        const el = $("runs-chart");
+        const values = data.runs.map((r) => r.metrics?.[m.key]).filter(isNum);
+        if (!values.length) el.replaceChildren(h("p", { class: "empty" }, `No capture has a ${m.short} value.`));
+        else {
+          const f = canvas(el, 260, { l: 46, r: 12, t: 30, b: 26 }, `${m.label} of every capture in the order it ran`);
+          const lo = Math.min(...values), hi = Math.max(...values), pad = Math.max((hi - lo) * 0.12, hi * 0.01);
+          const domain = nice(lo - pad, hi + pad, 4), y = scale(domain, [f.y0, f.y1]);
+          const S = schedule.length, x = (i) => f.x0 + ((i - 0.5) / S) * (f.x1 - f.x0);
+          yGrid(f, y, ticks(domain, 4), (v) => tLabel(v));
+          f.svg.append(s("text", { class: "lbl", x: f.x0 - 7, y: f.y1 - 14, "text-anchor": "end" }, m.short));
+          const rounds = {};
+          for (const it of schedule) (rounds[it.round] ||= []).push(it.index);
+          Object.entries(rounds).forEach(([r, idx], k) => {
+            const a = x(Math.min(...idx)) - (f.x1 - f.x0) / S / 2, w = ((f.x1 - f.x0) / S) * idx.length;
+            if (k % 2 === 0) f.svg.append(s("rect", { class: "roundbg", x: a, y: f.y1, width: w, height: f.y0 - f.y1 }));
+            if (w > 26) f.svg.append(s("text", { x: a + w / 2, y: f.y1 - 14, "text-anchor": "middle" }, w > 60 ? `Round ${r}` : `R${r}`));
+          });
+          const bases = data.runs.filter((r) => r.case === "baseline" && isNum(r.metrics?.[m.key])).sort((p, q) => p.index - q.index);
+          f.svg.append(s("path", { class: "line s-base", d: path(bases.map((r) => [x(r.index), y(r.metrics[m.key])])), opacity: 0.8 }));
+          const cls = (r) => (r.case === "baseline" ? "base" : r.case === state.selected ? "cfg" : "other");
+          const order = [...data.runs].sort((p, q) => (cls(p) === "cfg") - (cls(q) === "cfg"));
+          for (const r of order) {
+            const v = r.metrics?.[m.key];
+            if (!isNum(v)) continue;
+            f.svg.append(s("circle", { class: "dot f-" + cls(r), cx: x(r.index), cy: y(v), r: cls(r) === "other" ? 4 : 5 }));
+            if (r.id === state.a || r.id === state.b) f.svg.append(s("text", { class: "strong", x: x(r.index), y: y(v) - 10, "text-anchor": "middle" }, r.id === state.a ? "A" : "B"));
+          }
+          for (const it of schedule) if (!runByIndex[it.index]) {
+            const cx = x(it.index), cy = f.y0 - 8;
+            f.svg.append(s("path", { class: "miss", d: `M${cx - 4} ${cy - 4}L${cx + 4} ${cy + 4}M${cx + 4} ${cy - 4}L${cx - 4} ${cy + 4}` }));
+          }
+          crosshair(f, (px) => {
+            const i = Math.min(S, Math.max(1, Math.round(((px - f.x0) / (f.x1 - f.x0)) * S + 0.5))), it = schedule[i - 1];
+            if (!it) return null;
+            const r = runByIndex[it.index], ex = excludedByIndex[it.index];
+            const rows = r ? [[`dotkey ${cls(r)}`, fixed(r.metrics?.avg_fps), "avg FPS"], [null, fixed(r.metrics?.low_1_fps), "1% low"], [null, "", "Click to open under Frame times"]]
+              : [[null, ex ? "Not used" : "Not captured", ex ? ex.reasons.join("; ") : ""]];
+            return { x: x(it.index), title: `#${it.index} · round ${it.round} · ${nameOf(it.case)}`, rows, dots: r && isNum(r.metrics?.[m.key]) ? [[cls(r), y(r.metrics[m.key])]] : [] };
+          });
+          el.querySelector(".hit").addEventListener("click", (ev) => {
+            const box = el.querySelector("svg").getBoundingClientRect(), px = ((ev.clientX - box.left) / box.width) * f.width;
+            const it = schedule[Math.min(S, Math.max(1, Math.round(((px - f.x0) / (f.x1 - f.x0)) * S + 0.5))) - 1];
+            if (it && runByIndex[it.index]) openCapture(runByIndex[it.index]);
+          });
+        }
+        $("runs-legend").replaceChildren(...[
+          h("span", {}, h("i", { class: "dotkey base" }), BASE_NAME),
+          byCase[state.selected] ? h("span", {}, h("i", { class: "dotkey cfg" }), byCase[state.selected].name) : null,
+          data.comparisons.length > (byCase[state.selected] ? 1 : 0) ? h("span", {}, h("i", { class: "dotkey other" }), "Other configs") : null,
+          h("span", {}, "A / B: shown under Frame times"),
+          schedule.some((it) => !runByIndex[it.index]) ? h("span", {}, "✕ missing or not used") : null,
+        ].filter(Boolean));
+        // The same captures as a table, including the ones analysis left out.
+        const status = (it) => {
+          const r = runByIndex[it.index], ex = excludedByIndex[it.index];
+          const st = (tone, icon, text, title) => h("span", { class: "status", title }, h("span", { class: "ic " + tone, "aria-hidden": "true" }, icon), text);
+          if (ex) return st("bad", "✕", "Not used: " + ex.reasons.join("; "));
+          if (!r) return st("info", "·", "Not captured");
+          if (r.warnings?.length) return st("warn", "!", `${r.warnings.length} note${r.warnings.length > 1 ? "s" : ""}`, r.warnings.join("\n"));
+          return st("good", "✓", data.synthetic ? "Generated" : "OK");
+        };
+        const cols = [["#", "num"], ["Round", "num"], ["Config", ""], ["Avg FPS", "num"], ["1% low", "num"], ["0.1% low", "num opt"], ["99th pct. ms", "num"], ["Slowest ms", "num opt"], [">50 ms", "num opt"], ["Frames", "num opt"], ["Status", ""]];
+        $("runs-rows").replaceChildren(
+          h("thead", {}, h("tr", {}, cols.map(([c, cls]) => h("th", { class: cls }, c)))),
+          h("tbody", {}, schedule.map((it) => {
+            const r = runByIndex[it.index], mt = r?.metrics || {};
+            const tr = h("tr", { class: !r ? "missing" : r.id === state.a || r.id === state.b ? "on" : "" },
+              h("td", { class: "num" }, String(it.index)), h("td", { class: "num" }, String(it.round)), h("td", {}, nameOf(it.case)),
+              h("td", { class: "num" }, fixed(mt.avg_fps)), h("td", { class: "num" }, fixed(mt.low_1_fps)), h("td", { class: "num opt" }, fixed(mt.low_01_fps)),
+              h("td", { class: "num" }, fixed(mt.p99_frame_ms, 2)), h("td", { class: "num opt" }, fixed(mt.max_frame_ms, 1)), h("td", { class: "num opt" }, r ? count(mt.stalls_over_50ms) : "—"),
+              h("td", { class: "num opt" }, r ? count(mt.samples) : "—"), h("td", {}, status(it)));
+            if (r) { tr.tabIndex = 0; tr.title = "Open under Frame times"; tr.addEventListener("click", () => openCapture(r)); tr.addEventListener("keydown", (e) => e.key === "Enter" && openCapture(r)); }
+            return tr;
+          })));
+      }
+      // Open a capture as A, against a baseline capture from the same round when there is one.
+      function openCapture(r) {
+        const others = data.runs.filter((x) => x.case === "baseline" && x.id !== r.id);
+        state.a = r.id;
+        state.b = (others.find((x) => x.round === r.round) || others[0])?.id ?? null;
+        renderFrames();
+        renderRuns();
+        $("frames").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      }
+
+      // ---------------------------------------------------------------- setup & method
+      function renderSetup() {
+        const ctx = data.context, sys = ctx.system || {}, game = ctx.game || {};
+        const gpu = (sys.gpu || []).map((g) => (typeof g === "string" ? g : [g.driver, g.vendor && g.device ? `(${g.vendor}:${g.device})` : null].filter(Boolean).join(" "))).join(", ");
+        const human = (k) => k.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase());
+        const facts = [
+          ["Processor", sys.cpu], ["Graphics", gpu], ["Memory", sys.memory], ["Linux kernel", sys.kernel],
+          ["CPU governor", (sys.governors || []).join(", ")], ["Game build", game.build_id],
+          ["Scenario", scenario.mode === "replay" ? `Replay${scenario.map ? " on " + scenario.map : ""}, tick ${count(scenario.tick)}` : human(scenario.mode || "")],
+          ["Each capture", [scenario.sample_s && `${scenario.sample_s} s measured`, isNum(scenario.warmup_s) && `after ${scenario.warmup_s} s warm-up`].filter(Boolean).join(" ")],
+          ["FPS limit", scenario.fps_max == null ? "The game's own setting" : scenario.fps_max === 0 ? "Uncapped" : `${scenario.fps_max} FPS`],
+          ["Graphics API", (scenario.launch_flags || []).join(" ") || "Game default"],
+          ["Frame budget", scenario.budget_fps ? `${scenario.budget_fps} FPS (${fixed(BUDGET_MS, 2)} ms)` : null],
+          ...Object.entries(ctx.conditions || {}).map(([k, v]) => [human(k), typeof v === "string" ? v : JSON.stringify(v)]),
+          ["Recorded with", `MangoHud, ${ctx.capture === "mangohud-per-frame" ? "every frame" : ctx.capture}`],
+          ["Lab version", plan.version], ["Session", data.session],
+        ].filter(([, v]) => v != null && v !== "");
+        $("facts").replaceChildren(...facts.map(([k, v]) => h("div", {}, h("dt", {}, k), h("dd", {}, String(v)))));
+        $("notes").replaceChildren(...(data.warnings.length ? data.warnings.map((w) => h("li", {}, w)) : [h("li", {}, "No warnings.")]));
+        const defs = [
+          ["Average FPS", "1000 ÷ the mean frame time over the whole capture."],
+          ["1% low FPS", "1000 ÷ the mean of the slowest 1% of frame times."],
+          ["0.1% low FPS", "The same for the slowest 0.1%; needs at least 1,000 frames."],
+          ["Percentile frame time", "The frame time that share of frames is faster than."],
+          ["Change", "Per round: config ÷ mean of that round's two baseline captures, minus 1. Averaged over rounds."],
+          ["95% interval", "Bootstrap over whole rounds (4,000 resamples). Needs 3 rounds."],
+          ["Baseline variation", "Coefficient of variation of your current setup's average FPS. Changes within it are marked ≈ noise."],
+          ["Baseline drift", "First to last capture of your current setup."],
+          ["Frame-time chart", "Up to 360 time slices, each with its mean and slowest frame. All numbers use every frame."],
+        ];
+        $("defs").replaceChildren(...defs.flatMap(([k, v]) => [h("dt", {}, k), h("dd", {}, v)]));
+        $("context").textContent = JSON.stringify(ctx, null, 2);
+      }
+
+      // ---------------------------------------------------------------- downloads
       function download(content, type, name) {
-        const url = URL.createObjectURL(new Blob([content], { type })),
-          a = make("a");
-        a.href = url;
-        a.download = name;
+        const url = URL.createObjectURL(new Blob([content], { type })), a = h("a", { href: url, download: name });
+        document.body.append(a);
         a.click();
+        a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
-      $("export").addEventListener("click", () =>
-        download(
-          JSON.stringify(data, null, 2),
-          "application/json",
-          "deadlock-summary.json",
-        ),
-      );
-      $("export-csv").addEventListener("click", () => {
-        const escape = (v) =>
-            '"' +
-            (typeof v === "string"
-              ? v.replace(/^[=+@-]/, "'$&")
-              : String(v ?? "")
-            ).replaceAll('"', '""') +
-            '"',
-          rows = [
-            [
-              "case",
-              "name",
-              "avg_fps",
-              "low_1_fps",
-              "p99_frame_ms",
-              "delta_pct",
-              "ci95_lower_pct",
-              "ci95_upper_pct",
-              "paired_rounds",
-              "verdict",
-            ],
-            ...data.comparisons.map((r) => [
-              r.case,
-              r.name,
-              r.avg_fps,
-              r.metrics?.low_1_fps,
-              r.metrics?.p99_frame_ms,
-              r.delta_pct,
-              ...(r.ci95_pct || [null, null]),
-              r.paired_rounds.length,
-              r.verdict,
-            ]),
-          ];
-        download(
-          rows.map((row) => row.map(escape).join(",")).join("\r\n"),
-          "text/csv",
-          "deadlock-configurations.csv",
-        );
+      const csvCell = (v) => '"' + (typeof v === "string" ? v.replace(/^[=+@-]/, "'$&") : v == null ? "" : String(v)).replaceAll('"', '""') + '"';
+      const csv = (rows) => rows.map((row) => row.map(csvCell).join(",")).join("\r\n");
+      const DOWNLOADS = {
+        configs: () => download(csv([
+          ["case", "name", "avg_fps", "low_1_fps", "p99_frame_ms", "delta_pct", "ci95_lower_pct", "ci95_upper_pct", "low_1_delta_pct", "low_1_ci95_lower_pct", "low_1_ci95_upper_pct", "paired_rounds"],
+          ...data.comparisons.map((c) => [c.case, c.name, c.avg_fps, c.metrics?.low_1_fps, c.metrics?.p99_frame_ms, c.delta_pct, ...(c.ci95_pct || [null, null]), c.low_1_delta_pct, ...(c.low_1_ci95_pct || [null, null]), c.paired_rounds.length]),
+        ]), "text/csv", `dpl-${data.session}-configs.csv`),
+        captures: () => {
+          const keys = ["avg_fps", "low_1_fps", "low_01_fps", "median_frame_ms", "p95_frame_ms", "p99_frame_ms", "max_frame_ms", "over_budget_pct", "stalls_over_50ms", "stalls_over_100ms", "samples"];
+          download(csv([["index", "round", "case", "id", ...keys], ...data.runs.map((r) => [r.index, r.round, r.case, r.id, ...keys.map((k) => r.metrics?.[k])])]), "text/csv", `dpl-${data.session}-captures.csv`);
+        },
+        json: () => download(JSON.stringify(data, null, 2), "application/json", `dpl-${data.session}.json`),
+      };
+
+      // ---------------------------------------------------------------- wiring
+      function select(caseId) {
+        state.selected = caseId;
+        [state.a, state.b] = defaultPair(caseId);
+        renderCompare();
+        renderDetail();
+        renderFrames();
+        renderRuns();
+      }
+      function setTheme(theme) {
+        document.documentElement.dataset.theme = theme;
+        $("theme").textContent = theme === "light" ? "☾ Dark" : "☀ Light";
+        try { localStorage.setItem("dpl-report-theme", theme); } catch {}
+      }
+      $("theme").textContent = document.documentElement.dataset.theme === "light" ? "☾ Dark" : "☀ Light";
+      $("theme").addEventListener("click", () => setTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light"));
+      $("print").addEventListener("click", () => print());
+      document.querySelectorAll("[data-download]").forEach((b) => b.addEventListener("click", () => { DOWNLOADS[b.dataset.download](); $("download").open = false; }));
+      document.addEventListener("click", (e) => { if (!$("download").contains(e.target)) $("download").open = false; });
+      document.querySelectorAll("[data-metric]").forEach((b) => b.addEventListener("click", () => { state.metric = b.dataset.metric; renderCompare(); renderDetail(); renderRuns(); }));
+      $("search").addEventListener("input", (e) => { state.query = e.target.value; renderCompare(); });
+      $("compare-head").addEventListener("click", (e) => {
+        const b = e.target.closest("[data-sort]");
+        if (!b) return;
+        const col = COLUMNS.find((c) => c.key === b.dataset.sort);
+        state.sortDir = state.sortKey === col.key ? -state.sortDir : col.dir;
+        state.sortKey = col.key;
+        renderCompare();
       });
-      choose(chosen);
+      $("compare-rows").addEventListener("click", (e) => {
+        const tr = e.target.closest("tr[data-case]");
+        if (tr && tr.dataset.case !== state.selected) select(tr.dataset.case);
+      });
+      for (const [id, key] of [["pick-a", "a"], ["pick-b", "b"]])
+        $(id).addEventListener("change", (e) => { state[key] = e.target.value || null; renderFrames(); renderRuns(); });
+      $("swap").addEventListener("click", () => { [state.a, state.b] = [state.b, state.a]; renderFrames(); renderRuns(); });
+      $("round-prev").addEventListener("click", () => pickRound((byId[state.a] || byId[state.b]).round - 1));
+      $("round-next").addEventListener("click", () => pickRound((byId[state.a] || byId[state.b]).round + 1));
+      $("clip").addEventListener("change", (e) => { state.clip = e.target.checked; renderFrames(); });
+      // Highlight the section in view.
+      const links = [...document.querySelectorAll(".nav a")];
+      const spy = new IntersectionObserver((entries) => {
+        for (const en of entries) if (en.isIntersecting) links.forEach((a) => a.classList.toggle("on", a.getAttribute("href") === "#" + en.target.id));
+      }, { rootMargin: "-35% 0px -60% 0px" });
+      document.querySelectorAll("main > section").forEach((section) => spy.observe(section));
+
+      renderSummary();
+      renderSetup();
+      fillSelect($("pick-a"));
+      fillSelect($("pick-b"));
+      const leader = [...data.comparisons].filter((c) => isNum(c.delta_pct)).sort((a, b) => b.delta_pct - a.delta_pct)[0];
+      select(leader?.case || "baseline");
+      let lastWidth = document.body.clientWidth;
       new ResizeObserver(() => {
-        detail();
-        trace();
-      }).observe(document.querySelector(".shell"));
+        if (document.body.clientWidth === lastWidth) return;
+        lastWidth = document.body.clientWidth;
+        requestAnimationFrame(() => { renderCompare(); renderDetail(); renderFrames(); renderRuns(); });
+      }).observe(document.body);
+      addEventListener("beforeprint", () => { renderCompare(); renderDetail(); renderFrames(); renderRuns(); });
     </script>
   </body>
 </html>

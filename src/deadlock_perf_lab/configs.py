@@ -33,16 +33,16 @@ MAX_FILE = 2_000_000
 # Same names and paths as OptimizationLock's gameinfo_updater.py.
 GAMEINFO_PRESETS = {
     "sqooky": ("Sqooky's OptimizationLock", "Sqooky's .gi/gameinfo.gi",
-               "The recommended, documented performance config."),
+               "Documented performance config."),
     "boot": ("Boot's maximum FPS", "boot's maxium fps config/gameinfo.gi",
              "Aggressive FPS config with strong visual tradeoffs; described upstream as unmaintained."),
     "kaiz": ("Kaizuchaneru's minimum spec", "kaizuchanerus minimum spec/gameinfo.gi",
              "Aggressive visual reductions for weak hardware."),
     "test": ("Sqooky's test config", "test_cfg/gameinfo.gi", "Experimental development version; may break visuals."),
     "piggy": ("Piggy's config (outdated)", "piggy's config (comparatively outdated)/gameinfo.gi",
-              "Older community config, kept for comparison."),
+              "Older community config."),
     "clean": ("Clean Valve default", "clean gameinfo.gi/gameinfo.gi",
-              "Up-to-date stock file. Use it to compare against stock when your installed file is already modified."),
+              "Valve's current stock file."),
 }
 VIDEO_PRESETS = {
     "liah": ("Liah's video.txt (test config)", "test_cfg/video.txt", "Low settings used with Sqooky's test config."),

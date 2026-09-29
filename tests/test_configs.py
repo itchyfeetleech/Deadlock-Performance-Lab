@@ -310,7 +310,7 @@ class BatchAndRankingTests(ConfigFixture):
         self.assertEqual(catalog_["reference"]["r_farz"], ["-1", "Far plane", ""])
         self.assertEqual(catalog_["reference"]["foo_dev"][2], "devonly, cl")
 
-    def test_ranking_orders_by_change_and_retest_reuses_run_settings(self):
+    def test_ranking_orders_by_change_and_returns_run_settings(self):
         app = self.app
         session, plan = make_plan(self.workspace, ["example-low-video", "example-shadows-off", "example-optimizationlock"],
                                   2, 47, demo=True, fps_max=0, renderer="vulkan")
@@ -322,19 +322,10 @@ class BatchAndRankingTests(ConfigFixture):
         self.assertTrue(ranking["synthetic"])
         self.assertEqual((ranking["fps_max"], ranking["launch_flags"]), (0, ["-vulkan"]))
         self.assertIsNotNone(ranking["baseline_cv_pct"])
-        with self.assertRaisesRegex(LabError, "made-up data"):
-            app.retest({"session": session.name})
-        # A real session inherits fps limit and renderer, and only the top N are re-tested.
-        real = {**ranking, "synthetic": False}
-        for name in ("a", "b", "c"):
-            add_profile(self.workspace, configs.build(self.workspace, {
-                "name": name, "gameinfo": {"source": "current", "overrides": {"r_farz": "5"}}, "id": f"cfg-{name}"}))
-        real["rows"] = [{**r, "case": f"cfg-{n}"} for r, n in zip(real["rows"], "abc")]
-        started = {}
-        with patch.object(app, "ranking", return_value=real), \
-                patch.object(app, "benchmark", side_effect=lambda body: started.update(body) or {"session": "s"}):
-            app.retest({"session": "s", "top": 2})
-        self.assertEqual(started, {"cases": ["cfg-a", "cfg-b"], "preset": "confirm", "fps_max": 0, "renderer": "vulkan"})
+        # The app loads these into the Benchmark tab to run the best configs again the same way.
+        scenario = plan["context"]["scenario"]
+        self.assertEqual(ranking["settings"], {"rounds": 2, "fps_max": 0, "renderer": "vulkan",
+                                               **{k: scenario[k] for k in ("sample_s", "warmup_s", "settle_s", "cooldown_s")}})
 
 
 class SweepCsvTests(ConfigFixture):

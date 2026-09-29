@@ -16,7 +16,7 @@ import threading
 import time
 import uuid
 
-from .capture import chart_series, read_mangohud
+from .capture import chart_series, frame_distribution, read_mangohud
 from .profiles import validate
 from .storage import LabError, digest, exclusive_lock, read_json, write_json
 from .system import (APP_ID, doctor, game_identity, game_processes, identity, install_lock, process_matches,
@@ -133,7 +133,8 @@ def wait_startup_replay(console: VConsole, log: Path, marker: str, timeout: floa
 
 
 def verify_assignments(console: VConsole, content: str) -> list[str]:
-    blockers = []
+    """Read back cvar assignments; returns a note for each one that didn't apply as requested."""
+    notes = []
     assignments = []
     for line in content.splitlines():
         line = line.split("//", 1)[0].strip()
@@ -143,7 +144,7 @@ def verify_assignments(console: VConsole, content: str) -> list[str]:
         expected = expected.strip().strip('"')
         assignments.append((name, expected))
     if not assignments:
-        return blockers
+        return notes
     replies = console.exchange([name for name, _ in assignments])
     for name, expected in assignments:
         match = next((m for reply in replies if (m := re.search(
@@ -157,10 +158,10 @@ def verify_assignments(console: VConsole, content: str) -> list[str]:
             except ValueError:
                 matches = actual == wanted
             if not matches:
-                blockers.append(f"{name}: requested {expected}, read back {actual or 'unknown'}.")
+                notes.append(f"{name}: requested {expected}, read back {actual or 'unknown'}.")
         else:
-            blockers.append(f"{name}: no readback; this game build may ignore or reject the setting.")
-    return blockers
+            notes.append(f"{name}: no readback; this game build may ignore or reject the setting.")
+    return notes
 
 
 def run_live(workspace: Path, session: Path, plan: dict, item: dict, directory: Path) -> dict:
@@ -201,10 +202,7 @@ def run_live(workspace: Path, session: Path, plan: dict, item: dict, directory: 
     for target in (game_cfg, install / "game/citadel/gameinfo.gi", video_txt):
         if not target.resolve().is_relative_to(install.resolve()):
             raise LabError(f"Game config resolves outside the install: {target}")
-    blockers = []
     warnings = []
-    if any(v == "record me" for v in plan["context"]["conditions"].values()):
-        blockers.append("Record resolution, graphics preset, Proton and display mode in lab.json before drawing conclusions.")
     try:
         content = profile.get("content", "") if profile["kind"] == "autoexec" else ""
         if scenario.get("fps_max") is not None:
@@ -218,7 +216,6 @@ def run_live(workspace: Path, session: Path, plan: dict, item: dict, directory: 
         txn.apply(game_cfg, ("// Temporary Deadlock Performance Lab configuration\n" + content).encode())
         if profile["kind"] == "gameinfo":
             txn.apply(install / "game/citadel/gameinfo.gi", profile["content"].encode())
-            blockers.append("Whole GameInfo swap: file application verified, individual cvar effects and replay fidelity require review.")
         if config_files.get("gameinfo"):
             txn.apply(install / "game/citadel/gameinfo.gi", config_files["gameinfo"].encode())
         if config_files.get("video"):
@@ -226,7 +223,6 @@ def run_live(workspace: Path, session: Path, plan: dict, item: dict, directory: 
             txn.apply(video_txt, config_files["video"].encode(), tolerant=True)
         if profile["kind"] == "config":
             warnings.extend(config_files.get("notes", []))
-            blockers.append("Config applied: confirm the game looked as intended and the replay played normally.")
         # Per-game Steam launch options read this at each fresh process launch.
         # No interval sampling and no fixed duration which might stop mid-load.
         # NOTE: no `no_display` here. MangoHud 0.8.4 only runs its autostart
@@ -292,8 +288,7 @@ def run_live(workspace: Path, session: Path, plan: dict, item: dict, directory: 
                 console.send("spec_player " + quote_console(str(scenario["player"])))
                 pause(scenario.get("camera_guard_s", 1), console, processes)
             else:
-                warnings.append("Replay uses its default POV. Inspect the run before sharing; set scenario.player for an explicit target.")
-                blockers.append("Replay POV is not explicitly selected.")
+                warnings.append("No player to follow was set, so the replay used its default camera.")
             console.send("spec_chase")
         else:
             console.wait_for("ChangeGameState: HeroSelection")
@@ -312,7 +307,7 @@ def run_live(workspace: Path, session: Path, plan: dict, item: dict, directory: 
             assignments += "\n" + profile["content"]
         elif profile["kind"] == "gameinfo" and profile.get("cvar"):
             assignments += f'\n{profile["cvar"]} "{profile["requested_value"]}"'
-        blockers += verify_assignments(console, assignments)
+        warnings += verify_assignments(console, assignments)
         if config_files.get("cvars"):
             # A config is measured as a whole file; settings the engine hides or
             # overrides are reported, not treated as a failed capture.
@@ -330,8 +325,7 @@ def run_live(workspace: Path, session: Path, plan: dict, item: dict, directory: 
         if time.time() - capture.stat().st_mtime > 2:
             raise LabError("MangoHud stopped logging before sampling.")
         start = last_elapsed(capture)
-        # Read demo_info before and after for human-verifiable playback
-        # progression. Unknown/changed engine output blocks a verdict.
+        # demo_info before and after the window goes to vconsole.log, for checking playback afterwards.
         console.drain()
         console.send("demo_info") if scenario["mode"] == "replay" else None
         if scenario["mode"] == "replay":
@@ -343,9 +337,6 @@ def run_live(workspace: Path, session: Path, plan: dict, item: dict, directory: 
         mark("sampling")
         if scenario["mode"] == "replay":
             console.exchange(["demo_pause", "demo_info"])
-            # Different builds expose different demo_info strings. Keep
-            # both raw outputs and demand explicit verification for now.
-            blockers.append("Replay progression and camera require operator review; demo_info describes the file, not current playback state.")
         # Finalize the raw log before parsing/hashing it; live CSV writers
         # otherwise change evidence after its digest was recorded.
         console.close()
@@ -367,20 +358,16 @@ def run_live(workspace: Path, session: Path, plan: dict, item: dict, directory: 
             warnings.append("The game rewrote video.txt during this capture" +
                             (f"; it changed: {', '.join(changed[:10])}." if changed else "."))
         result_capture = read_mangohud(capture, start_s=start, duration_s=scenario["sample_s"], interval_ms=0)
-        if result_capture.metadata["invalid_rows"]:
-            blockers.append("The raw capture contained malformed rows; inspect before drawing conclusions.")
         write_json(directory / "window.json", {"start_elapsed_s": start, "duration_s": scenario["sample_s"],
                                                 "wall_measurement_s": time.monotonic() - start_clock,
                                                 "capture_name": capture.name})
         result = {"metrics": result_capture.metrics(1000 / scenario["budget_fps"]),
                   "capture_sha256": result_capture.metadata["sha256"], "raw_capture": str(capture.relative_to(directory)), "capture_metadata": result_capture.metadata,
                   "series": chart_series(result_capture.times, result_capture.frames),
-                  "warnings": warnings + result_capture.warnings, "quality_blockers": blockers}
-        if profile["kind"] == "launch":
-            result["quality_blockers"].append("Renderer flag requested; verify the selected API in steam.log or the game overlay.")
+                  "distribution": frame_distribution(result_capture.frames),
+                  "warnings": warnings + result_capture.warnings}
         if scenario.get("launch_flags"):
-            result["warnings"].append(f"Every capture used {' '.join(scenario['launch_flags'])}; confirm the renderer in "
-                                      "steam.log or the game overlay.")
+            result["warnings"].append(f"Every capture was launched with {' '.join(scenario['launch_flags'])}.")
         mark("analysis")
         result["phase_timings_s"] = phases
         return result
@@ -433,8 +420,8 @@ def run_demo(plan: dict, item: dict, directory: Path) -> dict:
     capture = read_mangohud(path, duration_s=duration, interval_ms=0)
     return {"metrics": capture.metrics(1000 / plan["context"]["scenario"]["budget_fps"]),
             "capture_sha256": capture.metadata["sha256"], "raw_capture": "capture.csv", "capture_metadata": capture.metadata,
-            "series": chart_series(capture.times, capture.frames),
-            "warnings": ["DEMO DATA — synthetic capture."], "quality_blockers": []}
+            "series": chart_series(capture.times, capture.frames), "distribution": frame_distribution(capture.frames),
+            "warnings": []}
 
 
 @contextlib.contextmanager

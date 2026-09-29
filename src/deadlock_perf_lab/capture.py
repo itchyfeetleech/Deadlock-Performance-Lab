@@ -7,7 +7,7 @@ import math
 from pathlib import Path
 import statistics
 
-from .metrics import summarize
+from .metrics import percentile, summarize
 from .storage import LabError, digest
 
 
@@ -17,6 +17,17 @@ def chart_series(times: list[float], frames: list[float], points: int = 360) -> 
     return [[round(times[i] - times[0], 4), round(min(frames[i:i + step]), 4),
              round(statistics.fmean(frames[i:i + step]), 4), round(max(frames[i:i + step]), 4)]
             for i in range(0, len(frames), step)]
+
+
+def frame_distribution(frames: list[float]) -> list[list[float]]:
+    """[percentile, frame ms] pairs for a percentile plot, from 0 to 99.99.
+
+    Points are evenly spaced in "nines" (0%, 90%, 99%, 99.9%, ...), the
+    HdrHistogram layout, so the slow tail gets as much room as the median.
+    """
+    ordered = sorted(frames)
+    return [[round(100 * (1 - 10 ** (-step / 10)), 4), round(percentile(ordered, 1 - 10 ** (-step / 10)), 4)]
+            for step in range(41)]
 
 
 @dataclass

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "deadlock-perf-lab"
 version = "0.3.0"
-description = "Deadlock Performance Lab: find out what really changes your FPS in Deadlock on Linux"
+description = "Benchmark gameinfo.gi and video.txt changes in Deadlock on Linux"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "GPL-3.0-only"
@@ -32,7 +32,6 @@ dpl = "deadlock_perf_lab.cli:main"
 Homepage = "https://github.com/itchyfeetleech/Deadlock-Performance-Lab"
 Issues = "https://github.com/itchyfeetleech/Deadlock-Performance-Lab/issues"
 Documentation = "https://github.com/itchyfeetleech/Deadlock-Performance-Lab/tree/main/docs"
-Website = "https://itchyfeetleech.github.io/Deadlock-Performance-Lab/"
 
 [tool.setuptools.packages.find]
 where = ["src"]

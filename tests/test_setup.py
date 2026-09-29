@@ -8,7 +8,7 @@ from unittest.mock import patch
 from deadlock_perf_lab.runner import interruptible
 from deadlock_perf_lab.storage import LabError, read_json
 from deadlock_perf_lab.system import detect_conditions, doctor, find_replays, parse_vdf, steam_launch_options, vdf_get
-from deadlock_perf_lab.workspace import default_workspace, ensure_workspace, missing_conditions, save_settings
+from deadlock_perf_lab.workspace import default_workspace, ensure_workspace, save_settings
 
 APPS = '''"UserLocalConfigStore"
 {
@@ -101,13 +101,13 @@ class WorkspaceSettingsTests(unittest.TestCase):
             with patch.dict(os.environ, {"DPL_WORKSPACE": str(self.root / "explicit")}):
                 self.assertEqual(default_workspace(), self.root / "explicit")
 
-    def test_save_settings_validates_and_marks_blank_conditions(self):
+    def test_save_settings_validates_and_keeps_game_settings_optional(self):
         install = fake_steam(self.root)
         workspace = self.root / "ws"
         with patch("deadlock_perf_lab.workspace.discover_install", return_value=None):
             config = ensure_workspace(workspace)
         self.assertEqual(config["scenario"]["player"], "1")
-        self.assertEqual(len(missing_conditions(config)), 4)
+        self.assertEqual(set(config["conditions"].values()), {""})
         with self.assertRaisesRegex(LabError, "Not a Deadlock install"):
             save_settings(workspace, {"install": str(self.root)})
         with self.assertRaisesRegex(LabError, "Replay not found"):
@@ -123,7 +123,7 @@ class WorkspaceSettingsTests(unittest.TestCase):
         self.assertEqual(config["scenario"]["tick"], 1234)
         self.assertEqual(config["scenario"]["budget_fps"], 165)
         self.assertEqual(config["conditions"]["resolution"], "1920x1080")
-        self.assertEqual(missing_conditions(config), ["graphics_preset"])
+        self.assertEqual(config["conditions"]["graphics_preset"], "")
         self.assertEqual(read_json(workspace / "lab.json"), config)
 
     def test_interruptible_is_harmless_off_the_main_thread(self):

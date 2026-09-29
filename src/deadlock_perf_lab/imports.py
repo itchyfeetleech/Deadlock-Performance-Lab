@@ -5,8 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import shutil
 
-from .capture import chart_series, read_mangohud
-from .profiles import valid_id
+from .capture import chart_series, frame_distribution, read_mangohud
 from .storage import LabError, digest, exclusive_lock, fingerprint, read_json, write_json
 from .planning import verify_plan
 
@@ -44,49 +43,16 @@ def import_capture(session: Path, source: Path, case: str, round_index: int, *, 
             destination.unlink()
             directory.rmdir()
             raise LabError("Source capture changed while importing. Stop logging before import.")
-        blockers = ["Manual capture: confirm the planned scene, timing, camera and treatment were used."]
-        if interval_ms != 0:
-            blockers.append("Interval-sampled evidence cannot establish per-frame performance verdicts.")
-        if capture.metadata["invalid_rows"]:
-            blockers.append("The raw capture contained malformed rows; inspect before drawing conclusions.")
-        if any(v == "record me" for v in plan["context"]["conditions"].values()):
-            blockers.append("Benchmark conditions were not recorded before planning.")
         write_json(directory / "result.json", {
             "schema": 1, "id": directory.name, **item, "context_key": plan["context_key"], "synthetic": False,
             "status": "ok", "started_at": datetime.now(timezone.utc).isoformat(),
             "capture_sha256": source_hash, "raw_capture": "capture.csv", "capture_metadata": capture.metadata,
             "profile_sha256": plan["profiles"][case]["sha256"],
             "metrics": capture.metrics(1000 / scenario["budget_fps"]), "warnings": capture.warnings,
-            "quality_blockers": blockers, "series": chart_series(capture.times, capture.frames),
+            "series": chart_series(capture.times, capture.frames),
+            "distribution": frame_distribution(capture.frames),
         })
         write_json(session / "status.json", {"state": "complete" if len(records) + 1 == len(plan["schedule"]) else "importing",
                                             "completed": len(records) + 1, "total": len(plan["schedule"])})
         return directory
 
-
-REVIEWABLE = (
-    "Replay POV is not explicitly selected.",
-    "Review demo_info in vconsole.log",
-    "Replay progression and camera require operator review;",
-    "Whole GameInfo swap:",
-    "Renderer flag requested;",
-    "Manual capture: confirm",
-    "Config applied: confirm",
-)
-
-
-def review_run(session: Path, run_id: str, note: str) -> Path:
-    valid_id(run_id)
-    if len(note.strip()) < 15:
-        raise LabError("Provide a concrete review note (at least 15 characters) describing how you checked scene, settings and progression.")
-    directory = session / "runs" / run_id
-    result = read_json(directory / "result.json")
-    if result.get("status") != "ok" or result.get("synthetic"):
-        raise LabError("Only successful, real captures can be reviewed.")
-    confirmed = [b for b in result.get("quality_blockers", []) if b.startswith(REVIEWABLE)]
-    if not confirmed:
-        raise LabError("No operator-reviewable checks on this run. Data errors and missing conditions require a new experiment.")
-    path = directory / "review.json"
-    write_json(path, {"run": run_id, "result_sha256": digest(directory / "result.json"),
-                      "confirmed": confirmed, "note": note.strip(), "reviewed_at": datetime.now(timezone.utc).isoformat()})
-    return path

@@ -134,9 +134,9 @@ class RunnerTests(unittest.TestCase):
         self.assertIn("fps_max 0", self.run_autoexec)  # run setting, applied to every capture
         self.assertIn("-vulkan", self.launch_args)
         self.assertEqual((self.gi.read_bytes(), self.video.read_bytes()), (gi, video))
-        self.assertTrue(any(b.startswith("Config applied: confirm") for b in result["quality_blockers"]))
-        # Hidden gameinfo settings are reported, not treated as a failed capture.
-        self.assertFalse(any("no readback" in b for b in result["quality_blockers"]))
+        self.assertNotIn("quality_blockers", result)
+        # Hidden gameinfo settings are summarized, not listed one by one or treated as a failed capture.
+        self.assertFalse(any(w.startswith("r_shadows") for w in result["warnings"]))
         self.assertTrue(any("hidden from the console" in w for w in result["warnings"]))
 
     def test_game_rewriting_video_txt_is_reported_and_still_restored(self):
@@ -325,10 +325,10 @@ class ProtocolTests(unittest.TestCase):
         from unittest.mock import Mock
         console = Mock()
         console.exchange.return_value = ['sv_cheats = false', 'fps_max = 120', 'r_shadows = true']
-        blockers = verify_assignments(console, 'sv_cheats 0\nfps_max 144\nr_shadows 1\nhidden_cvar 0')
-        self.assertEqual(len(blockers), 2)
-        self.assertIn('requested 144, read back 120', blockers[0])
-        self.assertIn('hidden_cvar: no readback', blockers[1])
+        notes = verify_assignments(console, 'sv_cheats 0\nfps_max 144\nr_shadows 1\nhidden_cvar 0')
+        self.assertEqual(len(notes), 2)
+        self.assertIn('requested 144, read back 120', notes[0])
+        self.assertIn('hidden_cvar: no readback', notes[1])
         console.exchange.assert_called_once_with(['sv_cheats', 'fps_max', 'r_shadows', 'hidden_cvar'])
 
     def test_batch_transport_failure_is_not_treated_as_hidden_cvar(self):
