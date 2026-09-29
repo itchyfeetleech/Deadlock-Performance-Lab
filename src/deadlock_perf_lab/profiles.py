@@ -1,8 +1,6 @@
 """Declarative benchmark treatments, copied and hashed into every plan."""
 from __future__ import annotations
 
-from importlib.resources import files
-import json
 from pathlib import Path
 import re
 
@@ -47,6 +45,7 @@ def validate_gameinfo(content: str) -> None:
 
 def validate(profile: dict) -> dict:
     valid_id(profile.get("id", ""))
+    # "gameinfo" and "launch" are legacy kinds from 0.1-0.2: profiles saved then still load and run.
     if profile.get("kind") not in {"none", "config", "autoexec", "gameinfo", "launch", "manual"}:
         raise LabError("Profile kind must be none, config, autoexec, gameinfo, launch or manual.")
     if profile["kind"] == "config":
@@ -82,11 +81,14 @@ DEMO_PROFILES = [
 ]
 
 
+BASELINE = {"id": "baseline", "name": "Your current setup", "kind": "none", "category": "control", "status": "control",
+            "description": "The installation as it is now, including your existing gameinfo.gi, video.txt and autoexec. "
+                           "This is not necessarily Valve stock."}
+
+
 def catalog(workspace: Path | None = None) -> dict[str, dict]:
-    profiles = json.loads(files("deadlock_perf_lab").joinpath("assets/profiles.json").read_text())
-    result = {}
-    for profile in profiles:
-        result[profile["id"]] = validate(profile)
+    """The baseline plus your saved configs. Nothing else is bundled."""
+    result = {"baseline": validate(dict(BASELINE))}
     if workspace:
         for path in sorted((workspace / "profiles").glob("*.json")):
             profile = validate(read_json(path))

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import difflib
 import json
 from pathlib import Path
@@ -18,7 +17,6 @@ from .profiles import DEMO_PROFILES, add_profile, catalog
 from .report import bundle, generate_report, markdown_report
 from .runner import recover, run_session
 from .storage import LabError, atomic_write, digest, read_json
-from .sweep import create_sweep
 from .system import discover_install, doctor, identity
 from .workspace import default_workspace, initialize, launch_options, load_workspace, session_path
 
@@ -59,9 +57,9 @@ def parser() -> argparse.ArgumentParser:
     show = ps.add_parser("show")
     show.add_argument("id")
     show.add_argument("--diff", action="store_true", help="diff a GameInfo snapshot against the current install")
-    sweep = ps.add_parser("sweep", help="create one-cvar GameInfo variants from id,cvar,value CSV")
+    sweep = ps.add_parser("sweep", help="save one single-setting config per row of an id,cvar,value[,name] CSV")
     sweep.add_argument("matrix", type=Path)
-    sweep.add_argument("--base", type=Path, required=True)
+    sweep.add_argument("--base", type=Path, help="start from this gameinfo.gi instead of your installed one")
     add = ps.add_parser("add", help="save a config from your own gameinfo.gi and/or video.txt (or a cvar file)")
     add.add_argument("id")
     add.add_argument("--name")
@@ -69,7 +67,7 @@ def parser() -> argparse.ArgumentParser:
     add.add_argument("--gameinfo", type=Path, help="a complete gameinfo.gi to test")
     add.add_argument("--video", type=Path, help="a complete video.txt to test (your resolution and device are kept)")
     add.add_argument("--autoexec", type=Path, help="console cvars applied at launch instead")
-    add.add_argument("--manual", action="store_true", help="a change you make by hand (see docs/MANUAL_EXPERIMENTS.md)")
+    add.add_argument("--manual", action="store_true", help="a change you make by hand (see docs/ADVANCED.md)")
     plan = command("plan", "Freeze configs, conditions and randomized baseline-bracketed rounds.")
     plan.add_argument("--cases", required=True, help="comma-separated config IDs (see dpl profiles); globs allowed")
     plan.add_argument("--fps-max", type=int, default=None,
@@ -79,7 +77,7 @@ def parser() -> argparse.ArgumentParser:
     plan.add_argument("--rounds", type=int, help="default: 1 for scout/screen, 5 otherwise")
     plan.add_argument("--preset", choices=list(PRESETS), default="custom", help="scout: 5s/one round; screen: 10s/one round; confirm: 30s/five rounds; custom: lab.json timings")
     plan.add_argument("--seed", type=int, default=47)
-    plan.add_argument("--experimental", action="store_true", help="allow whole GameInfo treatments after inspection")
+    plan.add_argument("--experimental", action="store_true", help="allow legacy whole-file gameinfo profiles saved by older versions")
     plan.add_argument("--manual", action="store_true", help="plan captures made by the operator")
     run = command("run", "Execute an existing plan; --live is required for game launches.")
     run.add_argument("session", nargs="?", default="latest")
@@ -121,8 +119,6 @@ def parser() -> argparse.ArgumentParser:
             cmd.add_argument("--output", type=Path, required=True)
     rec = command("recover", "Restore pending transactions after a crash; verify original checksums.")
     rec.add_argument("--force", action="store_true", help="preserve conflicting edits then restore the verified backup")
-    legacy = command("audit-legacy", "Inspect old results.csv without treating it as validated new evidence.")
-    legacy.add_argument("csv", type=Path)
     command("guide", "Show the recommended measurement and optimization workflow.")
     return p
 
@@ -233,9 +229,10 @@ def main(argv: list[str] | None = None) -> int:
                     print(entry["content"])
             elif args.action == "sweep":
                 load_workspace(workspace)
-                paths = create_sweep(workspace, args.base, args.matrix)
-                print(f"Created {len(paths)} one-cvar GameInfo profiles. Inspect them before an experimental run.")
-                print("\n".join(str(path) for path in paths))
+                from .configs import sweep_from_csv
+                paths = sweep_from_csv(workspace, args.matrix, args.base)
+                print(f"Saved {len(paths)} single-setting configs. They appear in the app; benchmark them with dpl plan --cases.")
+                print("\n".join(p.stem for p in paths))
             else:
                 load_workspace(workspace)
                 chosen = [bool(args.gameinfo or args.video), bool(args.autoexec), args.manual]
@@ -298,7 +295,7 @@ def main(argv: list[str] | None = None) -> int:
             for c in candidates:
                 print(f"  {c['case']:<28} {c['delta_pct']:+.2f}% average FPS · {len(c['paired_rounds'])} complete rounds · {c['verdict']}")
             if candidates:
-                print("\nCreate a fresh confirmation plan:\ndpl plan --preset confirm --experimental --cases " + ",".join(c["case"] for c in candidates))
+                print("\nCreate a fresh confirmation plan:\ndpl plan --preset confirm --cases " + ",".join(c["case"] for c in candidates))
             else:
                 print("No complete baseline-bracketed rounds yet.")
         elif cmd == "sessions":
@@ -336,13 +333,6 @@ def main(argv: list[str] | None = None) -> int:
         elif cmd == "recover":
             restored = recover(workspace, force=args.force)
             print("\n".join(restored) if restored else "No pending restoration.")
-        elif cmd == "audit-legacy":
-            with args.csv.open(newline="", encoding="utf-8-sig") as f:
-                rows = list(csv.DictReader(f))
-            synthetic = sum(r.get("synthetic", "").lower() == "true" for r in rows)
-            sources = [r.get("mangohud_csv") for r in rows if r.get("mangohud_csv")]
-            print(f"Legacy rows: {len(rows)} · synthetic: {synthetic} · reused CSV names: {len(sources) - len(set(sources))}")
-            print("Legacy aggregate rows lack a verified measurement window and complete conditions.\nThey are historical observations; they are not imported into current experiments.\nUse dpl inspect on individual raw CSVs with their real --interval-ms and known time window.")
         elif cmd == "guide":
             guide()
         return 0

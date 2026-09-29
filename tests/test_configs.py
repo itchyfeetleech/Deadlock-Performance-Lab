@@ -335,3 +335,37 @@ class BatchAndRankingTests(ConfigFixture):
                 patch.object(app, "benchmark", side_effect=lambda body: started.update(body) or {"session": "s"}):
             app.retest({"session": "s", "top": 2})
         self.assertEqual(started, {"cases": ["cfg-a", "cfg-b"], "preset": "confirm", "fps_max": 0, "renderer": "vulkan"})
+
+
+class SweepCsvTests(ConfigFixture):
+    def sweep(self, rows, **kwargs):
+        matrix = self.root / "matrix.csv"
+        matrix.write_text("id,cvar,value,name\n" + "\n".join(rows) + "\n")
+        return configs.sweep_from_csv(self.workspace, matrix, **kwargs)
+
+    def test_each_row_becomes_a_single_setting_config(self):
+        paths = self.sweep(["cap-165,fps_max,165,165 cap", "far,r_farz,6000,Far plane"])
+        profiles = catalog(self.workspace)
+        self.assertEqual([p.stem for p in paths], ["cap-165", "far"])
+        self.assertEqual(profiles["cap-165"]["gameinfo"]["overrides"], {"fps_max": "165"})
+        self.assertEqual(profiles["cap-165"]["description"], "Changes only fps_max: 400 → 165.")
+        self.assertEqual(profiles["cap-165"]["batch"], "matrix")
+        self.assertEqual(profiles["far"]["description"], "Changes only r_farz: not set → 6000.")
+
+    def test_base_file_replaces_your_installed_one_as_the_start(self):
+        base = self.root / "base.gi"
+        base.write_text(PRESET_GI)
+        self.sweep(["dist,r_farz,5000,x"], base=base)
+        profile = catalog(self.workspace)["dist"]
+        self.assertEqual(profile["gameinfo"]["source"], "file")
+        self.assertIn("DistanceField", profile["gameinfo"]["content"])
+
+    def test_rejects_noops_duplicates_existing_ids_and_injection(self):
+        for rows, message in ((["same,fps_max,400,x"], "identical"), (["a,r_farz,1,x", "a,r_farz,2,x"], "already exists"),
+                              (["evil,r_farz,0; connect x,x"], "semicolons")):
+            with self.subTest(rows=rows), self.assertRaisesRegex(LabError, message):
+                self.sweep(rows)
+        self.sweep(["once,r_farz,1,x"])
+        with self.assertRaisesRegex(LabError, "already exists"):
+            self.sweep(["once,r_farz,2,x"])
+        self.assertEqual(set(catalog(self.workspace)), {"baseline", "once"})  # nothing half-saved

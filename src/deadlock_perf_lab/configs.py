@@ -8,6 +8,7 @@ Nothing is bundled: presets are fetched on request and frozen into the config.
 """
 from __future__ import annotations
 
+import csv
 from datetime import datetime, timezone
 import difflib
 import hashlib
@@ -19,9 +20,9 @@ from urllib.parse import quote
 import urllib.error
 import urllib.request
 
-from .profiles import BLOCKED, valid_id, validate_gameinfo
+from .profiles import BLOCKED, add_profile, catalog, valid_id, validate_gameinfo
 from .storage import LabError, atomic_write, read_json
-from .sweep import convar_spans
+from .workspace import load_workspace
 
 REPO = "Sqooky/OptimizationLock"
 REPO_URL = f"https://github.com/{REPO}"
@@ -149,6 +150,48 @@ def presets() -> dict:
 
 
 # ---- gameinfo.gi ConVars ------------------------------------------------------------------
+
+TOKEN = re.compile(r'//[^\n]*|"(?:\\.|[^"\\])*"|[{}]|[^\s{}"]+')
+
+
+def convar_spans(content: str) -> tuple[dict[str, list[tuple[int, int, str]]], int]:
+    """Locate direct ConVars leaf values; do not regex-replace other sections."""
+    tokens = [m for m in TOKEN.finditer(content) if not m[0].startswith("//")]
+    entries: dict[str, list[tuple[int, int, str]]] = {}
+    closes = []
+    index = 0
+
+    def parse(path: list[str], nested: bool = False):
+        nonlocal index
+        while index < len(tokens):
+            key = tokens[index]
+            if key[0] == "}":
+                if not nested:
+                    raise LabError("Unexpected closing brace in GameInfo.")
+                if path and path[-1].lower() == "convars":
+                    closes.append(key.start())
+                index += 1
+                return
+            name = key[0].strip('"')
+            index += 1
+            if index >= len(tokens):
+                raise LabError("GameInfo has a key without a value.")
+            value = tokens[index]
+            index += 1
+            if value[0] == "{":
+                parse(path + [name], True)
+            elif value[0] == "}":
+                raise LabError("GameInfo key has no value before closing brace.")
+            elif path and path[-1].lower() == "convars":
+                entries.setdefault(name.lower(), []).append((value.start(), value.end(), value[0].strip('"')))
+        if nested:
+            raise LabError("Unclosed GameInfo block.")
+
+    parse([])
+    if len(closes) != 1:
+        raise LabError("Sweep generation requires exactly one ConVars block.")
+    return entries, closes[0]
+
 def unquote(value: str) -> str:
     return value[1:-1] if len(value) >= 2 and value[0] == value[-1] == '"' else value
 
@@ -164,8 +207,8 @@ def check_override(name: str, value: str, *, video: bool = False) -> None:
         raise LabError(f"Invalid setting name: {name!r}")
     if not video and name.lower() in BLOCKED:
         raise LabError(f"{name} can't be set by a config.")
-    if not isinstance(value, str) or len(value) > 200 or any(c in value for c in '"\r\n\0{}'):
-        raise LabError(f"{name}: values can't contain quotes, braces or line breaks.")
+    if not isinstance(value, str) or len(value) > 200 or any(c in value for c in '"\r\n\0{};'):
+        raise LabError(f"{name}: values can't contain quotes, semicolons, braces or line breaks.")
 
 
 def set_convars(text: str, overrides: dict[str, str]) -> str:
@@ -496,3 +539,37 @@ def preview(profile: dict, install: Path) -> dict:
         current = path.read_text(encoding="utf-8") if path.is_file() else ""
         result[f"{part}_diff"] = diff(current, files[part], name)
     return result
+
+
+def sweep_from_csv(workspace: Path, matrix: Path, base: Path | None = None) -> list[Path]:
+    """Save one single-setting config per row of an id,cvar,value[,name] CSV.
+
+    Each config changes one gameinfo.gi setting in your installed file, or in the
+    file given as base. Rows that would change nothing are rejected.
+    """
+    config = load_workspace(workspace)
+    if not config.get("install"):
+        raise LabError("Set your Deadlock folder first (dpl init --install PATH).")
+    install = Path(config["install"])
+    with matrix.open(newline="", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        if not {"id", "cvar", "value"}.issubset(reader.fieldnames or []):
+            raise LabError("The CSV needs id,cvar,value columns; name is optional.")
+        rows = list(reader)
+    if not rows:
+        raise LabError("The CSV has no rows.")
+    start = {"source": "file", "content": base.read_text(encoding="utf-8"), "filename": base.name} if base else {"source": "current"}
+    before = starting_settings(workspace, install, "gameinfo", start)
+    existing, profiles = catalog(workspace), []
+    for row in rows:
+        config_id, cvar, value = (row.get(k, "").strip() for k in ("id", "cvar", "value"))
+        if config_id in existing or any(p["id"] == config_id for p in profiles):
+            raise LabError(f"Config ID already exists: {config_id}. Existing configs are never overwritten.")
+        was = before.get(cvar.lower())
+        profile = build(workspace, {
+            "id": config_id, "name": row.get("name") or config_id, "batch": matrix.stem,
+            "description": f"Changes only {cvar}: {'not set' if was is None else was} → {value}.",
+            "gameinfo": {**start, "overrides": {cvar: value}}})
+        materialize(profile, install)
+        profiles.append(profile)
+    return [add_profile(workspace, profile) for profile in profiles]

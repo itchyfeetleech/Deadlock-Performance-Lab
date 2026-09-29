@@ -124,7 +124,6 @@ class App:
                 "id": plan["id"], "created_at": plan.get("created_at"), "synthetic": plan["synthetic"],
                 "manual": bool(plan.get("manual")), "preset": plan.get("preset", "custom"), "rounds": plan["rounds"],
                 "cases": names, "mode": plan["context"]["scenario"].get("mode"),
-                "research": bool(plan.get("value_sweep") or plan.get("baseline_policy")),
             })
             self.summaries[session.name] = cached
         result = dict(cached[1])
