@@ -48,7 +48,9 @@ A config is the `gameinfo.gi` and/or `video.txt` you want to test. On the **Conf
 2. Tick any settings you want to change on top. They are grouped by category, with descriptions.
 3. **Save config.**
 
-A good first comparison is **Sqooky's OptimizationLock**, saved unchanged. The [config guide](CONFIGS.md) covers presets, `video.txt`, imports and installing a winner.
+A good first comparison is **Sqooky's OptimizationLock**, saved unchanged.
+
+To find out what individual settings do, tick several and press **Test each setting separately…**. Each setting (and each value you list, such as `1, 2, 4, 8`) becomes its own config that changes only that one thing. The [config guide](CONFIGS.md) covers presets, `video.txt`, imports, batches and installing a winner.
 
 ## 3. Benchmark
 
@@ -76,7 +78,7 @@ For the first run, a *Quick look* with one config is a good smoke test.
 
 ## 4. Results
 
-The **Results** tab lists every benchmark. **Open report** shows:
+The **Results** tab lists every benchmark. **Details & review** starts with a **ranking**: configs sorted by change in average FPS against your current setup, with anything smaller than your baseline variation marked *≈ noise*. Rank many configs with a one-round Shortlist, then press **Re-test the top N** to run just the best ones at Confirm length, with the same FPS limit and graphics API. **Open report** shows:
 
 - **Baseline stability.** Check its variation (CV) and drift first. High values mean something other than the config changed.
 - **Each config against the baseline:** average FPS, 1% lows, P99 frame time, the change in percent with a 95% interval, and a verdict with the reasons it was or wasn't given.
@@ -86,7 +88,7 @@ The **Results** tab lists every benchmark. **Open report** shows:
 
 **Share ZIP** downloads `index.html`, `summary.md`, `summary.json` and `runs.csv`, which open offline. Raw logs, backups, configs and replay paths stay on your machine. Your config names and notes are included, so check them before sharing.
 
-Rerun a promising result as a new *Confirm* benchmark before trusting it. The [methodology](METHODOLOGY.md) explains every metric and rule.
+A one-round ranking finds candidates; it doesn't prove a gain. Re-test promising results at *Confirm* length before trusting them. The [methodology](METHODOLOGY.md) explains every metric and rule.
 
 ## Terminal equivalent
 

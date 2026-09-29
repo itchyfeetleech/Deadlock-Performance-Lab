@@ -2,58 +2,41 @@
 
 ## 0.3.0 — Unreleased
 
-**A graphical app built around your own configs.** Running `dpl` now opens a local app in your browser. It guides you through setup, building `gameinfo.gi`/`video.txt` configs, benchmarking and results, so you no longer have to edit `lab.json` by hand or learn the commands. Every command still works.
+**A guided app built around your own configs.** Running `dpl` opens a local app in your browser. You no longer edit `lab.json` or learn the commands, though every command still works.
 
-- **Set up** checks Steam, MangoHud and the game, and shows the Steam launch options line with a Copy button. It detects whether the line is saved in Steam and lists your downloaded replays. Resolution, display mode and Proton version are filled in from the game's `video.txt` and Steam's settings.
-- **Configs** is the new centre of the app. Start a `gameinfo.gi` or `video.txt` from your installed file, from a Sqooky/OptimizationLock preset (downloaded from GitHub when chosen: OptimizationLock, Boot, Kaizuchaneru, test, Piggy, clean Valve; Liah's and Piggy's `video.txt`) or from an imported file. Then tick settings grouped by OptimizationLock's categories and descriptions, with switches for on/off settings, sliders for numbers and search across every documented cvar. Preview the exact diff, save, edit, duplicate, and download the finished files to install a winner. `video.txt` presets keep your GPU identifiers and, by default, your resolution and display settings.
-- Configs are frozen into each plan as the exact files they write, so later edits or preset updates never change past results. Readback of hidden `gameinfo.gi` cvars is reported instead of blocking a config's verdict. A `video.txt` the game rewrites is still restored, and the report notes the changed values.
-- **Benchmark** lets you tick configs, choose Quick look, Shortlist or Confirm, and see the number of launches and estimated time before you start. **FPS limit** (uncapped by default) and **graphics API** are now run settings that apply to every capture, baseline included (`dpl plan --fps-max N --renderer vulkan|dx11`). Runs continue in the background with live progress and a Cancel button that restores your files.
-- **Removed the bundled treatments.** The FPS-cap and renderer profiles are replaced by the run settings above. The four bundled community `gameinfo.gi` snapshots are replaced by presets fetched on request. `dpl profile add ID --gameinfo FILE --video FILE` saves your own files as a config, and `dpl plan` now requires `--cases`. Existing sessions keep their frozen copies and stay readable.
-- **Results** lists every session with Open report, Share ZIP and a review panel, so you can confirm the captures you watched. It also shows a **Restore my files** banner after an interrupted run.
-- **Add to app menu** (or `dpl shortcut`) installs a desktop launcher. Opening the app again reuses a running window, and the app closes itself after 30 idle minutes.
-- The app listens only on `127.0.0.1` and needs a per-launch secret cookie, the expected Host header and, for changes, a custom request header.
+### New
 
-**Fewer hurdles**
+- **Set up:** checks Steam, MangoHud and the game, shows the Steam launch line with a Copy button, detects whether Steam saved it, lists your replays, and fills in resolution, display mode and Proton version.
+- **Configs:** the centre of the app. Build a `gameinfo.gi` and/or `video.txt` config that starts from your installed file, a [Sqooky/OptimizationLock](https://github.com/Sqooky/OptimizationLock) preset (downloaded from GitHub when you pick it) or an imported file. Tick settings grouped by OptimizationLock's categories, with switches, sliders and search. Every row shows its description and default, and any documented cvar can be added by name. Preview the exact diff, save, edit, duplicate, and download the finished files to install a winner. `video.txt` presets keep your GPU identifiers and, by default, your resolution and display settings.
+- **Test each setting separately:** turns ticked settings, and any list of values for each, into one single-setting config per value, with an optional combined config. `dpl profile sweep tests.csv` does the same from a CSV.
+- **Benchmark:** choose Quick look, Shortlist or Confirm and see the launches and time before you start. **FPS limit** (uncapped by default) and **graphics API** are run settings applied to every capture, baseline included (`dpl plan --fps-max N --renderer vulkan|dx11`). Runs continue in the background with live progress and a Cancel button that restores your files.
+- **Results:** a ranking by FPS change with baseline noise marked, a **Re-test the top N at Confirm length** button that reuses the run settings, capture review, report, and a Share ZIP. A **Restore my files** banner appears after an interrupted run.
+- **Add to app menu** (or `dpl shortcut`) installs a desktop launcher. The app closes itself after 30 idle minutes, and running `dpl` again reuses an open window.
+- **`dpl.pyz`:** a single file that runs with `python3 dpl.pyz`, attached to releases with the wheel and sdist.
 
-- The workspace now defaults to one per-user folder, `~/.local/share/deadlock-performance-lab`, instead of `./.lab` in whatever directory you ran from. The Steam launch options line therefore stays valid wherever you run `dpl`. An existing `./.lab` is still used from its own directory. `--workspace` and `DPL_WORKSPACE` override the default.
-- Every command creates the workspace on first use when needed. Missing-workspace errors say what to do.
-- New workspaces follow player `1` by default instead of leaving the camera target unset.
-- `dpl doctor` distinguishes advice (`WARN`) from blocking failures.
-- Settings saved from the app are validated before `lab.json` is written.
-- Single-file `dpl.pyz` builds (run with `python3 dpl.pyz`, no install needed), plus a release workflow that attaches them with the wheel and sdist when a version tag is pushed.
+### Changed
 
-**Tidy-up**
+- The workspace is now one per-user folder, `~/.local/share/deadlock-performance-lab`, so the Steam launch line stays valid from any directory. An existing `./.lab` is still used from its own directory. `--workspace` and `DPL_WORKSPACE` override it.
+- Configs are frozen into each plan as the exact files they write, so later edits never change past results. Hidden `gameinfo.gi` cvars are reported rather than blocking a config's verdict. A `video.txt` the game rewrites is restored, and the report notes what changed.
+- `dpl plan` requires `--cases`. `dpl doctor` separates advice (`WARN`) from failures. Settings saved from the app are validated before `lab.json` is written.
+- One product name, "Deadlock Performance Lab", everywhere; links point at the renamed repository.
 
-- The project is called Deadlock Performance Lab everywhere. Links point to the renamed repository; the old GitHub Pages address returned 404.
-- The published results website moved to `site/`, and the value-sweep scripts and matrix moved to `research/`. Removed the machine-specific `BENCHMARK-LAUNCH.md` runbook.
-- The README and first-benchmark guide are rewritten around the app. The other guides point to the new workspace location.
-- `THIRD_PARTY_NOTICES.md` now describes presets fetched from OptimizationLock; no third-party config files are redistributed.
-- New [config guide](docs/CONFIGS.md); the screening guide now focuses on single-cvar sweeps.
-- Earlier unreleased changes: removed the report header badge, baseline-history panel, iteration-time panel and Print/PDF button; replaced the sort dropdown with sortable columns; separated workspace setup, planning, capture processing and report rendering.
+### Removed
+
+- The bundled treatments: FPS-cap and renderer profiles (now run settings) and four community `gameinfo.gi` snapshots (now presets fetched on request; nothing third-party is redistributed). Profiles saved by 0.1–0.2 still load and run.
+- `dpl audit-legacy` and the prototype-era `results.csv` documentation.
+- One-off research scripts, the sample `examples/` folder and a machine-specific launch runbook. The published results stay on the project site; their design notes are in `site/results/`.
+
+### Repository
+
+- New project landing page; the community results moved under `site/`. Documentation is five guides (first benchmark, configs, advanced use, methodology, troubleshooting). Contributing and security notes moved to `.github/`, with issue templates for bugs and shared results.
+- CI builds and smoke-tests the wheel and `dpl.pyz`, and a tag-triggered workflow publishes releases with checksums.
 
 ## 0.2.0 — 2026-09-06
 
-- Rebuilt results around a searchable, sortable configuration table with average FPS, 1% low, P99 time and paired effects.
-- Added linked capture overlays, selected-effect intervals, sensor tables, baseline history and comparison CSV export.
-- Added the 5-second scouting preset and per-phase iteration timings. Reduced camera-command guard overhead in new plans.
-- Preserved old plan behavior, evidence checks, recovery and offline report compatibility.
-
-Validation recorded for this release: 51 automated tests; a live baseline → GameInfo → baseline scout completed with restoration verified. Iterations took 27.7, 69.5 and 24.3 seconds; Steam shader processing accounted for 50.5 seconds of the middle launch. The report was inspected with synthetic data and an existing partial sweep, including sorting, capture selection and a 390-pixel layout. Shorter scout captures are not evidence of an equivalent-duration speedup.
+- Searchable, sortable configuration table with average FPS, 1% low, P99 time and paired effects; linked capture overlays, selected-effect intervals, sensor tables and CSV export.
+- 5-second scouting preset and per-phase timings; less camera-command overhead in new plans.
 
 ## 0.1.0 — 2026-09-05
 
-First packaged Linux community preview.
-
-- Replaced the script collection with an installable `dpl` application and guided terminal menu.
-- Added frozen, randomized experiment plans with baseline-bracketed repeat rounds.
-- Added event-driven replay readiness, screen/confirm presets, profile selectors, one-cvar matrix generation, timing summaries and provisional shortlists.
-- Added per-frame MangoHud parsing with explicit capture windows, long-stall retention and capture-integrity checks.
-- Added replay/bot automation, readback evidence, install-wide serialization and crash recovery journals.
-- Added custom profiles, attributed community snapshots and manual-capture experiments.
-- Added round-level confidence intervals, baseline stability checks and operator-verification gates.
-- Added offline interactive reports, CSV/JSON/Markdown and private-by-default report ZIP exports.
-- Added tests, Linux CI, wheel/sdist builds, installation, methodology, optimization and contributor guides.
-
-Validation recorded for this release: 48 automated tests and two three-run live replay sessions on Linux with native Steam, Proton and MangoHud. Capture and restoration completed. A GameInfo sequence had a 34.7-second median iteration with 10-second captures and 5-second warm-up; cold launches varied substantially. These smoke tests do not establish an optimization winner or replace camera/playback review.
-
-Historical aggregate rows from the prototype are not accepted as validated measurements.
+First packaged Linux preview: installable `dpl` with frozen, randomized, baseline-bracketed plans; replay and bot automation with readback evidence; per-frame MangoHud parsing; crash-safe file restoration; manual-capture experiments; round-level confidence intervals and baseline stability checks; offline reports with private-by-default ZIP exports.

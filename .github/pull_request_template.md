@@ -1,5 +1,11 @@
-## Problem and resulting behavior
+## What and why
 
-## Validation
+<!-- The problem and the resulting behavior. -->
 
-## Measurement, compatibility or restoration limits
+## How you checked it
+
+<!-- Tests, lint, and (for app changes) desktop and phone widths in a browser. -->
+
+## Limits
+
+<!-- Anything about measurement, compatibility or file restoration reviewers should know. -->

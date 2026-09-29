@@ -1,23 +1,25 @@
-name: Share an experiment
-description: Share measured findings with conditions and uncertainty.
+name: Share results
+description: Share what you measured, with the conditions that make it meaningful.
+labels: [results]
 body:
   - type: textarea
-    id: hypothesis
+    id: what
     attributes:
-      label: What changed, and why?
+      label: What did you test, and why?
+      description: The configs or settings you compared, and what you expected.
     validations:
       required: true
   - type: textarea
     id: conditions
     attributes:
-      label: Baseline and conditions
-      description: Hardware, software/game versions, scene, resolution, graphics, sample length and rounds.
+      label: Machine and conditions
+      description: CPU, GPU, RAM, resolution, graphics settings, Proton and driver versions, replay and tick, benchmark length and rounds.
     validations:
       required: true
   - type: textarea
-    id: evidence
+    id: results
     attributes:
-      label: Results and limitations
-      description: Attach a reviewed report ZIP; include drift, uncertainty, cvar/camera verification and visual tradeoffs. No replay binaries or raw private logs.
+      label: Results and caveats
+      description: Attach the report ZIP (Results tab → Share ZIP), and note baseline variation, anything you couldn't confirm, and visual tradeoffs. No replay files or raw logs.
     validations:
       required: true

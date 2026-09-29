@@ -25,6 +25,17 @@ Open **Configs → New config**. Each file has its own tab (**gameinfo.gi** and 
 3. **Preview file changes** shows exactly what will be written, as a diff against your installed files.
 4. **Save config.** It appears in the list and is ticked on the **Benchmark** tab.
 
+### Test each setting separately
+
+Ticking 20 settings and saving one config tells you whether the whole package helps, not which setting did it. To measure each on its own, press **Test each setting separately…** under the settings list:
+
+- Every ticked setting is listed with its value. Change it, or enter several values separated by commas (`0.4, 1.0, 1.6, 2.4`) to see how the setting scales.
+- Optionally save one more config with all of them together.
+- Press **Create N configs**. Each starts from the same file you chose, changes exactly one setting, and is named `setting = value`. The name you typed becomes their label, and they appear as a group in the Configs and Benchmark tabs, with select-all and delete-all.
+- A value that equals what's already in the starting file changes nothing, so it's skipped.
+
+Twenty settings with one value each is 22 launches at Shortlist length, about 13 minutes. Rank them in **Results**, then use **Re-test the top N** on the best few. When you start from a preset, each config is that preset plus one setting; save the preset on its own as well, so you can see its effect separately.
+
 Some notes on how the files are combined:
 
 - A preset or imported `gameinfo.gi` **replaces the whole file**, including engine sections outside `ConVars`, just as installing it by hand would. Your ticked settings are applied on top, like the `overrides.gi` of OptimizationLock's own updater. If a preset was made for a different game version (its `PGIVersion` differs), the preview and the results say so. Pick the preset again to refresh it.
@@ -51,4 +62,4 @@ dpl plan --cases my-config --preset confirm --fps-max 0
 dpl run --live
 ```
 
-`--video` keeps your device and display settings in the same way as the app. `--fps-max N` sets an FPS limit for every capture (0 = uncapped; leave it out to keep the game's own). `--renderer vulkan|dx11` launches every capture with that API. To test many single-cvar values at once, see [screening many settings](OPTIMIZATION.md).
+`--video` keeps your device and display settings in the same way as the app. `--fps-max N` sets an FPS limit for every capture (0 = uncapped; leave it out to keep the game's own). `--renderer vulkan|dx11` launches every capture with that API. To test many single-cvar values at once, see [testing many settings](ADVANCED.md).

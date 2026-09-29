@@ -1,7 +1,16 @@
 # Security
 
-Report vulnerabilities through GitHub's private vulnerability reporting if enabled. Otherwise open a minimal issue asking for a private contact, without exploit details or private captures.
+## Reporting a vulnerability
 
-The tool runs as your user and temporarily writes game config files. Its VConsole connection uses `127.0.0.1:29000`; do not expose that port through a firewall or tunnel. Automated sessions use local replays or bots with `-insecure`.
+Use GitHub's [private vulnerability reporting](https://github.com/itchyfeetleech/Deadlock-Performance-Lab/security/advisories/new). If that isn't available, open an issue that asks for a private contact, without exploit details or private captures.
 
-The app listens only on `127.0.0.1`. Each launch creates a secret that the opened link turns into a `SameSite=Strict` cookie, so other websites and other users' browsers can't drive it. Don't expose its port through a tunnel or proxy. The app does not upload data. It downloads files from `raw.githubusercontent.com/Sqooky/OptimizationLock` only when you choose a preset, and validates them as `gameinfo.gi`/`video.txt` before use; preview a config's changes before benchmarking it. Report exports exclude raw logs, backups, profile contents and absolute replay paths, but include your labels and notes. Review those before sharing. Raw workspaces may contain account identifiers, local paths and personal configs.
+## What the tool does on your machine
+
+- **Runs as your user** and temporarily writes game config files (`gameinfo.gi`, `video.txt`, an `autoexec_dpl.cfg`). A write-ahead journal restores them after every capture.
+- **Benchmarks are local.** They play a local replay or a bot match, launched with `-insecure`, and talk to the game over its console on `127.0.0.1:29000`. Don't expose that port through a firewall or tunnel.
+- **The app listens only on `127.0.0.1`.** Each launch creates a secret that the opened link turns into a `SameSite=Strict` cookie, and every change also needs a header other websites can't send, so other sites and other users can't drive it. Don't put it behind a tunnel or proxy.
+- **Nothing is uploaded.** The only network access is downloading presets from `raw.githubusercontent.com/Sqooky/OptimizationLock` when you choose one; they're validated as `gameinfo.gi` / `video.txt` before use. Preview a config's changes before benchmarking it.
+
+## Sharing results
+
+Report exports exclude raw logs, backups, config contents and absolute replay paths, but include your config names and notes, so review those first. A raw workspace can contain account identifiers, local paths and personal configs. Share the ZIP, not the folder.
