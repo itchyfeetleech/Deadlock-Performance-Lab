@@ -25,11 +25,11 @@
 
 - The bundled treatments: FPS-cap and renderer profiles (now run settings) and four community `gameinfo.gi` snapshots (now presets fetched on request; nothing third-party is redistributed). Profiles saved by 0.1–0.2 still load and run.
 - `dpl audit-legacy` and the prototype-era `results.csv` documentation.
-- The published community benchmark pages and data, the one-off research scripts behind them, the sample `examples/` folder and a machine-specific launch runbook.
+- One-off research scripts, the sample `examples/` folder and a machine-specific launch runbook.
 
 ### Repository
 
-- New project landing page (the GitHub Pages site). Documentation is five guides (first benchmark, configs, advanced use, methodology, troubleshooting). Contributing and security notes moved to `.github/`, with issue templates for bugs and shared results.
+- New project landing page (the GitHub Pages site). Documentation is five guides (first benchmark, configs, advanced use, methodology, troubleshooting). Contributing and security notes moved to `.github/`, with a bug report template.
 - CI builds and smoke-tests the wheel and `dpl.pyz`, and a tag-triggered workflow publishes releases with checksums.
 
 ## 0.2.0 — 2026-09-06
