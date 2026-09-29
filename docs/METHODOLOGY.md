@@ -1,56 +1,57 @@
-# Measurement and inference
+# Methodology
 
-## Capture contract
+## Capture
 
-Live capture uses MangoHud `log_interval=0`, one row per rendered frame. MangoHud's `elapsed` field is nanoseconds since logger start ([source](https://github.com/flightlessmango/MangoHud/blob/master/src/logging.cpp)). The CSV header is detected dynamically, including versioned logs and variable telemetry columns.
+Live capture uses MangoHud with `log_interval=0`: one row per rendered frame. MangoHud's `elapsed` field is nanoseconds since the logger started ([source](https://github.com/flightlessmango/MangoHud/blob/master/src/logging.cpp)). The CSV header is detected dynamically, including versioned logs and optional telemetry columns.
 
-The runner waits for a fresh game process, a run-specific Deadlock CSV and the engine's completed demo-signon message. After replay warm-up it seeks back to the requested tick, pauses to establish the camera, records the latest complete logger timestamp and resumes. The analysis window is `[start_elapsed_s, start_elapsed_s + sample_s)`. It stops the game to finalize the file before hashing and parsing it. Startup, loading and warm-up are outside that interval. There is a small command/CSV sampling alignment error; this is not tick-exact frame capture or a deterministic engine timedemo.
+For each capture the runner launches a fresh game process, waits for a run-specific CSV and the engine's completed demo-signon message, warms the replay, seeks back to the requested tick, pauses to settle the camera, records the latest logger timestamp and resumes. The analysis window is `[start_elapsed_s, start_elapsed_s + sample_s)`. The game is then closed so the file is complete before it's hashed and parsed. Loading and warm-up fall outside the window. Command and logger timing aren't tick-exact, so this is not a deterministic engine timedemo.
 
-New plans use readiness protocol `source2-demo-signon-v3`: the temporary startup config opens the replay, and the runner seeks as soon as completed signon is observed. A unique per-launch marker allows recovery of early signon output from `console.log` without accepting stale output. Older frozen plans retain their console-started replay and recorded load guard. Warm-up, the final re-seek, camera settling and sample duration remain explicit plan settings.
+New plans use readiness protocol `source2-demo-signon-v3`: the temporary startup config opens the replay and the runner seeks as soon as signon completes. A per-launch marker lets early signon output be recovered from `console.log` without accepting stale output. Older frozen plans keep their console-started replay and load guard.
 
-Cvar queries use one ordered batch followed by a unique engine echo acknowledgement, so hidden variables don't incur a five-second wait each. For single-cvar sweeps and console-cvar profiles, a missing or different reply is a quality blocker, because that cvar is the thing being tested. A config is measured as a whole file: the lab reads back every `gameinfo.gi` setting that differs from your installed file and reports how many are hidden and which read back differently, without blocking the verdict. The run-wide FPS limit is read back and reported the same way. If the game rewrites `video.txt` during a capture, the changed values are reported and the original file is still restored. A missing acknowledgement fails the capture. Readback overlaps camera settling, and the final demo-info request uses an acknowledgement instead of a fixed shutdown delay. Full GameInfo restarts and transaction restoration remain in place for every capture.
+Cvars are read back in one batch followed by an echo acknowledgement. For single-cvar sweeps and console-cvar profiles, a missing or different reply blocks the verdict, because that cvar is what's being tested. A config is measured as a whole file: every `gameinfo.gi` setting that differs from your installed file is read back, and the report says how many are hidden and which read back differently, without blocking the verdict. The run-wide FPS limit is read back the same way. If the game rewrites `video.txt` during a capture, the changed values are reported and the original file is still restored. A missing acknowledgement fails the capture.
 
-A positive finite frame time is retained regardless of size. Nonpositive, NaN, infinite and malformed rows are counted and disclosed; automated verdicts remain blocked when they occur. Missing logs, insufficient samples, backwards timestamps, mismatched per-frame coverage and incomplete windows fail the capture. No real-run fallback produces synthetic FPS or CPU data.
-
-Per-frame assertions are checked by comparing elapsed coverage with summed frame times (80–120% tolerance). This catches ordinary interval-logged captures mislabelled as per-frame, but is a plausibility check rather than proof of complete instrumentation. A known interval must still be declared on import.
+Any positive finite frame time is kept, however large. Nonpositive, NaN, infinite and malformed rows are counted and reported, and block a verdict. Missing logs, too few samples, backwards timestamps, per-frame coverage outside 80–120% of elapsed time and incomplete windows fail the capture.
 
 ## Metrics
 
-All frame-time values are milliseconds. Quantiles linearly interpolate the sorted data at `(N - 1) × percentile`.
+Frame times are milliseconds. Quantiles linearly interpolate the sorted data at `(N - 1) × percentile`.
 
 | Metric | Definition |
 |---|---|
 | Average FPS | `1000 / mean(frame_ms)` |
 | 1% low FPS | `1000 / mean(slowest ceil(0.01 × N) frame_ms)` |
-| 0.1% low FPS | Same calculation with `0.001`; shown only with at least 1,000 per-frame samples |
-| Inverse P99 FPS | `1000 / P99(frame_ms)`; distinct from the slow-tail mean |
-| P95 / P99 | Frame-time percentiles; smaller is better |
-| Maximum frame | Largest positive finite frame time, with no clipping |
-| Budget misses | Percentage of samples longer than `1000 / budget_fps` |
-| Stalls | Counts above 50 ms and above 100 ms; descriptive thresholds, not a stutter diagnosis |
-| Telemetry | Available MangoHud CPU/GPU load, temperature, clocks, memory and power summaries |
+| 0.1% low FPS | Same with `0.001`; only with at least 1,000 per-frame samples |
+| Inverse P99 FPS | `1000 / P99(frame_ms)` |
+| P95 / P99 | Frame-time percentiles |
+| Maximum frame | Largest frame time, unclipped |
+| Budget misses | Share of frames longer than `1000 / budget_fps` |
+| Stalls | Frames over 50 ms and over 100 ms |
+| Telemetry | MangoHud CPU/GPU load, temperature, clocks, memory and power, where available |
 
-Telemetry is sampled by MangoHud on its own update cadence and may repeat between frames. CPU load here is MangoHud system CPU load, not a process CPU profile. Zero telemetry can mean unsupported sensors; do not interpret it as proof of idle hardware. The report's frame-time traces group frames into min/mean/max bins for display; statistics always use the full selected window. Each capture also keeps its frame-time percentiles from 0% to 99.99%, spaced evenly in "nines" (90%, 99%, 99.9%) as in HdrHistogram plots, for the report's percentile curves. A config's curve is the mean of its captures' curves, and a curve stops where a capture has too few frames to support the percentile (99.9% needs 1,000 frames). Results recorded before percentiles were stored get them from their raw capture when the report is built, if its hash still matches.
+Telemetry is sampled on MangoHud's own cadence and may repeat between frames. CPU load is system-wide, not per process, and zero can mean the sensor isn't supported.
 
-Interval captures retain sampled FPS estimates and sample percentiles but suppress true 1%/0.1% lows and directional performance verdicts. They must not be mixed with per-frame captures.
+The report's frame-time traces group frames into up to 360 time slices, each with its min, mean and max; statistics always use every frame in the window. Each capture also stores its frame-time percentiles from 0% to 99.99%, spaced evenly in "nines" (90%, 99%, 99.9%) as in HdrHistogram plots. A config's percentile curve is the mean of its captures' curves, and stops where a capture has too few frames for the percentile (99.9% needs 1,000). Results recorded before percentiles were stored get them from their raw capture when the report is built, if its hash still matches.
 
-## Experiment units
+Interval-sampled imports keep sampled FPS and percentiles but have no 1% or 0.1% lows and no verdict, and can't be mixed with per-frame captures.
 
-The independent unit is a complete **round**, not an individual frame. Each round contains an opening baseline, each requested treatment once in a seeded shuffled order, and a closing baseline. For treatment `T` in a round:
+## Rounds and verdicts
+
+A **round** is an opening baseline, each config once in a seeded shuffled order, and a closing baseline. For config `T` in a round:
 
 ```text
 control = mean(opening baseline FPS, closing baseline FPS)
 round change = 100 × (T FPS / control - 1)
 ```
 
-The reported effect is the mean round change. A deterministic percentile bootstrap resamples complete round changes 4,000 times to estimate a 95% interval. The report computes the 1% low change and its interval the same way; they are descriptive and never decide a verdict. This avoids pretending that thousands of correlated frames are thousands of independent experiments, but assumes rounds reasonably represent the conditions of interest. The two baseline controls are averaged; there is no claimed time-interpolated drift correction.
+The reported change is the mean round change. Its 95% interval is a deterministic percentile bootstrap over complete rounds (4,000 resamples; needs 3 rounds). The 1% low change and its interval are computed the same way and never decide a verdict. Intervals are not corrected for comparing many configs.
 
-At least five complete paired rounds are required for a directional verdict. Baseline CV and absolute opening-to-closing drift must both be no greater than the practical threshold (default 3%). All planned treatment rounds must be complete, capture context and profile fingerprints must match, raw hashes must verify and quality checks must be cleared. A CI wholly above +threshold yields “improved”; wholly below -threshold yields “regressed”; wholly inside the threshold band yields “within threshold.” Otherwise the result is inconclusive. Synthetic data always says “demo.”
+A verdict (average FPS only) needs all of:
 
-The verdict describes **average FPS**, not overall game quality. Inspect lows, stalls, power, stability and visibility separately. FPS-cap profiles need particular care: lower average FPS can be intentional.
+- at least 5 complete rounds, and every planned round complete;
+- baseline CV and opening-to-closing drift both within the threshold (default 3%);
+- matching capture conditions and profile fingerprints, verified raw hashes, and no unchecked or failed capture checks;
+- a replay scenario (bot matches never get one).
 
-## Evidence limits
+Then an interval wholly above +threshold is *improved*, wholly below −threshold is *regressed*, and wholly inside is *within threshold*. Anything else is *inconclusive*. Made-up demo data is always *demo*.
 
-These are exploratory intervals, uncorrected for multiple comparisons. A broad search can produce a lucky winner; confirm the selected change in a fresh experiment. Thermal equilibrium, shader caches, background load, renderer/Proton differences and game updates can all invalidate a comparison. Hardware identification does not capture every driver control-panel or Steam option; record those in the conditions.
-
-Replay and camera state still need operator verification because Source 2 remote-console output changes between builds. The tool saves raw output and refuses directional conclusions until those checks are reviewed. Random bot matches are explicitly exploratory. A replay does not reproduce every CPU/network workload of a live match. Render timing is not an input-to-photon latency measurement, network benchmark or guarantee of competitive visibility.
+The app can't see the screen, so live captures carry checks (camera, replay progress, config applied) that you clear with **Mark as checked** or `dpl review`. A review is bound to the result's hash and can't clear data errors or missing conditions.

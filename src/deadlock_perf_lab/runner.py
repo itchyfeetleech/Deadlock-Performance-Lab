@@ -435,7 +435,7 @@ def run_demo(plan: dict, item: dict, directory: Path) -> dict:
     return {"metrics": capture.metrics(1000 / plan["context"]["scenario"]["budget_fps"]),
             "capture_sha256": capture.metadata["sha256"], "raw_capture": "capture.csv", "capture_metadata": capture.metadata,
             "series": chart_series(capture.times, capture.frames), "distribution": frame_distribution(capture.frames),
-            "warnings": ["DEMO DATA — synthetic capture."], "quality_blockers": []}
+            "warnings": [], "quality_blockers": []}
 
 
 @contextlib.contextmanager

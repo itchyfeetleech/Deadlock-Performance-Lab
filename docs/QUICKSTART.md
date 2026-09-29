@@ -1,98 +1,76 @@
-# Your first benchmark
+# First benchmark
 
-This guide follows the app (`dpl`). Every step also has a terminal equivalent, listed at the end.
+This follows the app (`dpl`). The same steps as commands are at the end.
 
-## What you need
+## Requirements
 
-- Linux with Python 3.11+. [Install the app](../README.md#install-and-open).
-- Native Steam, signed in to an account that owns Deadlock, with a working Proton. Flatpak Steam and remote streaming aren't supported.
+- Linux with Python 3.11+ ([install](../README.md#install)).
+- Native Steam (not Flatpak) with Deadlock installed and a working Proton.
 - [MangoHud](https://github.com/flightlessmango/MangoHud#installation) from your distribution's packages. Some setups also need its 32-bit package.
-- A downloaded match replay (`.dem`). Replays aren't distributed with this project.
+- A downloaded match replay (`.dem`).
 
-The example report and all analysis work without any of these.
+The example report works without any of these.
 
 ## 1. Set up
 
-Run `dpl`. The **Set up** tab has three steps. Each one turns green when it's done.
+Run `dpl`. The **Set up** tab has three steps.
 
-**Check your PC** lists anything missing, with the fix. Press **Check again** after installing something.
+**Check your PC** lists anything missing. Press **Check again** after installing it.
 
-**Let Steam record frame times** gives you one line. In Steam, right-click Deadlock → *Properties…* → *General* → *Launch Options* and paste it:
+**Let Steam record frame times:** in Steam, right-click Deadlock → *Properties…* → *General* → *Launch Options* and paste the line the app shows:
 
 ```text
 env -u MANGOHUD_CONFIG MANGOHUD=1 MANGOHUD_CONFIGFILE=/home/you/.local/share/deadlock-performance-lab/capture.conf %command%
 ```
 
-Keep any options you already use after `%command%`, and don't repeat `%command%`. Wrappers such as GameMode or gamescope need to be combined deliberately; write your final launch options in the notes field. The line loads MangoHud invisibly, and it only records while a benchmark runs, so normal play doesn't change. Steam sometimes saves launch options only when it closes, so the app may not detect the line right away; the first capture confirms it. If you ever delete the workspace, remove the line from Steam too.
+Put any options you already use after `%command%`, and don't repeat `%command%`. MangoHud stays hidden and only records during a benchmark. Steam may not save launch options until it closes, so the app can show "not detected" until then; the first capture fails with a clear message if MangoHud isn't recording. If you delete the workspace, remove the line from Steam.
 
-**Choose the test scene** decides what every config is measured on:
+**Choose the test scene:**
 
-| Field | What to enter |
+| Field | |
 |---|---|
 | Deadlock folder | Usually found automatically. It contains `game/citadel`. |
-| Replay file | Replays in `game/citadel` (for example `game/citadel/replays/`), newest first. Choose *Other file…* for anything else inside that folder. |
-| Start at tick | A busy moment such as a teamfight. Leave plenty of replay after it: at least warm-up plus capture time. |
-| Player to follow | The player slot the camera follows. Choose someone who stays alive for the whole capture. |
-| Target FPS | Usually your monitor's refresh rate. Slower frames count as over budget. |
-| Your game settings | Resolution, graphics quality, Proton version and display mode. Detected values are pre-filled; check them. Results can't get a verdict until these are filled in. |
+| Replay file | Replays under `game/citadel`, newest first. *Other file…* takes any path inside that folder. |
+| Start at tick | Where each capture starts. The replay has to run for the warm-up plus capture time after it. |
+| Player to follow | The player slot the camera follows. |
+| Target FPS | Frames slower than this count as over budget. |
+| Your game settings | Resolution, graphics quality, Proton version and display mode, saved with each result. Required before benchmarking. |
 
-A **bot match** scene is available for rough CPU stress tests. Bots behave randomly, so bot results never get a verdict.
+A **bot match** can replace the replay. Bots behave differently in every capture, so bot results never get a verdict.
 
-Your baseline is your installation exactly as it is, including any existing `gameinfo.gi` or `autoexec.cfg` changes. If you already use a modified `gameinfo.gi` and want to compare against stock, build a config from the **Clean Valve default** preset.
+Your baseline ("current setup") is the game as installed, including changes you've already made to `gameinfo.gi` or `autoexec.cfg`. To compare against stock, build a config from the **Clean Valve default** preset.
 
 ## 2. Build a config
 
-A config is the `gameinfo.gi` and/or `video.txt` you want to test. On the **Configs** tab, press **New config**, then:
-
-1. Choose what to **start from**: your current file, one of Sqooky's OptimizationLock presets (downloaded from GitHub when you pick it), or a file you import.
-2. Tick any settings you want to change on top. They are grouped by category, with descriptions.
-3. **Save config.**
-
-A good first comparison is **Sqooky's OptimizationLock**, saved unchanged.
-
-To find out what individual settings do, tick several and press **Test each setting separately…**. Each setting (and each value you list, such as `1, 2, 4, 8`) becomes its own config that changes only that one thing. The [config guide](CONFIGS.md) covers presets, `video.txt`, imports, batches and installing a winner.
+**Configs → New config:** choose what to start from (your file, an OptimizationLock preset or an imported file), tick the settings to change and press **Save config**. **Test each setting separately…** makes one config per ticked setting and value. See [Configs](CONFIGS.md).
 
 ## 3. Benchmark
 
-On the **Benchmark** tab:
+On **Benchmark**, tick configs, choose a length and press **Start** with Deadlock closed.
 
-1. **Tick the configs to compare.** Your current setup is always included.
-2. **Choose how thorough:**
+| Length | Rounds | Capture |
+|---|---:|---:|
+| Quick look | 1 | 5 s |
+| Shortlist | 1 | 10 s |
+| Confirm | 5 | 30 s |
 
-   | Length | Rounds | Capture | Use it for |
-   |---|---:|---:|---|
-   | Quick look | 1 | 5 s | Checking everything works and seeing rough numbers |
-   | Shortlist | 1 | 10 s | Screening many configs to find ones worth confirming |
-   | Confirm | 5 | 30 s | A real answer: the only length that can give *improved* or *regressed* |
+*FPS limit* (default uncapped) and *Graphics API* apply to every capture, including your current setup.
 
-3. **Check the run settings.** *FPS limit* (default **Uncapped**) and *Graphics API* (default: the game's) apply to every capture, your current setup included, so they never favour one config.
-4. **Close Deadlock and press Start.** The app shows how many launches and roughly how long before you start.
+Each round measures your current setup, each config in shuffled order, then your current setup again, and every capture is a separate game launch. The app shows the number of launches and the time before you start.
 
-Each round measures your current setup, then each config in a shuffled order, then your current setup again. One config at *Confirm* length means 15 launches. While it runs:
-
-- Don't touch the game window, and avoid heavy background work.
-- You can close the browser tab or the app. The benchmark keeps going, and reopening `dpl` shows its progress.
-- **Cancel and restore files** stops cleanly and restores your files. If the PC loses power mid-run, close Deadlock, open the app and press **Restore my files**.
-
-For the first run, a *Quick look* with one config is a good smoke test.
+While it runs, leave the game window alone. Closing the browser tab doesn't stop the benchmark. **Cancel and restore files** stops it and restores your files. After a power cut, close Deadlock and press **Restore my files**.
 
 ## 4. Results
 
-The **Results** tab lists every benchmark. **Details & review** starts with a **ranking**: configs sorted by change in average FPS against your current setup, with anything smaller than your baseline variation marked *≈ noise*. Rank many configs with a one-round Shortlist, then press **Re-test the top N** to run just the best ones at Confirm length, with the same FPS limit and graphics API. **Open report** shows, top to bottom:
+**Results** lists every benchmark. **Details & review** has the ranking by change in average FPS (changes within your baseline variation are marked *≈ noise*) and every capture. **Re-test the top N** runs the best configs again at Confirm length with the same run settings.
 
-- **Summary.** The biggest change, and a checklist of what a verdict needs: enough rounds, a stable baseline (variation and drift within 3%), usable captures and your checks. Read this first: a failed check means something other than the config may have changed.
-- **Configs compared with your current setup.** Each config's change with its 95% interval, drawn against a shaded ±3% band. A verdict needs the whole interval outside the band. Switch between average FPS and 1% lows, sort by any column, or filter by name or setting.
-- **Selected config.** Its change in every round, frame-time percentile curves against your current setup (how slow the slowest frames get), every metric side by side, the settings it changes and the reasons for its verdict.
-- **Frame times.** Overlay any two captures, step through the rounds and zoom past spikes to see stutters.
-- **Captures.** Every capture in the order it ran, so baseline drift and outliers stand out, with each one's checks.
+Live captures need a manual check, because the app can't see whether the camera stayed on the player and the replay kept playing. Tick the captures you watched; comparisons that include unchecked captures get no verdict.
 
-**Details & review** lists every capture. The lab can't see your screen, so live captures carry checks only you can clear. Confirm that the camera stayed on the player, the replay kept playing and the config looked as intended. Tick the captures you actually watched and describe how you checked. Verdicts stay *inconclusive* until the relevant captures are confirmed. The app can't clear malformed data, missing settings or failed cvar readback.
+**Open report** shows each config's change with its 95% interval, per-round results, frame-time percentiles and traces, and every capture. **Share ZIP** downloads the report (`index.html`, `summary.md`, `summary.json`, `runs.csv`) without raw logs, game files or replay paths. Config names and notes are included.
 
-**Share ZIP** downloads `index.html`, `summary.md`, `summary.json` and `runs.csv`, which open offline. Raw logs, backups, configs and replay paths stay on your machine. Your config names and notes are included, so check them before sharing.
+Metrics and verdict rules are in the [methodology](METHODOLOGY.md).
 
-A one-round ranking finds candidates; it doesn't prove a gain. Re-test promising results at *Confirm* length before trusting them. The [methodology](METHODOLOGY.md) explains every metric and rule.
-
-## Terminal equivalent
+## Commands
 
 ```bash
 dpl doctor                                   # check your PC
@@ -101,9 +79,9 @@ $EDITOR ~/.local/share/deadlock-performance-lab/lab.json   # replay, tick, playe
 dpl profile add my-config --gameinfo ~/Downloads/gameinfo.gi   # and/or --video FILE
 dpl plan --cases my-config --preset confirm --fps-max 0   # freeze a plan and print its schedule
 dpl run --live                               # close Deadlock first
-dpl review --run 002-my-config --note 'Watched it: camera stayed on player 1 and the replay kept playing.'
+dpl review --run 002-my-config --note 'Camera stayed on player 1 and the replay kept playing.'
 dpl report --open
 dpl export --output report.zip
 ```
 
-`dpl plan --cases baseline --rounds 1` followed by `dpl run --live` is a quick smoke test. The plan freezes the exact config files, run settings, replay, conditions and run order. Create a new plan to change any of them.
+A plan freezes the config files, run settings, replay, conditions and run order. Create a new plan to change any of them.

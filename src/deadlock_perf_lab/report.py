@@ -123,15 +123,12 @@ def markdown_report(result: dict) -> str:
         ci = interval(c["ci95_pct"]) if c["ci95_pct"] else "insufficient repeats"
         lines.append(f"| {label} | {len(c['paired_rounds'])} | {fmt(c['avg_fps'])} | {fmt(c['delta_pct'], '%', True)} | "
                      f"{ci} | {fmt(c.get('low_1_delta_pct'), '%', True)} | {c['verdict']} |")
-    lines += ["", "## Measurement notes", ""]
+    lines += ["", "## Notes", ""]
     lines += [f"- {w}" for w in result["warnings"]]
     for c in result["comparisons"]:
         lines += [f"- {c['case']}: {reason}" for reason in c["reasons"]]
-    lines += ["", f"Changes are paired per round against that round's two baseline captures. 95% intervals bootstrap "
-              f"complete rounds, not individual frames. A verdict needs the whole interval outside ±{result['threshold_pct']:g}%. "
-              "Intervals are exploratory and not corrected for testing many configs.",
-              "Average FPS = 1000 / mean frame time. 1% low = 1000 / mean of the slowest ceil(1% × frames) frame times.",
-              "FPS does not measure input latency, network delay, visual quality or live-match competitiveness.", ""]
+    lines += ["", "Change: per round, against that round's two baseline captures. 95% interval: bootstrap over rounds.",
+              "Average FPS = 1000 / mean frame time. 1% low = 1000 / mean of the slowest 1% of frame times.", ""]
     return "\n".join(lines)
 
 

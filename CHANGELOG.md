@@ -2,17 +2,17 @@
 
 ## 0.3.0 — Unreleased
 
-**A guided app built around your own configs.** Running `dpl` opens a local app in your browser. You no longer edit `lab.json` or learn the commands, though every command still works.
+Running `dpl` opens a local app in your browser. Every command still works.
 
 ### New
 
 - **Set up:** checks Steam, MangoHud and the game, shows the Steam launch line with a Copy button, detects whether Steam saved it, lists your replays, and fills in resolution, display mode and Proton version.
-- **Configs:** the centre of the app. Build a `gameinfo.gi` and/or `video.txt` config that starts from your installed file, a [Sqooky/OptimizationLock](https://github.com/Sqooky/OptimizationLock) preset (downloaded from GitHub when you pick it) or an imported file. Tick settings grouped by OptimizationLock's categories, with switches, sliders and search. Every row shows its description and default, and any documented cvar can be added by name. Preview the exact diff, save, edit, duplicate, and download the finished files to install a winner. `video.txt` presets keep your GPU identifiers and, by default, your resolution and display settings.
+- **Configs:** build a `gameinfo.gi` and/or `video.txt` config that starts from your installed file, a [Sqooky/OptimizationLock](https://github.com/Sqooky/OptimizationLock) preset (downloaded from GitHub when you pick it) or an imported file. Tick settings grouped by OptimizationLock's categories, with switches, sliders and search. Every row shows its description and default, and any documented cvar can be added by name. Preview the exact diff, save, edit, duplicate, and download the finished files. `video.txt` presets keep your GPU identifiers and, by default, your resolution and display settings.
 - **Test each setting separately:** turns ticked settings, and any list of values for each, into one single-setting config per value, with an optional combined config. `dpl profile sweep tests.csv` does the same from a CSV.
 - **Benchmark:** choose Quick look, Shortlist or Confirm and see the launches and time before you start. **FPS limit** (uncapped by default) and **graphics API** are run settings applied to every capture, baseline included (`dpl plan --fps-max N --renderer vulkan|dx11`). Runs continue in the background with live progress and a Cancel button that restores your files.
 - **Results:** a ranking by FPS change with baseline noise marked, a **Re-test the top N at Confirm length** button that reuses the run settings, capture review, report, and a Share ZIP. A **Restore my files** banner appears after an interrupted run.
 - **Add to app menu** (or `dpl shortcut`) installs a desktop launcher. The app closes itself after 30 idle minutes, and running `dpl` again reuses an open window.
-- **A rebuilt report.** One table compares every config with your current setup, drawing each change's 95% interval against the ±3% threshold, for average FPS or 1% lows. Selecting a config shows its change in every round, frame-time percentile curves, every metric side by side, the exact settings it changes and why it did or didn't get a verdict. Any two captures can be overlaid with a round stepper and spike zoom, a run-order chart shows every capture in sequence so drift stands out, and a checklist shows which verdict rules pass. Light and dark themes, a phone layout and print styles; still one offline HTML file.
+- **Report:** each config's change with its 95% interval against the threshold (average FPS or 1% lows), per-round results, frame-time percentile curves, the settings each config changes, two-capture frame-time overlays and a run-order chart. Light and dark themes, phone layout and print styles.
 - **`dpl.pyz`:** a single file that runs with `python3 dpl.pyz`, attached to releases with the wheel and sdist.
 
 ### Changed
@@ -28,10 +28,11 @@
 - The bundled treatments: FPS-cap and renderer profiles (now run settings) and four community `gameinfo.gi` snapshots (now presets fetched on request; nothing third-party is redistributed). Profiles saved by 0.1–0.2 still load and run.
 - `dpl audit-legacy` and the prototype-era `results.csv` documentation.
 - One-off research scripts, the sample `examples/` folder and a machine-specific launch runbook.
+- `dpl guide` (the docs cover the same steps).
 
 ### Repository
 
-- New project landing page (the GitHub Pages site). Documentation is five guides (first benchmark, configs, advanced use, methodology, troubleshooting). Contributing and security notes moved to `.github/`, with a bug report template.
+- Documentation is five guides (first benchmark, configs, advanced use, methodology, troubleshooting). Contributing and security notes moved to `.github/`, with a bug report template.
 - CI builds and smoke-tests the wheel and `dpl.pyz`, and a tag-triggered workflow publishes releases with checksums.
 
 ## 0.2.0 — 2026-09-06

@@ -82,20 +82,20 @@ def analyze(session: Path, threshold: float = 3) -> dict:
         else:
             excluded.append({"id": record.get("id"), "reasons": why})
     if plan["synthetic"]:
-        warnings.append("DEMO DATA — generated to demonstrate the workflow. These are not Deadlock performance findings.")
+        warnings.append("DEMO DATA — made-up numbers, not Deadlock measurements.")
     if len(valid) < len(plan["schedule"]):
-        warnings.append(f"Incomplete session: {len(valid)}/{len(plan['schedule'])} usable runs. Missing/failed runs can bias a comparison.")
+        warnings.append(f"Incomplete session: {len(valid)}/{len(plan['schedule'])} usable runs.")
     base = [r for r in valid if r["case"] == "baseline"]
     base_fps = [r["metrics"]["avg_fps"] for r in base]
     base_cv = statistics.pstdev(base_fps) / statistics.fmean(base_fps) * 100 if base_fps else None
     drift = (base_fps[-1] / base_fps[0] - 1) * 100 if len(base_fps) >= 2 else None
     if base_cv is not None and base_cv > threshold:
-        warnings.append(f"Baseline variation is high (CV {base_cv:.1f}%). Recheck thermals, camera, scene and background load.")
+        warnings.append(f"Baseline variation is high (CV {base_cv:.1f}%).")
     if drift is not None and abs(drift) > threshold:
-        warnings.append(f"Opening-to-closing baseline drift is {drift:+.1f}%. Rerun under stable conditions.")
+        warnings.append(f"Baseline drift is {drift:+.1f}% from first to last capture.")
     scenario = plan["context"]["scenario"]
     if scenario.get("mode") == "bots":
-        warnings.append("Bot matches have random behavior and camera transitions; treat these results as exploratory.")
+        warnings.append("Bot match: bots and camera vary between captures.")
     for record in valid:
         for warning in record.get("warnings", []):
             if warning not in warnings:
@@ -126,15 +126,15 @@ def analyze(session: Path, threshold: float = 3) -> dict:
         delta = statistics.fmean(deltas) if deltas else None
         reasons = []
         if len(deltas) < 5:
-            reasons.append("At least 5 complete paired rounds are required for a directional verdict.")
+            reasons.append("Fewer than 5 complete rounds.")
         if len(deltas) != plan["rounds"]:
             reasons.append("Some planned rounds are incomplete.")
         if base_cv is None or base_cv > threshold or drift is None or abs(drift) > threshold:
             reasons.append("Baseline stability checks did not pass.")
         if scenario.get("mode") == "bots":
-            reasons.append("Bot scenario is exploratory.")
+            reasons.append("Bot match scenario.")
         if any(r.get("quality_blockers") for r in own + base):
-            reasons.append("Capture or scenario verification needs review.")
+            reasons.append("Some captures are not checked yet.")
         verdict = "inconclusive"
         if not reasons and ci:
             if ci[0] > threshold:
@@ -144,7 +144,7 @@ def analyze(session: Path, threshold: float = 3) -> dict:
             elif ci[0] >= -threshold and ci[1] <= threshold:
                 verdict = "within threshold"
             else:
-                reasons.append("The confidence interval overlaps the practical threshold.")
+                reasons.append(f"The 95% interval overlaps ±{threshold:g}%.")
         comparisons.append({"case": case, "name": profile.get("name", case), "kind": profile["kind"],
                             "metrics": aggregate_metrics(own),
                             "runs": len(own), "paired_rounds": paired_rounds, "delta_pct": delta,

@@ -102,7 +102,7 @@
       .hero { font: 600 48px/1.1 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: -0.02em; }
       .hero-sub { font-size: 15px; }
       .hero-name { font-size: 17px; font-weight: 600; overflow-wrap: anywhere; }
-      .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-top: 16px; }
+      .kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-top: 16px; }
       .kpi { background: var(--panel-2); padding: 10px 14px; }
       .kpi .k { color: var(--muted); font-size: 12px; }
       .kpi .v { font-size: 22px; font-weight: 600; line-height: 1.3; }
@@ -110,7 +110,6 @@
       .kpi .s { color: var(--muted); font-size: 12px; }
       .checks { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
       .checks li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; font-size: 13px; align-items: start; }
-      .checks li small { display: block; color: var(--muted); font-size: 12px; }
       .ic { width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 11px; font-weight: 700; line-height: 1; margin-top: 1px; }
       .ic.good { background: color-mix(in srgb, var(--good) 22%, transparent); color: var(--good-text); }
       .ic.bad { background: color-mix(in srgb, var(--bad) 22%, transparent); color: var(--bad-text); }
@@ -190,6 +189,7 @@
       .why ul { margin: 6px 0 0; padding-left: 18px; color: var(--muted); }
       .why li { margin: 3px 0; }
       .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+      .cards.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0; }
       .card h3 { margin-bottom: 2px; }
       .card .cap { color: var(--muted); font-size: 12px; margin: 0 0 8px; }
@@ -295,7 +295,8 @@
         .compare td[colspan] { grid-column: 1 / -1; }
         .shell { padding: 0 16px 32px; }
         .hero { font-size: 40px; }
-        .kpis { grid-template-columns: 1fr 1fr; }
+        .kpi { padding: 8px 10px; }
+        .kpi .v { font-size: 18px; }
         .cards, .twocol { grid-template-columns: 1fr; }
         .compare .opt, .runs-table .opt { display: none; }
         .pick { grid-template-columns: 1fr; }
@@ -356,7 +357,7 @@
         <div class="summary" style="margin-top: 16px">
           <div class="panel" id="headline"></div>
           <div class="panel">
-            <h3>Can you trust a verdict?</h3>
+            <h3>Checks</h3>
             <ul class="checks" id="checks"></ul>
           </div>
         </div>
@@ -366,8 +367,7 @@
       <section id="compare" class="block">
         <div class="head">
           <div>
-            <h2>Configs compared with your current setup</h2>
-            <p>Each change is paired with the baseline captures from the same round, so slow drift in the PC cancels out. Select a config to see its details.</p>
+            <h2>Configs</h2>
           </div>
         </div>
         <div class="panel">
@@ -398,7 +398,6 @@
         <div class="head">
           <div>
             <h2>Frame times</h2>
-            <p>Compare any two captures frame by frame. Time starts when each capture starts, so moments line up only as well as the replay does.</p>
           </div>
         </div>
         <div class="panel">
@@ -413,17 +412,16 @@
               <span id="round-label"></span>
               <button type="button" id="round-next" aria-label="Next round">›</button>
             </div>
-            <label class="check"><input type="checkbox" id="clip" /> Zoom in on typical frames (cut off spikes)</label>
+            <label class="check"><input type="checkbox" id="clip" /> Cut off spikes</label>
           </div>
           <div class="frames">
             <div class="card">
               <h3>Frame time during the capture</h3>
-              <p class="cap">Milliseconds per frame, lower is faster. Thick line: average of each slice of time. Thin line: slowest frame in it, so single stutters stay visible.</p>
+              <p class="cap">Thick line: average per slice · thin line: slowest frame</p>
               <div id="trace"></div>
             </div>
             <div class="card">
               <h3>Frame-time percentiles</h3>
-              <p class="cap">How slow the slowest frames get. Read across: at 99%, 1 frame in 100 is slower than the line.</p>
               <div id="pct-frames"></div>
             </div>
           </div>
@@ -432,7 +430,6 @@
             <details class="more">
               <summary>Sensor readings (MangoHud)</summary>
               <div class="table-scroll"><table id="sensors"></table></div>
-              <p class="small muted">Whatever MangoHud could read. GPU load is not GPU busy time, and these readings alone don't prove a bottleneck.</p>
             </details>
           </div>
         </div>
@@ -441,8 +438,7 @@
       <section id="captures" class="block">
         <div class="head">
           <div>
-            <h2>Every capture, in the order it ran</h2>
-            <p>Your current setup is measured at the start and end of every round. If its dots drift or scatter, something other than the config changed: heat, background load or the scene.</p>
+            <h2>Captures in run order</h2>
           </div>
         </div>
         <div class="panel">
@@ -456,7 +452,7 @@
         <div class="head"><div><h2>Setup &amp; method</h2></div></div>
         <div class="panel">
           <dl class="facts" id="facts"></dl>
-          <h3 style="margin-top: 20px">Notes from the captures</h3>
+          <h3 style="margin-top: 20px">Notes</h3>
           <ul class="notes" id="notes"></ul>
           <details class="more" style="margin-top: 14px">
             <summary>How each number is calculated</summary>
@@ -469,7 +465,7 @@
         </div>
       </section>
     </main>
-    <footer class="foot">Deadlock Performance Lab · offline report: no analytics or external files · independent community project, not affiliated with Valve</footer>
+    <footer class="foot">Deadlock Performance Lab · not affiliated with Valve</footer>
     <div id="tip" role="status" hidden></div>
 
     <script type="application/json" id="report-data">
@@ -579,11 +575,11 @@
         },
       };
       const VERDICTS = {
-        improved: { label: "Improved", icon: "▲", tone: "good", why: `The whole 95% interval is above +${T}%, and every check passed.` },
-        regressed: { label: "Regressed", icon: "▼", tone: "bad", why: `The whole 95% interval is below −${T}%, and every check passed.` },
-        "within threshold": { label: `Within ±${T}%`, icon: "=", tone: "flat", why: `The whole 95% interval is inside ±${T}%: any real change is too small to matter.` },
-        inconclusive: { label: "Inconclusive", icon: "?", tone: "unknown", why: "Not enough evidence for a verdict yet:" },
-        demo: { label: "Demo data", icon: "◇", tone: "unknown", why: "Made-up data never gets a verdict. With real captures, the same rules decide it." },
+        improved: { label: "Improved", icon: "▲", tone: "good", why: `95% interval above +${T}%` },
+        regressed: { label: "Regressed", icon: "▼", tone: "bad", why: `95% interval below −${T}%` },
+        "within threshold": { label: `Within ±${T}%`, icon: "=", tone: "flat", why: `95% interval inside ±${T}%` },
+        inconclusive: { label: "Inconclusive", icon: "?", tone: "unknown", why: "No verdict" },
+        demo: { label: "Demo data", icon: "◇", tone: "unknown", why: "Made-up data" },
       };
       const verdictOf = (v) => VERDICTS[v] || { label: v, icon: "·", tone: "unknown", why: "" };
       function badge(verdict) {
@@ -641,7 +637,7 @@
         const n = data.comparisons.length;
         $("title").textContent = n ? `${n} config${n > 1 ? "s" : ""} compared with ${BASE_NAME.toLowerCase()}` : "Baseline check";
         if (data.synthetic)
-          $("demo-note").replaceChildren(h("div", { class: "demo" }, h("strong", {}, "Example report with made-up data. "), "It shows how a report works. None of these numbers were measured in Deadlock."));
+          $("demo-note").replaceChildren(h("div", { class: "demo" }, h("strong", {}, "Example report with made-up data.")));
 
         // Headline: the largest change, with its interval and verdict right beside it.
         const ranked = data.comparisons.filter((c) => isNum(c.delta_pct)).sort((a, b) => b.delta_pct - a.delta_pct);
@@ -655,7 +651,7 @@
             h("div", { class: "hero-row" }, h("span", { class: "hero" }, pct(best.delta_pct)), badge(best.verdict)),
             h("div", { class: "hero-name" }, best.name),
             h("div", { class: "hero-sub muted" },
-              best.ci95_pct ? `95% interval ${span(best.ci95_pct)}` : `${best.paired_rounds.length} round${best.paired_rounds.length === 1 ? "" : "s"}: too few for an interval`,
+              best.ci95_pct ? `95% interval ${span(best.ci95_pct)}` : "no interval",
               ` · ${fixed(best.avg_fps)} FPS vs ${fixed(base.avg_fps)} FPS`),
           );
           const tally = {};
@@ -667,7 +663,7 @@
           head.append(
             h("div", { class: "hero-label" }, BASE_NAME),
             h("div", { class: "hero-row" }, h("span", { class: "hero" }, fixed(base.avg_fps)), h("span", { class: "hero-sub muted" }, "average FPS")),
-            h("div", { class: "hero-sub muted" }, n ? "No config has a complete round yet." : "Only your current setup was measured. Add configs to compare against it."),
+            h("div", { class: "hero-sub muted" }, n ? "No config has a complete round yet." : "Only your current setup was measured."),
           );
         }
         const kpi = (k, v, unit, sub) => h("div", { class: "kpi" }, h("div", { class: "k" }, k), h("div", { class: "v" }, v, unit ? h("small", {}, unit) : null), sub ? h("div", { class: "s" }, sub) : null);
@@ -675,25 +671,22 @@
           h("div", { class: "kpis" },
             kpi("Current setup", fixed(base.avg_fps), "FPS", "average"),
             kpi("Current 1% low", fixed(base.metrics?.low_1_fps), "FPS", "slowest 1% of frames"),
-            kpi("Current 99th pct.", fixed(base.metrics?.p99_frame_ms, 2), "ms", "frame time"),
-            kpi("Captures used", `${data.valid_runs}`, `of ${data.expected_runs}`, `${data.baseline.runs} of your current setup`)),
+            kpi("Current 99th pct.", fixed(base.metrics?.p99_frame_ms, 2), "ms", "frame time")),
         );
 
-        // The rules a verdict needs, each with its current value.
+        // Values behind the verdict rules; the icon compares each with its limit.
         const rows = [];
-        const check = (tone, text, sub) => rows.push(h("li", {}, h("span", { class: "ic " + tone, "aria-label": { good: "passed", bad: "failed", warn: "needs attention", info: "note" }[tone] }, { good: "✓", bad: "✕", warn: "!", info: "i" }[tone]), h("div", {}, text, sub ? h("small", {}, sub) : null)));
-        if (data.synthetic) check("info", "Made-up data", "Demo reports never give a verdict.");
-        const complete = Math.min(...data.comparisons.map((c) => c.paired_rounds.length), plan.rounds || 0);
-        if (n)
-          check(complete >= 5 ? "good" : "bad", `${complete} complete round${complete === 1 ? "" : "s"} per config`,
-            complete >= 5 ? "Verdicts need at least 5." : (plan.rounds || 0) < 5 ? "Enough to rank configs, not to prove a gain. Verdicts need 5: re-test the best ones at Confirm length." : `${plan.rounds} were planned; verdicts need 5 complete ones.`);
+        const check = (tone, text) => rows.push(h("li", {}, h("span", { class: "ic " + tone, "aria-label": { good: "within limit", bad: "over limit", warn: "attention", info: "" }[tone] }, { good: "✓", bad: "✕", warn: "!", info: "·" }[tone]), h("div", {}, text)));
         const cv = data.baseline.cv_pct, drift = data.baseline.drift_pct;
-        check(!isNum(cv) ? "warn" : cv <= T ? "good" : "bad", `Baseline variation ${fixed(cv, 1, "%")}`, !isNum(cv) ? "Needs at least one baseline capture." : `How much your current setup's FPS scatters. Limit ${T}%.`);
-        check(!isNum(drift) ? "warn" : Math.abs(drift) <= T ? "good" : "bad", `Baseline drift ${pct(drift)}`, !isNum(drift) ? "Needs two baseline captures." : `First to last capture of your current setup. Limit ±${T}%.`);
-        check(data.valid_runs === data.expected_runs ? "good" : "warn", `${data.valid_runs} of ${data.expected_runs} planned captures usable`, data.valid_runs === data.expected_runs ? null : "Missing or failed captures can bias a comparison. See Captures.");
-        if (!data.synthetic)
-          check(pending.length ? "warn" : "good", pending.length ? `${pending.length} capture${pending.length > 1 ? "s" : ""} need your check` : "No captures waiting for your check", pending.length ? "Confirm them in the app: Results → Details & review." : null);
-        if (scenario.mode === "bots") check("warn", "Bot match", "Bots behave randomly, so results are exploratory.");
+        check(!isNum(cv) ? "info" : cv <= T ? "good" : "bad", `Baseline variation ${fixed(cv, 1, "%")} (limit ${T}%)`);
+        check(!isNum(drift) ? "info" : Math.abs(drift) <= T ? "good" : "bad", `Baseline drift ${pct(drift)} (limit ±${T}%)`);
+        if (n) {
+          const complete = Math.min(...data.comparisons.map((c) => c.paired_rounds.length));
+          check("info", `${complete} of ${plan.rounds} rounds complete`);
+        }
+        check(data.valid_runs === data.expected_runs ? "good" : "warn", `${data.valid_runs} of ${data.expected_runs} captures usable`);
+        if (pending.length) check("warn", `${pending.length} capture${pending.length > 1 ? "s" : ""} not checked yet`);
+        if (scenario.mode === "bots") check("warn", "Bot match (not repeatable)");
         $("checks").replaceChildren(...rows);
       }
 
@@ -754,7 +747,7 @@
       function renderCompare() {
         const m = METRICS[state.metric];
         document.querySelectorAll("[data-metric]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.metric === state.metric));
-        $("compare-note").textContent = state.metric === "avg" ? `Verdicts use average FPS · threshold ±${T}%` : "1% low intervals are descriptive: verdicts use average FPS";
+        $("compare-note").textContent = state.metric === "avg" ? `Threshold ±${T}%` : "Verdicts use average FPS";
         const headRow = h("tr", {}, ...COLUMNS.map((col) => {
           const th = h("th", { class: [col.num ? "num" : "", col.opt ? "opt" : "", col.key === "forest" ? "forest-head" : "c-" + col.key].join(" "), scope: "col" });
           if (col.key === "forest") th.append(h("span", { class: "sr-only" }, "Interval chart"));
@@ -797,9 +790,9 @@
       function renderLegend() {
         const sw = (...kids) => s("svg", { width: 26, height: 14, "aria-hidden": "true" }, ...kids);
         $("compare-legend").replaceChildren(
-          h("span", {}, sw(s("line", { class: "ci", x1: 2, x2: 24, y1: 7, y2: 7 }), s("circle", { class: "pt", cx: 13, cy: 7, r: 4 })), "Mean change with its 95% interval"),
-          h("span", {}, sw(s("circle", { class: "pt open", cx: 13, cy: 7, r: 4 })), "Fewer than 3 rounds: no interval"),
-          h("span", {}, sw(s("rect", { class: "band", x: 1, y: 1, width: 24, height: 12, rx: 2 })), `±${T}%: too small to count`),
+          h("span", {}, sw(s("line", { class: "ci", x1: 2, x2: 24, y1: 7, y2: 7 }), s("circle", { class: "pt", cx: 13, cy: 7, r: 4 })), "Mean change, 95% interval"),
+          h("span", {}, sw(s("circle", { class: "pt open", cx: 13, cy: 7, r: 4 })), "No interval (under 3 rounds)"),
+          h("span", {}, sw(s("rect", { class: "band", x: 1, y: 1, width: 24, height: 12, rx: 2 })), `±${T}% threshold`),
           h("span", {}, sw(s("line", { class: "ci good", x1: 2, x2: 24, y1: 7, y2: 7 }), s("circle", { class: "pt good", cx: 13, cy: 7, r: 4 })), "Improved"),
           h("span", {}, sw(s("line", { class: "ci bad", x1: 2, x2: 24, y1: 7, y2: 7 }), s("circle", { class: "pt bad", cx: 13, cy: 7, r: 4 })), "Regressed"),
         );
@@ -881,31 +874,30 @@
         if (!c) {
           const runs = runsOf("baseline");
           panel.append(
-            h("div", { class: "detail-head" }, h("div", {}, h("div", { class: "small muted" }, "Selected"), h("div", { class: "detail-name" }, BASE_NAME), h("div", { class: "detail-sum" }, "The installation as it is, including your gameinfo.gi, video.txt and autoexec. It isn't necessarily Valve's defaults."))),
-            h("div", { class: "cards" },
-              card("Percentiles across its captures", "Mean of each capture's percentile curve.", (el) => percentileChart(el, [{ cls: "base", label: BASE_NAME, dist: averageDistribution(runs) }], "Frame-time percentiles of your current setup")),
-              card("Numbers", `Means across its ${runs.length} captures.`, (el) => el.append(metricsTable(runs, null))),
-              card("Stability", "Every capture of your current setup is plotted under Captures.", (el) => el.append(h("p", { class: "small muted" }, `Variation ${fixed(data.baseline.cv_pct, 1, "%")} · drift ${pct(data.baseline.drift_pct)}. Both should stay within ${T}% for a verdict.`)))),
+            h("div", { class: "detail-head" }, h("div", {}, h("div", { class: "small muted" }, "Selected"), h("div", { class: "detail-name" }, BASE_NAME))),
+            h("div", { class: "cards two" },
+              card("Frame-time percentiles", null, (el) => percentileChart(el, [{ cls: "base", label: BASE_NAME, dist: averageDistribution(runs) }], "Frame-time percentiles of your current setup")),
+              card("Numbers", `Mean of ${runs.length} captures`, (el) => el.append(metricsTable(runs, null)))),
           );
           return;
         }
-        const m = METRICS[state.metric], v = verdictOf(c.verdict);
-        const why = h("div", { class: "why" }, h("strong", {}, v.label + ". "), v.why);
-        if (c.reasons.length) why.append(h("ul", {}, c.reasons.map((r) => h("li", {}, r))));
+        const m = METRICS[state.metric];
+        // Reasons only matter when they withheld a verdict.
+        const why = c.verdict === "inconclusive" && c.reasons.length ? h("div", { class: "why" }, h("strong", {}, "No verdict:"), h("ul", {}, c.reasons.map((r) => h("li", {}, r)))) : null;
         panel.append(
           h("div", { class: "detail-head" },
             h("div", { style: "min-width:0;flex:1" }, h("div", { class: "small muted" }, "Selected config"), h("div", { class: "detail-name" }, c.name), c.treatment?.summary ? h("div", { class: "detail-sum" }, c.treatment.summary) : null, c.treatment?.description ? h("div", { class: "detail-sum" }, c.treatment.description) : null),
             h("div", { class: "detail-fig" }, h("div", { class: "small muted" }, `${m.label} vs current setup`), h("div", { class: "big" }, pct(m.delta(c))), h("div", { class: "small muted" }, m.ci(c) ? `95% interval ${span(m.ci(c))}` : "no interval"), h("div", { style: "margin-top:6px" }, badge(c.verdict)))),
-          why,
         );
+        if (why) panel.append(why);
         const own = runsOf(c.case), base = runsOf("baseline");
         panel.append(h("div", { class: "cards" },
-          card(`${m.label} change in each round`, `Each dot compares this config with the two baseline captures in its round. Line: mean. Orange wash: 95% interval. Grey band: ±${T}%.`, (el) => roundChart(el, c)),
-          card("Frame-time percentiles", `Mean of each capture's curve. Lower is faster; the right side is the slowest frames.`, (el) => {
+          card(`${m.label} change per round`, `Line: mean · shaded: 95% interval · grey band: ±${T}%`, (el) => roundChart(el, c)),
+          card("Frame-time percentiles", null, (el) => {
             percentileChart(el, [{ cls: "cfg", label: c.name, dist: averageDistribution(own) }, { cls: "base", label: BASE_NAME, dist: averageDistribution(base) }], `Frame-time percentiles, ${c.name} against your current setup`);
             el.append(h("div", { class: "legend" }, h("span", {}, h("i", { class: "key cfg" }), c.name), h("span", {}, h("i", { class: "key base" }), BASE_NAME)));
           }),
-          card("Numbers", `Means across captures (${own.length} of this config, ${base.length} of your current setup); slowest frame is the worst single one.`, (el) => el.append(metricsTable(base, own))),
+          card("Numbers", `Means over ${base.length} current and ${own.length} config captures; slowest frame is the maximum`, (el) => el.append(metricsTable(base, own))),
         ));
         const t = c.treatment;
         if (t?.changes?.length || t?.notes?.length) {
@@ -920,7 +912,7 @@
         }
       }
       function card(title, caption, fill) {
-        const body = h("div", {}), el = h("div", { class: "card" }, h("h3", {}, title), h("p", { class: "cap" }, caption), body);
+        const body = h("div", {}), el = h("div", { class: "card" }, h("h3", {}, title), caption ? h("p", { class: "cap" }, caption) : null, body);
         requestAnimationFrame(() => fill(body));
         return el;
       }
@@ -1087,10 +1079,10 @@
           });
         }
         $("runs-legend").replaceChildren(...[
-          h("span", {}, h("i", { class: "dotkey base" }), BASE_NAME + " (line joins them in order)"),
+          h("span", {}, h("i", { class: "dotkey base" }), BASE_NAME),
           byCase[state.selected] ? h("span", {}, h("i", { class: "dotkey cfg" }), byCase[state.selected].name) : null,
           data.comparisons.length > (byCase[state.selected] ? 1 : 0) ? h("span", {}, h("i", { class: "dotkey other" }), "Other configs") : null,
-          h("span", {}, "A / B: the captures under Frame times"),
+          h("span", {}, "A / B: shown under Frame times"),
           schedule.some((it) => !runByIndex[it.index]) ? h("span", {}, "✕ missing or not used") : null,
         ].filter(Boolean));
         // The same captures as a table, including the ones analysis left out.
@@ -1154,16 +1146,15 @@
         $("notes").replaceChildren(...(notes.length ? notes : [h("li", {}, "No warnings.")]));
         const defs = [
           ["Average FPS", "1000 ÷ the mean frame time over the whole capture."],
-          ["1% low FPS", "1000 ÷ the mean of the slowest 1% of frame times. Not the same as 1000 ÷ the 99th percentile."],
-          ["0.1% low FPS", "The same for the slowest 0.1%. Shown only with at least 1,000 frames."],
-          ["Percentile frame time", "The frame time that the given share of frames is faster than. The 99th percentile: 1 frame in 100 is slower."],
-          ["Change", "For each round: this config ÷ the mean of that round's two baseline captures, minus 1. The reported change is the mean over rounds."],
-          ["95% interval", "The range the true change probably lies in, from resampling whole rounds 4,000 times. Needs 3 rounds; exploratory and not corrected for testing many configs."],
-          ["Verdict", `Needs 5 complete rounds, baseline variation and drift within ${T}%, all captures usable and checked, and the whole interval outside ±${T}%. Decided on average FPS only.`],
-          ["Baseline variation", "Standard deviation of your current setup's average FPS across its captures, as a percentage of the mean (CV)."],
-          ["Baseline drift", "Change from the first to the last capture of your current setup."],
-          ["Frame-time chart", "Frames are grouped into up to 360 slices of time; each slice shows its mean and slowest frame. Every number above uses all frames."],
-          ["Not measured", "Input latency, network delay, visual quality and how a live match plays."],
+          ["1% low FPS", "1000 ÷ the mean of the slowest 1% of frame times."],
+          ["0.1% low FPS", "The same for the slowest 0.1%; needs at least 1,000 frames."],
+          ["Percentile frame time", "The frame time that share of frames is faster than."],
+          ["Change", "Per round: config ÷ mean of that round's two baseline captures, minus 1. Averaged over rounds."],
+          ["95% interval", "Bootstrap over whole rounds (4,000 resamples). Needs 3 rounds."],
+          ["Verdict", `Average FPS only. Needs 5 complete rounds, baseline variation and drift within ${T}%, checked captures, and the whole interval outside ±${T}%.`],
+          ["Baseline variation", "Coefficient of variation of your current setup's average FPS."],
+          ["Baseline drift", "First to last capture of your current setup."],
+          ["Frame-time chart", "Up to 360 time slices, each with its mean and slowest frame. All numbers use every frame."],
         ];
         $("defs").replaceChildren(...defs.flatMap(([k, v]) => [h("dt", {}, k), h("dd", {}, v)]));
         $("context").textContent = JSON.stringify(ctx, null, 2);

@@ -1,10 +1,8 @@
 # Contributing
 
-Thanks for helping. The most useful contributions are bug reports with a `dpl doctor` output, tested presets and docs fixes.
-
 ## Reporting bugs
 
-Include the command or screen, steps to reproduce, `dpl --version`, and a short error excerpt. A report ZIP can help. Don't upload an entire workspace: it can contain account identifiers, local paths and your configs.
+Use the bug report template. Don't upload a whole workspace: it can contain account identifiers, local paths and your configs.
 
 ## Development
 
@@ -43,7 +41,7 @@ Plans own the experiment's conditions and schedule, and analysis checks every re
 
 ### The report
 
-`report.py` embeds the analysis as JSON in `assets/report.html`, which draws every chart as inline SVG. It follows benchmark-comparison conventions: paired changes with intervals against the practical threshold (a forest plot), results per round, HdrHistogram-style frame-time percentile curves, frame-time traces and a run-order chart of every capture. Profilers such as Perfetto, Speedscope or the Firefox Profiler are built for call stacks and timelines, not paired A/B statistics, and need an online or multi-megabyte viewer; MangoHud's online log viewer needs raw logs uploaded. So the report stays one offline file with no dependencies. It inserts every label as text (`textContent`), never as HTML; keep it that way.
+`report.py` embeds the analysis as JSON in `assets/report.html`, which draws its charts as inline SVG with no dependencies. Labels are inserted as text (`textContent`), never as HTML.
 
 ### Saved data (schema 1)
 
@@ -64,7 +62,7 @@ Plans own the experiment's conditions and schedule, and analysis checks every re
 
 Plans can't be edited or resumed after they start; create a new plan when conditions change. Unsupported schemas are rejected. Profiles saved by 0.1-0.2 (`gameinfo`, `launch`) still load and run, but nothing creates them any more.
 
-**Recovery and export boundaries.** A write-ahead journal records backups before any file changes. An install-wide `flock` and a pending-journal pointer in the user's cache protect concurrent workspaces, and PID start times are checked before signalling the game. See [recovery](../docs/TROUBLESHOOTING.md#recover-after-interruption). The app accepts requests only from `127.0.0.1` with the expected Host header and a `SameSite=Strict` secret cookie, and changes also need a header other websites can't send. Reports embed their data in one HTML file with all text escaped, and the ZIP exporter includes only four report files. See [SECURITY.md](SECURITY.md).
+**Recovery and export boundaries.** A write-ahead journal records backups before any file changes. An install-wide `flock` and a pending-journal pointer in the user's cache protect concurrent workspaces, and PID start times are checked before signalling the game. See [recovery](../docs/TROUBLESHOOTING.md#recover-after-an-interruption). The app accepts requests only from `127.0.0.1` with the expected Host header and a `SameSite=Strict` secret cookie, and changes also need a header other websites can't send. Reports embed their data in one HTML file with all text escaped, and the ZIP exporter includes only four report files. See [SECURITY.md](SECURITY.md).
 
 ## Pull requests
 

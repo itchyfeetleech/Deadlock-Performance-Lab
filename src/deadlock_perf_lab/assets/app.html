@@ -33,8 +33,7 @@
         font: 14px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
       }
       a { color: var(--accent); }
-      h1, h2, h3 { margin: 0; font-weight: 600; }
-      h1 { font: 28px/1.2 var(--serif); }
+      h2, h3 { margin: 0; font-weight: 600; }
       h2 { font: 20px/1.3 var(--serif); }
       h3 { font-size: 14px; }
       p { margin: 6px 0; }
@@ -160,7 +159,6 @@
       .depth label:has(input:checked) { border-color: var(--accent); background: #232719; }
       .depth strong { font-size: 15px; }
       .depth .meta { font: 12px var(--mono); color: var(--accent); margin: 4px 0; }
-      .depth p { color: var(--muted); font-size: 12.5px; margin: 0; }
       .go { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
       .estimate { font-size: 15px; }
       .estimate strong { color: var(--accent); }
@@ -283,6 +281,7 @@
       <header class="top">
         <div class="brand"><img src="/icon.svg" alt="" /> DEADLOCK <span>Performance Lab</span></div>
         <div class="top-actions">
+          <button id="demo" title="A report built from made-up data; no game needed">Example report</button>
           <button id="shortcut" title="Add a launcher to your desktop's application menu">Add to app menu</button>
           <button id="quit" title="Close this app. A running benchmark keeps going.">Quit</button>
         </div>
@@ -300,21 +299,6 @@
 
       <!-- ============================== SET UP ============================== -->
       <main id="view-setup" role="tabpanel">
-        <section class="panel intro">
-          <div>
-            <h1>Find the gameinfo.gi and video.txt that really run best.</h1>
-            <p class="muted">
-              Build configs from your own files or Sqooky's OptimizationLock presets. The lab launches Deadlock,
-              plays the same replay moment with each one, records every frame and compares it with your current setup.
-              Your game files are always put back afterwards.
-            </p>
-          </div>
-          <div>
-            <button class="primary big" id="demo">See an example report</button>
-            <p class="small muted">Made-up data · no game needed · 2 seconds</p>
-          </div>
-        </section>
-
         <section class="panel">
           <div class="step">
             <div class="dot" id="dot-tools" data-n="1">1</div>
@@ -342,11 +326,7 @@
                 <li>Under <strong>General → Launch Options</strong>, paste this line. Keep any options you already use <em>after</em> <code>%command%</code>.</li>
               </ol>
               <div class="code"><code id="launch-options"></code><button id="copy">Copy</button></div>
-              <p class="hint">
-                This loads MangoHud invisibly. It only records while a benchmark runs, so normal play is unchanged.
-                Steam may only save the change when it closes, so this step can still say "not detected" after you
-                paste. Your first benchmark checks it for real.
-              </p>
+              <p class="hint">MangoHud stays hidden and only records during a benchmark. Steam may not save launch options until it closes, so this can say "not detected" after you paste.</p>
               <button class="link" id="launch-done">I've pasted it</button>
             </div>
           </div>
@@ -360,7 +340,6 @@
                 <h2>Choose the test scene</h2>
                 <span class="status" id="status-scene"></span>
               </div>
-              <p class="muted small">Every config is measured on exactly the same moment of the same replay, so the only difference is the setting.</p>
               <form id="scene" class="form" autocomplete="off">
                 <label class="wide">
                   <span class="label">Deadlock folder</span>
@@ -370,8 +349,8 @@
                 <div class="wide">
                   <span class="label small muted">Scene</span>
                   <div class="seg">
-                    <label><input type="radio" name="mode" value="replay" /> Replay <span class="small muted">(recommended)</span></label>
-                    <label><input type="radio" name="mode" value="bots" /> Bot match <span class="small muted">(random; rough numbers only)</span></label>
+                    <label><input type="radio" name="mode" value="replay" /> Replay</label>
+                    <label><input type="radio" name="mode" value="bots" /> Bot match <span class="small muted">(not repeatable)</span></label>
                   </div>
                 </div>
                 <label class="wide replay-only">
@@ -383,7 +362,7 @@
                 <label class="replay-only">
                   <span class="label">Start at tick</span>
                   <input name="tick" type="number" min="0" step="1" />
-                  <div class="hint">A busy moment such as a teamfight. Leave at least a minute of replay after it.</div>
+                  <div class="hint">Needs at least a minute of replay after it.</div>
                 </label>
                 <label class="replay-only">
                   <span class="label">Player to follow</span>
@@ -393,11 +372,11 @@
                 <label>
                   <span class="label">Target FPS</span>
                   <input name="budget_fps" type="number" min="1" max="2000" />
-                  <div class="hint">Usually your monitor's refresh rate. Slower frames count as "over budget".</div>
+                  <div class="hint">Frames slower than this count as over budget.</div>
                 </label>
                 <div class="wide" style="margin-top:6px">
                   <h3>Your game settings</h3>
-                  <p class="hint">Saved with every result so you (and anyone you share with) know what was measured. Detected values are filled in for you — check them.</p>
+                  <p class="hint">Saved with every result. Detected values are pre-filled.</p>
                 </div>
                 <label><span class="label">Resolution <span class="tag" data-for="resolution"></span></span><input name="resolution" placeholder="e.g. 2560x1440" /></label>
                 <label><span class="label">Graphics quality</span><input name="graphics_preset" placeholder="e.g. High, or Custom: low shadows" /></label>
@@ -420,13 +399,7 @@
         <section class="panel intro">
           <div>
             <h2>Your configs</h2>
-            <p class="muted">
-              A config is a <code>gameinfo.gi</code> and/or <code>video.txt</code> to test against your current setup.
-              Start from your own files, one of
-              <a href="https://github.com/Sqooky/OptimizationLock" target="_blank" rel="noreferrer">Sqooky's OptimizationLock</a>
-              presets (downloaded from GitHub when you pick one) or a file you import, then tick the settings to change.
-              Your game only uses a config while a benchmark runs.
-            </p>
+            <p class="muted">A <code>gameinfo.gi</code> and/or <code>video.txt</code> to test. The game only uses it during a benchmark.</p>
           </div>
           <button class="primary big" id="new-config">New config</button>
         </section>
@@ -449,7 +422,7 @@
           <div class="go">
             <div class="estimate" id="cfg-summary"></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <button id="cfg-each" title="Create one config per ticked setting, so each one's effect is measured on its own">Test each setting separately…</button>
+              <button id="cfg-each" title="Create one config per ticked setting">Test each setting separately…</button>
               <button id="cfg-preview">Preview file changes</button>
               <button class="primary" id="cfg-save">Save config</button>
             </div>
@@ -462,28 +435,25 @@
       <!-- ============================== BENCHMARK ============================== -->
       <main id="view-bench" role="tabpanel" class="hidden">
         <section class="panel">
-          <h2>1 · Which configs should be compared with your current setup?</h2>
-          <p class="muted small">Your current setup is always measured too, before and after each round.</p>
+          <h2>Configs</h2>
+          <p class="muted small">Your current setup is measured before and after each round.</p>
           <div id="profiles"></div>
         </section>
 
         <section class="panel">
-          <h2>2 · How thorough?</h2>
+          <h2>Length</h2>
           <div class="depth" id="depth">
             <label><input type="radio" name="preset" value="scout" class="sr-only" />
-              <strong>Quick look</strong><div class="meta" data-meta="scout"></div>
-              <p>Does it work, and roughly how fast? Good for a first try.</p></label>
+              <strong>Quick look</strong><div class="meta" data-meta="scout"></div></label>
             <label><input type="radio" name="preset" value="screen" class="sr-only" />
-              <strong>Shortlist</strong><div class="meta" data-meta="screen"></div>
-              <p>Compare many configs quickly to find ones worth confirming.</p></label>
+              <strong>Shortlist</strong><div class="meta" data-meta="screen"></div></label>
             <label><input type="radio" name="preset" value="confirm" class="sr-only" />
-              <strong>Confirm</strong><div class="meta" data-meta="confirm"></div>
-              <p>Repeated rounds. Needed for an "improved" or "regressed" verdict.</p></label>
+              <strong>Confirm</strong><div class="meta" data-meta="confirm"></div></label>
           </div>
           <div class="runopts">
             <label><span class="label">FPS limit during the test</span>
               <select id="fps-mode">
-                <option value="0">Uncapped (recommended)</option>
+                <option value="0">Uncapped</option>
                 <option value="keep">Keep my game's limit</option>
                 <option value="custom">Custom…</option>
               </select></label>
@@ -496,7 +466,7 @@
               </select></label>
             <label><span class="label">Repeat rounds</span><input id="rounds" type="number" min="1" max="30" /></label>
           </div>
-          <p class="hint">The FPS limit and graphics API apply to every capture, your current setup included, so they don't skew the comparison. Uncapped lets small differences show.</p>
+          <p class="hint">Both apply to every capture, including your current setup.</p>
           <div class="go">
             <div>
               <div class="estimate" id="estimate"></div>
@@ -504,7 +474,6 @@
             </div>
             <button class="primary big" id="start">Start benchmark</button>
           </div>
-          <p class="hint">While it runs, leave the game window alone: each capture launches Deadlock, plays your replay, records, then closes it. You can keep using other apps, but heavy background work skews results.</p>
         </section>
       </main>
 
@@ -632,7 +601,7 @@
         Steam: "Install Steam from your distribution's packages (the Flatpak version is not supported).",
         MangoHud: "Install MangoHud with your package manager (e.g. sudo apt install mangohud, sudo pacman -S mangohud, sudo dnf install mangohud).",
         "Game install": "Install Deadlock in Steam, or type its folder in step 3.",
-        "Game closed": "Close Deadlock before benchmarking. The lab never closes a game it didn't start.",
+        "Game closed": "Close Deadlock before benchmarking.",
       };
       const OK = { "Game closed": "Deadlock isn't running.", Recovery: "Nothing to restore.", Steam: "Installed.", MangoHud: "Installed." };
       function renderChecks() {
@@ -728,7 +697,7 @@
           await api("/api/settings", body);
           sceneDirty = false;
           await refresh();
-          toast(empty.length ? "Saved. Fill in your game settings too — results need them for a verdict." : "Scene saved.");
+          toast(empty.length ? "Saved. Fill in your game settings before benchmarking." : "Scene saved.");
         });
       });
 
@@ -946,7 +915,7 @@
         const wholeFile = P.source !== "current"
           ? `<div class="notice">${part === "gameinfo" ? "Replaces your whole gameinfo.gi, engine sections included." : "Uses this video.txt, keeping your own GPU identifiers."} Your ticked settings go on top.</div>` : "";
         const keep = part === "video" && P.source !== "current"
-          ? `<label class="small" style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" id="keep-display" ${P.keep_display ? "checked" : ""} /> Keep my resolution, display mode, VSync and brightness (recommended, so only quality settings differ)</label>` : "";
+          ? `<label class="small" style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" id="keep-display" ${P.keep_display ? "checked" : ""} /> Keep my resolution, display mode, VSync and brightness</label>` : "";
         $("#part-body").innerHTML = `
           <div class="source">
             <label><span class="label">Start from</span><select id="src-select">${options}</select></label>
@@ -1162,9 +1131,8 @@
         }
         if (!rows.length) { box.innerHTML = `<div class="notice">Tick at least one setting above first, then come back here.</div>`; return; }
         box.innerHTML = `<div class="batch"><h3>Test each setting separately</h3>
-          <p class="small muted">Creates one config per value. Each starts from the same file and changes <em>only</em> that setting, so you see what each one does on its own.
-          To see how a setting scales, list several values separated by commas, for example <code>1, 2, 4, 8</code>. The name above is used as a label (optional).</p>
-          ${B.gameinfo.source !== "current" || B.video.source !== "current" ? `<div class="notice">Each config starts from the file you selected, not from your installed file. Save that starting file as a config of its own (with nothing ticked) to see its effect alone.</div>` : ""}
+          <p class="small muted">One config per value, each changing only that setting. Separate several values with commas: <code>1, 2, 4, 8</code>.</p>
+          ${B.gameinfo.source !== "current" || B.video.source !== "current" ? `<div class="notice">Each config starts from the selected file, not your installed one.</div>` : ""}
           ${rows.join("")}
           ${rows.length > 1 ? `<label class="small" style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="batch-combined" /> Also save one config with all of them together (first value of each)</label>` : ""}
           <div class="go"><div class="estimate" id="batch-summary"></div><button class="primary" id="batch-create">Create configs</button></div></div>`;
@@ -1204,7 +1172,7 @@
               <button class="link" data-sel="${i}:1">select all</button> · <button class="link" data-sel="${i}:0">none</button></small></h3>
               <div class="options">${items.map(opt).join("")}</div></div>`).join("") +
             `<p class="small"><button class="link" data-goto="configs">Create or edit configs</button></p>`
-          : `<div class="empty"><p>No configs yet. A config is the gameinfo.gi and/or video.txt you want to test.</p>
+          : `<div class="empty"><p>No configs yet.</p>
               <p><button class="primary" data-goto="configs">Build your first config</button></p></div>`;
       }
       $("#profiles").addEventListener("click", (e) => {
@@ -1258,9 +1226,8 @@
         if (S.recovery_needed) blockers.push("Restore your files first (see the banner above).");
         if (S.running) blockers.push("A benchmark is already running.");
         if (!launchOk() && !blockers.length) blockers.push("Steam launch options not detected yet — the first capture will fail if they are missing.");
-        if (rounds < 5 && n) blockers.push(`${rounds === 1 ? "One round gives" : `${rounds} rounds give`} numbers but no verdict; a verdict needs 5 rounds (Confirm).`);
         $("#blockers").innerHTML = blockers.map((b) => `<li>${esc(b)}</li>`).join("");
-        const hard = blockers.filter((b) => !b.startsWith("Steam launch") && !/no verdict/.test(b));
+        const hard = blockers.filter((b) => !b.startsWith("Steam launch"));
         $("#start").disabled = !n || hard.length > 0;
       }
       $("#start").onclick = (e) => act(e.target, async () => {
@@ -1305,8 +1272,7 @@
             ${live ? "" : `<button id="dismiss">Dismiss</button>`}</div></div>
           <div class="progress"><div style="width:${Math.round((100 * done) / total)}%"></div></div>
           <div class="small muted">${done} of ${total} captures done${cur ? " · now: " + cur : ""}${live && d.remaining_min != null ? ` · about ${Math.max(1, Math.round(d.remaining_min))} min left` : ""}</div>
-          ${live ? `<p class="small">Don't touch the game window while it records. You can close this tab; the benchmark keeps going.</p>` : ""}
-          ${!live && st.state === "complete" && !d.synthetic ? `<p class="small">Next: open <button class="link" data-goto="results">Results</button> and confirm what you saw during the captures to unlock verdicts.</p>` : ""}
+          ${live ? `<p class="small">Leave the game window alone while it records. Closing this tab doesn't stop the benchmark.</p>` : ""}
           <pre class="log">${esc((d.log_tail || d.events).slice(-14).join("\n")) || "Starting…"}</pre>`;
         const c = $("#cancel");
         if (c) c.onclick = () => act(c, async () => { await api("/api/cancel", { session: d.id }); toast("Cancelling — the game closes and your files are restored."); });
@@ -1323,7 +1289,7 @@
         if (!S) return;
         const el = $("#sessions");
         if (!S.sessions.length) {
-          el.innerHTML = `<div class="panel empty"><h2>No results yet</h2><p>Run the example report or your first benchmark and it will show up here.</p>
+          el.innerHTML = `<div class="panel empty"><h2>No results yet</h2>
             <p><button class="primary" id="demo2">See an example report</button></p></div>`;
           $("#demo2").onclick = (e) => runDemo(e.target);
           return;
@@ -1366,15 +1332,13 @@
           ${r.blockers.length ? `<details><summary class="small">${r.blockers.length} note${r.blockers.length > 1 ? "s" : ""}</summary><ul class="small muted">${r.blockers.map((b) => `<li>${esc(b)}</li>`).join("")}</ul></details>` : ""}</td></tr>`).join("");
         box.innerHTML = `<div class="rank" id="rank-${esc(id)}"></div><h3>All captures</h3><div class="table-wrap"><table><thead><tr><th>Capture</th><th>Round</th><th>Config</th><th class="num">Avg FPS</th><th class="num">1% low</th><th class="num">P99 ms</th><th>Checks</th></tr></thead><tbody>${rows}</tbody></table></div>
           ${d.log_tail ? `<details><summary>Error log</summary><pre class="log">${esc(d.log_tail.join("\n"))}</pre></details>` : ""}
-          ${pending.length ? `<form class="review"><h3>Confirm what you saw (${pending.length} capture${pending.length > 1 ? "s" : ""})</h3>
-            <p class="small muted">The lab can't see your screen, so results stay "inconclusive" until you confirm each capture was valid:
-            the camera stayed on the same player, the replay kept playing, and ${pending.some((r) => r.reviewable.some((b) => /^(Config applied|Whole GameInfo|Renderer)/.test(b)))
-              ? "the config looked as intended (no missing models, broken lighting or menus)" : "nothing odd happened"}. Only tick captures you actually watched.</p>
+          ${pending.length ? `<form class="review"><h3>Check captures (${pending.length})</h3>
+            <p class="small muted">Tick the captures where the camera stayed on the player, the replay kept playing${pending.some((r) => r.reviewable.some((b) => /^(Config applied|Whole GameInfo|Renderer)/.test(b))) ? " and the config looked right" : ""}.</p>
             <label class="small"><input type="checkbox" class="all" /> Select all</label>
             <ul>${pending.map((r) => `<li><label><input type="checkbox" value="${esc(r.id)}" /> <span class="mono small">${esc(r.id)}</span></label></li>`).join("")}</ul>
-            <label><span class="label">How did you check? (saved with the result)</span>
-              <textarea name="note" minlength="15" required placeholder="Watched every capture: camera stayed on player 1 and the replay kept playing throughout."></textarea></label>
-            <p><button class="primary" type="submit">Confirm selected captures</button></p></form>` : ""}`;
+            <label><span class="label">Note (saved with the result)</span>
+              <textarea name="note" minlength="15" required placeholder="Camera stayed on player 1 and the replay kept playing."></textarea></label>
+            <p><button class="primary" type="submit">Mark as checked</button></p></form>` : ""}`;
         loadRanking(id);
         const form = $("form.review", box);
         if (form) {
@@ -1384,7 +1348,7 @@
             act($("button[type=submit]", form), async () => {
               const runs = $$("ul input:checked", form).map((i) => i.value);
               const r = await api("/api/review", { session: id, runs, note: form.note.value });
-              toast(`Confirmed ${r.reviewed} capture(s). The report now includes them.`);
+              toast(`Marked ${r.reviewed} capture(s) as checked.`);
               loadDetail(id);
             });
           };
@@ -1402,15 +1366,14 @@
         const rows = r.rows.map((x, i) => {
           const within = noise != null && Math.abs(x.delta_pct) <= noise;
           return `<tr><td>${i + 1}</td><td>${esc(x.name)}</td><td class="num">${num(x.avg_fps)}</td>
-            <td class="num ${x.delta_pct > 0 ? "delta-pos" : "delta-neg"}">${signed(x.delta_pct)}${within ? ` <span class="badge" title="Smaller than the variation between your two baseline captures (${noise.toFixed(1)}%), so it may just be noise.">≈ noise</span>` : ""}</td>
+            <td class="num ${x.delta_pct > 0 ? "delta-pos" : "delta-neg"}">${signed(x.delta_pct)}${within ? ` <span class="badge" title="Within the baseline variation (${noise.toFixed(1)}%)">≈ noise</span>` : ""}</td>
             <td class="num">${signed(x.low_1_delta_pct)}</td><td>${r.rounds >= 5 ? esc(x.verdict) : ""}</td></tr>`;
         }).join("");
         const v = S.presets.confirm, each = v.sample_s + v.warmup_s + v.settle_s + v.cooldown_s + S.launch_overhead_s;
         const est = (n) => `${5 * (n + 2)} launches, ${duration(5 * (n + 2) * each)}`;
         const first = Math.min(5, r.rows.length);
         el.innerHTML = `<h3>Ranking</h3>
-          <p class="small muted">Sorted by change in average FPS against your current setup (${num(r.baseline_fps)} FPS${noise != null ? `, baseline variation ${noise.toFixed(1)}%` : ""}).
-          ${r.rounds < 5 ? `${r.rounds === 1 ? "One round" : r.rounds + " rounds"} can rank candidates but can't prove a gain: re-test the best ones below.` : ""}</p>
+          <p class="small muted">Your current setup: ${num(r.baseline_fps)} FPS${noise != null ? ` · baseline variation ${noise.toFixed(1)}%` : ""}</p>
           <div class="table-wrap"><table><thead><tr><th>#</th><th>Config</th><th class="num">Avg FPS</th><th class="num">vs current</th><th class="num">1% low</th><th>${r.rounds >= 5 ? "Verdict" : ""}</th></tr></thead><tbody>${rows}</tbody></table></div>
           ${r.synthetic ? "" : `<div class="retest">Re-test the top <input type="number" class="topn" min="1" max="${Math.min(30, r.rows.length)}" value="${first}" /> at Confirm length (5 rounds):
             <span class="small muted est">${est(first)}</span><button class="primary go-retest">Re-test</button></div>`}`;

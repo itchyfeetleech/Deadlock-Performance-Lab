@@ -116,7 +116,7 @@ def make_plan(workspace: Path, cases: list[str], rounds: int | None, seed: int, 
     conditions = config["conditions"] if not demo else {
         "resolution": "1920×1080 (illustrative)", "graphics_preset": "Synthetic demonstration",
         "proton_version": "Not used", "display_mode": "Not used",
-        "notes": "Generated data exercises the pipeline; no game or hardware measurements were taken."}
+        "notes": "Made-up data; no game was run."}
     context = {"scenario": scenario, "system": machine, "game": game, "conditions": conditions,
                "metric_version": "frametime-v1", "capture": "mangohud-per-frame", "synthetic": demo}
     plan = {"schema": 1, "version": __version__, "id": session_id, "synthetic": demo,

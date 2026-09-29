@@ -24,7 +24,7 @@ from .workspace import default_workspace, initialize, launch_options, load_works
 def parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="dpl", description="Deadlock Performance Lab — benchmark Deadlock settings on Linux.",
-        epilog="Run dpl with no command to open the app. dpl guide shows the terminal workflow.")
+        epilog="Run dpl with no command to open the app.")
     p.add_argument("--version", action="version", version=f"Deadlock Performance Lab {__version__}")
     p.add_argument("--workspace", type=Path, default=None,
                    help="where settings and results are kept (default: ~/.local/share/deadlock-performance-lab, "
@@ -39,7 +39,7 @@ def parser() -> argparse.ArgumentParser:
     gui = command("gui", "Open the app in your browser (same as running dpl on its own).")
     gui.add_argument("--no-browser", action="store_true", help="print the address instead of opening a browser")
     gui.add_argument("--port", type=int, default=0, help="fixed local port (default: random)")
-    demo = command("demo", "Build an example report from synthetic data; no game needed.")
+    demo = command("demo", "Build an example report from made-up data; no game needed.")
     demo.add_argument("--open", action="store_true", help="open the report in your browser")
     demo.add_argument("--rounds", type=int, default=5)
     command("shortcut", "Add Deadlock Performance Lab to your desktop's application menu.")
@@ -50,9 +50,9 @@ def parser() -> argparse.ArgumentParser:
     diag.add_argument("--json", action="store_true")
     setup = command("setup", "Show the per-game Steam launch options for capture.")
     setup.add_argument("--manual", action="store_true", help="write a manual per-frame capture config (toggle with Shift+F2)")
-    profiles = command("profiles", "List built-in and custom treatments.")
+    profiles = command("profiles", "List your configs and other profiles.")
     profiles.add_argument("--json", action="store_true")
-    profile = command("profile", "Inspect a treatment or add a frozen custom profile.")
+    profile = command("profile", "Show, add or sweep configs.")
     ps = profile.add_subparsers(dest="action", required=True)
     show = ps.add_parser("show")
     show.add_argument("id")
@@ -68,7 +68,7 @@ def parser() -> argparse.ArgumentParser:
     add.add_argument("--video", type=Path, help="a complete video.txt to test (your resolution and device are kept)")
     add.add_argument("--autoexec", type=Path, help="console cvars applied at launch instead")
     add.add_argument("--manual", action="store_true", help="a change you make by hand (see docs/ADVANCED.md)")
-    plan = command("plan", "Freeze configs, conditions and randomized baseline-bracketed rounds.")
+    plan = command("plan", "Create a benchmark plan: configs, run settings and shuffled rounds.")
     plan.add_argument("--cases", required=True, help="comma-separated config IDs (see dpl profiles); globs allowed")
     plan.add_argument("--fps-max", type=int, default=None,
                       help="FPS limit for every capture, baseline included (0 = uncapped; default: keep the game's)")
@@ -79,15 +79,15 @@ def parser() -> argparse.ArgumentParser:
     plan.add_argument("--seed", type=int, default=47)
     plan.add_argument("--experimental", action="store_true", help="allow legacy whole-file gameinfo profiles saved by older versions")
     plan.add_argument("--manual", action="store_true", help="plan captures made by the operator")
-    run = command("run", "Execute an existing plan; --live is required for game launches.")
+    run = command("run", "Run a plan; --live launches the game.")
     run.add_argument("session", nargs="?", default="latest")
     run.add_argument("--live", action="store_true")
-    timing = command("timings", "Show observed iteration time and estimated remaining duration.")
+    timing = command("timings", "Show how long captures took and estimate the time left.")
     timing.add_argument("session", nargs="?", default="latest")
-    short = command("shortlist", "Rank provisional screening candidates for a fresh confirmation experiment.")
+    short = command("shortlist", "List a session's configs with the largest FPS gains.")
     short.add_argument("session", nargs="?", default="latest")
     short.add_argument("--top", type=int, default=5)
-    command("sessions", "Show experiment status and session IDs.")
+    command("sessions", "List sessions and their status.")
     status = command("status", "Show a session's current progress.")
     status.add_argument("session", nargs="?", default="latest")
     inspect = command("inspect", "Inspect a MangoHud CSV without adding it to an experiment.")
@@ -103,13 +103,13 @@ def parser() -> argparse.ArgumentParser:
     imp.add_argument("--round", type=int, required=True)
     imp.add_argument("--interval-ms", type=float, required=True, help="0 for confirmed per-frame logs; 100 for legacy 10Hz logs")
     imp.add_argument("--start", type=float, default=0)
-    review = command("review", "Record an operator's scene/setting verification for one real run.")
+    review = command("review", "Mark a live or imported capture as checked.")
     review.add_argument("session", nargs="?", default="latest")
     review.add_argument("--run", required=True)
     review.add_argument("--note", required=True)
-    for name, description in (("compare", "Print baseline comparisons with uncertainty and quality gates."),
-                              ("report", "Build an interactive offline HTML report, CSV, JSON and Markdown."),
-                              ("export", "Create a shareable report ZIP; excludes raw captures, logs and backups.")):
+    for name, description in (("compare", "Print the comparison as Markdown."),
+                              ("report", "Build the offline HTML report, CSV, JSON and Markdown."),
+                              ("export", "Create a shareable report ZIP (no raw captures, logs or backups).")):
         cmd = command(name, description)
         cmd.add_argument("session", nargs="?", default="latest")
         cmd.add_argument("--threshold", type=float, default=3)
@@ -117,9 +117,8 @@ def parser() -> argparse.ArgumentParser:
             cmd.add_argument("--open", action="store_true")
         if name == "export":
             cmd.add_argument("--output", type=Path, required=True)
-    rec = command("recover", "Restore pending transactions after a crash; verify original checksums.")
+    rec = command("recover", "Put game files back after an interrupted run.")
     rec.add_argument("--force", action="store_true", help="preserve conflicting edits then restore the verified backup")
-    command("guide", "Show the recommended measurement and optimization workflow.")
     return p
 
 
@@ -133,30 +132,6 @@ def show_plan(session: Path, plan: dict) -> None:
     print(f"\nConfigured timing: about {minimum:.1f} minutes plus launch/load/seek overhead.")
     print(f"Frozen plan: {session / 'plan.json'}")
     print("Import captures in this order with dpl import." if plan.get("manual") else f"Execute: dpl --workspace {session.parent.parent} run {plan['id']} --live")
-
-
-def guide() -> None:
-    print("""Deadlock Performance Lab
-
-The easiest way in is the app: run  dpl  on its own.
-
-Terminal workflow (same steps as the app):
-1. dpl demo --open        See an example report (no game needed).
-2. dpl doctor             Check Steam, MangoHud and the game install.
-3. dpl setup              Copy the printed line into Deadlock's Steam Launch Options.
-4. Edit lab.json in your workspace: replay, tick, player and your game settings.
-   dpl profile add my-config --gameinfo FILE --video FILE   Save a config to test.
-5. dpl plan --cases my-config --preset confirm --fps-max 0   Check the printed schedule.
-6. Close Deadlock, then:  dpl run --live
-7. dpl review --run ID --note '...'                Confirm captures you watched.
-8. dpl report --open
-
-Your current setup is the baseline. Game files are restored after every capture.
-After a power loss or hard kill, close Deadlock and run  dpl recover.
-Settings you change by hand (video options, Proton, drivers): dpl plan --manual, then dpl import.
-
-Guides: https://github.com/itchyfeetleech/Deadlock-Performance-Lab#readme
-""")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -176,7 +151,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Added {install_shortcut(workspace)}\nLook for Deadlock Performance Lab in your application menu.")
         elif cmd == "init":
             initialize(workspace, args.install, args.replay)
-            print(f"Workspace created: {workspace}\nEdit {workspace / 'lab.json'} to record your conditions, or run dpl to use the app.\nNext: dpl doctor · dpl setup · dpl guide")
+            print(f"Workspace created: {workspace}\nRun dpl to use the app, or edit {workspace / 'lab.json'}.")
         elif cmd == "doctor":
             config = read_json(workspace / "lab.json") if (workspace / "lab.json").exists() else {}
             install = Path(config["install"]) if config.get("install") else discover_install()
@@ -197,8 +172,9 @@ def main(argv: list[str] | None = None) -> int:
                 atomic_write(path, f"log_interval=0\nautostart_log=0\noutput_folder={workspace / 'imports'}\n".encode())
                 options = options.replace("capture.conf", "manual.conf")
             print("Deadlock → Steam Properties → General → Launch Options\n\n" + options)
-            print("\nKeep any unrelated existing launch options. The suite does not edit Steam preferences.")
-            print("Toggle manual logging with Shift+F2. Stop logging before importing." if args.manual else "Run dpl plan, then dpl run --live. Outside a run this config disables logging.")
+            print("\nPut any options you already use after %command%.")
+            if args.manual:
+                print("Toggle logging with Shift+F2.")
         elif cmd == "profiles":
             entries = catalog(workspace)
             if args.json:
@@ -291,11 +267,10 @@ def main(argv: list[str] | None = None) -> int:
                 raise LabError("top must be between 1 and 50")
             session = session_path(workspace, args.session)
             candidates = shortlist(session, args.top)
-            print("Provisional candidates for retesting; this ranking does not confirm a benefit.")
             for c in candidates:
                 print(f"  {c['case']:<28} {c['delta_pct']:+.2f}% average FPS · {len(c['paired_rounds'])} complete rounds · {c['verdict']}")
             if candidates:
-                print("\nCreate a fresh confirmation plan:\ndpl plan --preset confirm --cases " + ",".join(c["case"] for c in candidates))
+                print("\nRe-test them: dpl plan --preset confirm --cases " + ",".join(c["case"] for c in candidates))
             else:
                 print("No complete baseline-bracketed rounds yet.")
         elif cmd == "sessions":
@@ -333,8 +308,6 @@ def main(argv: list[str] | None = None) -> int:
         elif cmd == "recover":
             restored = recover(workspace, force=args.force)
             print("\n".join(restored) if restored else "No pending restoration.")
-        elif cmd == "guide":
-            guide()
         return 0
     except KeyboardInterrupt:
         print("\nCancelled. Game files were restored unless an error is shown above; run dpl doctor to confirm.", file=sys.stderr)
