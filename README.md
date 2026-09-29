@@ -11,7 +11,7 @@
 [![Linux](https://img.shields.io/badge/platform-Linux-d0df9c)](docs/QUICKSTART.md)
 [![GPL v3](https://img.shields.io/badge/license-GPLv3-d0df9c)](LICENSE)
 
-[Install](#install) · [First benchmark](docs/QUICKSTART.md) · [Configs guide](docs/CONFIGS.md) · [Community results](https://itchyfeetleech.github.io/Deadlock-Performance-Lab/) · [Troubleshooting](docs/TROUBLESHOOTING.md)
+[Install](#install) · [First benchmark](docs/QUICKSTART.md) · [Configs guide](docs/CONFIGS.md) · [Troubleshooting](docs/TROUBLESHOOTING.md)
 
 <img src="docs/images/app-configs.png" width="860" alt="The config builder: a preset from Sqooky's OptimizationLock with settings grouped by category, switches and sliders" />
 
@@ -56,6 +56,13 @@ Real benchmarks also need native (non-Flatpak) Steam, Deadlock, [MangoHud](https
 
 <img src="docs/images/app-results.png" width="860" alt="Results ranking: configs sorted by FPS change against the baseline, with a re-test button" />
 
+<details>
+<summary>The full report (example data)</summary>
+
+<img src="docs/images/report-desktop.png" width="860" alt="The offline report: baseline stability, each config's FPS change with its interval, and frame-time comparisons. All values are synthetic." />
+
+</details>
+
 Then download the winning config's files from the Configs tab and install them yourself. DPL never installs a config permanently.
 
 ## Is it safe?
@@ -94,10 +101,6 @@ Everything in the app is also a command.
 | [Methodology](docs/METHODOLOGY.md) | Metrics, rounds, verdict rules and their limits |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | Common problems and recovery |
 | [Changelog](CHANGELOG.md) | What changed in each version |
-
-## Community results
-
-The [100-CVAR screen](https://itchyfeetleech.github.io/Deadlock-Performance-Lab/cvar-impact.html) and [numeric value sweep](https://itchyfeetleech.github.io/Deadlock-Performance-Lab/particle-values.html) were run with an earlier version of this tool. They are exploratory averages from one machine, not recommendations for yours: measure your own.
 
 ## Contributing
 

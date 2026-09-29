@@ -53,12 +53,8 @@ ul.ticks{list-style:none;padding:0;margin:0;display:grid;gap:10px}
 ul.ticks li{padding-left:26px;position:relative;color:var(--muted)}
 ul.ticks li::before{content:"✓";position:absolute;left:0;color:var(--green)}
 ul.ticks strong{color:var(--text)}
-.results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
-.results a.card{text-decoration:none;color:inherit}
-.results a.card:hover{border-color:var(--accent)}
-.results img{width:100%;height:auto;aspect-ratio:3/2;object-fit:cover;object-position:top;border-radius:8px;margin-bottom:12px;background:#0e120e}
 footer{border-top:1px solid var(--line);padding:26px 0 40px;color:var(--muted);font-size:14px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
-@media(max-width:760px){.cards,.results,.two{grid-template-columns:1fr}.hero{padding-top:36px}}
+@media(max-width:760px){.cards,.two{grid-template-columns:1fr}.hero{padding-top:36px}}
 </style>
 </head>
 <body>
@@ -68,7 +64,6 @@ footer{border-top:1px solid var(--line);padding:26px 0 40px;color:var(--muted);f
   <nav>
     <a href="#how">How it works</a>
     <a href="https://github.com/itchyfeetleech/Deadlock-Performance-Lab/blob/main/docs/QUICKSTART.md">Guide</a>
-    <a href="#results">Community results</a>
     <a href="https://github.com/itchyfeetleech/Deadlock-Performance-Lab">GitHub</a>
   </nav>
 </header>
@@ -123,15 +118,6 @@ footer{border-top:1px solid var(--line);padding:26px 0 40px;color:var(--muted);f
         <li><strong>Honest verdicts.</strong> <em>Improved</em> or <em>regressed</em> needs five rounds, stable baselines and your confirmation.</li>
       </ul>
     </div>
-  </div>
-</section>
-
-<section id="results">
-  <h2>Community results</h2>
-  <p class="sub">Two experiments run with an earlier version of the tool. They are exploratory averages from one machine, not recommendations for yours: measure your own.</p>
-  <div class="results">
-    <a class="card" href="cvar-impact.html"><img src="results/cvar-impact-thumb.png" width="1200" height="800" alt="The 100-CVAR results table, sorted by FPS change" loading="lazy"><h3>100 CVARs, three captures each</h3><p>One-setting GameInfo changes from OptimizationLock's reference, ranked by FPS change.</p></a>
-    <a class="card" href="particle-values.html"><img src="results/particle-values-summary.png" width="2400" height="1800" alt="Chart of FPS change for each tested CVAR value" loading="lazy"><h3>Numeric value sweep</h3><p>Eight numeric CVARs at four values each: 32 variants and 99 captures.</p></a>
   </div>
 </section>
 
