@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import shutil
 
-from .capture import chart_series, read_mangohud
+from .capture import chart_series, frame_distribution, read_mangohud
 from .profiles import valid_id
 from .storage import LabError, digest, exclusive_lock, fingerprint, read_json, write_json
 from .planning import verify_plan
@@ -58,6 +58,7 @@ def import_capture(session: Path, source: Path, case: str, round_index: int, *, 
             "profile_sha256": plan["profiles"][case]["sha256"],
             "metrics": capture.metrics(1000 / scenario["budget_fps"]), "warnings": capture.warnings,
             "quality_blockers": blockers, "series": chart_series(capture.times, capture.frames),
+            "distribution": frame_distribution(capture.frames),
         })
         write_json(session / "status.json", {"state": "complete" if len(records) + 1 == len(plan["schedule"]) else "importing",
                                             "completed": len(records) + 1, "total": len(plan["schedule"])})

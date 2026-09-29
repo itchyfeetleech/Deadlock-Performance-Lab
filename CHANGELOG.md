@@ -12,6 +12,7 @@
 - **Benchmark:** choose Quick look, Shortlist or Confirm and see the launches and time before you start. **FPS limit** (uncapped by default) and **graphics API** are run settings applied to every capture, baseline included (`dpl plan --fps-max N --renderer vulkan|dx11`). Runs continue in the background with live progress and a Cancel button that restores your files.
 - **Results:** a ranking by FPS change with baseline noise marked, a **Re-test the top N at Confirm length** button that reuses the run settings, capture review, report, and a Share ZIP. A **Restore my files** banner appears after an interrupted run.
 - **Add to app menu** (or `dpl shortcut`) installs a desktop launcher. The app closes itself after 30 idle minutes, and running `dpl` again reuses an open window.
+- **A rebuilt report.** One table compares every config with your current setup, drawing each change's 95% interval against the ±3% threshold, for average FPS or 1% lows. Selecting a config shows its change in every round, frame-time percentile curves, every metric side by side, the exact settings it changes and why it did or didn't get a verdict. Any two captures can be overlaid with a round stepper and spike zoom, a run-order chart shows every capture in sequence so drift stands out, and a checklist shows which verdict rules pass. Light and dark themes, a phone layout and print styles; still one offline HTML file.
 - **`dpl.pyz`:** a single file that runs with `python3 dpl.pyz`, attached to releases with the wheel and sdist.
 
 ### Changed
@@ -20,6 +21,7 @@
 - Configs are frozen into each plan as the exact files they write, so later edits never change past results. Hidden `gameinfo.gi` cvars are reported rather than blocking a config's verdict. A `video.txt` the game rewrites is restored, and the report notes what changed.
 - `dpl plan` requires `--cases`. `dpl doctor` separates advice (`WARN`) from failures. Settings saved from the app are validated before `lab.json` is written.
 - One product name, "Deadlock Performance Lab", everywhere; links point at the renamed repository.
+- Captures store frame-time percentiles; older results get them from their verified raw capture when a report is built. Analysis adds a descriptive 1% low interval and per-round 1% low changes. `summary.json` also carries each config's changed settings and the run schedule, `summary.md` ranks configs and adds the 1% low change, and `runs.csv` adds P95 frame time.
 
 ### Removed
 

@@ -16,7 +16,7 @@ import threading
 import time
 import uuid
 
-from .capture import chart_series, read_mangohud
+from .capture import chart_series, frame_distribution, read_mangohud
 from .profiles import validate
 from .storage import LabError, digest, exclusive_lock, read_json, write_json
 from .system import (APP_ID, doctor, game_identity, game_processes, identity, install_lock, process_matches,
@@ -375,6 +375,7 @@ def run_live(workspace: Path, session: Path, plan: dict, item: dict, directory: 
         result = {"metrics": result_capture.metrics(1000 / scenario["budget_fps"]),
                   "capture_sha256": result_capture.metadata["sha256"], "raw_capture": str(capture.relative_to(directory)), "capture_metadata": result_capture.metadata,
                   "series": chart_series(result_capture.times, result_capture.frames),
+                  "distribution": frame_distribution(result_capture.frames),
                   "warnings": warnings + result_capture.warnings, "quality_blockers": blockers}
         if profile["kind"] == "launch":
             result["quality_blockers"].append("Renderer flag requested; verify the selected API in steam.log or the game overlay.")
@@ -433,7 +434,7 @@ def run_demo(plan: dict, item: dict, directory: Path) -> dict:
     capture = read_mangohud(path, duration_s=duration, interval_ms=0)
     return {"metrics": capture.metrics(1000 / plan["context"]["scenario"]["budget_fps"]),
             "capture_sha256": capture.metadata["sha256"], "raw_capture": "capture.csv", "capture_metadata": capture.metadata,
-            "series": chart_series(capture.times, capture.frames),
+            "series": chart_series(capture.times, capture.frames), "distribution": frame_distribution(capture.frames),
             "warnings": ["DEMO DATA — synthetic capture."], "quality_blockers": []}
 
 

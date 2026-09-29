@@ -59,7 +59,7 @@ Real benchmarks also need native (non-Flatpak) Steam, Deadlock, [MangoHud](https
 <details>
 <summary>The full report (example data)</summary>
 
-<img src="docs/images/report-desktop.png" width="860" alt="The offline report: baseline stability, each config's FPS change with its interval, and frame-time comparisons. All values are synthetic." />
+<img src="docs/images/report-desktop.png" width="860" alt="The offline report: the biggest change, a checklist of the rules a verdict needs, and each config's FPS change with its 95% interval against the ±3% threshold. All values are synthetic." />
 
 </details>
 

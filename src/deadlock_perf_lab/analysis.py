@@ -118,9 +118,11 @@ def analyze(session: Path, threshold: float = 3) -> dict:
             paired_rounds.append(round_index)
             lows = [r["metrics"].get("low_1_fps") for r in controls]
             low = treatments[0]["metrics"].get("low_1_fps")
-            if all(x is not None for x in lows) and low is not None:
-                low_deltas.append((low / statistics.fmean(lows) - 1) * 100)
+            # Kept aligned with paired_rounds; None where a true 1% low is unavailable.
+            low_deltas.append((low / statistics.fmean(lows) - 1) * 100
+                              if all(x is not None for x in lows) and low is not None else None)
         ci = bootstrap_ci(deltas)
+        known_lows = [x for x in low_deltas if x is not None]
         delta = statistics.fmean(deltas) if deltas else None
         reasons = []
         if len(deltas) < 5:
@@ -147,7 +149,10 @@ def analyze(session: Path, threshold: float = 3) -> dict:
                             "metrics": aggregate_metrics(own),
                             "runs": len(own), "paired_rounds": paired_rounds, "delta_pct": delta,
                             "ci95_pct": ci, "round_deltas_pct": deltas,
-                            "low_1_delta_pct": statistics.fmean(low_deltas) if low_deltas else None,
+                            "low_1_delta_pct": statistics.fmean(known_lows) if known_lows else None,
+                            # Descriptive only: verdicts are decided on average FPS.
+                            "low_1_ci95_pct": bootstrap_ci(known_lows) if len(known_lows) == len(deltas) else None,
+                            "round_low_1_deltas_pct": low_deltas,
                             "avg_fps": statistics.fmean(r["metrics"]["avg_fps"] for r in own) if own else None,
                             "verdict": "demo" if plan["synthetic"] else verdict,
                             "reasons": reasons})

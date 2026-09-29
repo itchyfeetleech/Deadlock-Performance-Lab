@@ -78,11 +78,13 @@ For the first run, a *Quick look* with one config is a good smoke test.
 
 ## 4. Results
 
-The **Results** tab lists every benchmark. **Details & review** starts with a **ranking**: configs sorted by change in average FPS against your current setup, with anything smaller than your baseline variation marked *≈ noise*. Rank many configs with a one-round Shortlist, then press **Re-test the top N** to run just the best ones at Confirm length, with the same FPS limit and graphics API. **Open report** shows:
+The **Results** tab lists every benchmark. **Details & review** starts with a **ranking**: configs sorted by change in average FPS against your current setup, with anything smaller than your baseline variation marked *≈ noise*. Rank many configs with a one-round Shortlist, then press **Re-test the top N** to run just the best ones at Confirm length, with the same FPS limit and graphics API. **Open report** shows, top to bottom:
 
-- **Baseline stability.** Check its variation (CV) and drift first. High values mean something other than the config changed.
-- **Each config against the baseline:** average FPS, 1% lows, P99 frame time, the change in percent with a 95% interval, and a verdict with the reasons it was or wasn't given.
-- **Frame-time traces.** Overlay any two captures to see stutters.
+- **Summary.** The biggest change, and a checklist of what a verdict needs: enough rounds, a stable baseline (variation and drift within 3%), usable captures and your checks. Read this first: a failed check means something other than the config may have changed.
+- **Configs compared with your current setup.** Each config's change with its 95% interval, drawn against a shaded ±3% band. A verdict needs the whole interval outside the band. Switch between average FPS and 1% lows, sort by any column, or filter by name or setting.
+- **Selected config.** Its change in every round, frame-time percentile curves against your current setup (how slow the slowest frames get), every metric side by side, the settings it changes and the reasons for its verdict.
+- **Frame times.** Overlay any two captures, step through the rounds and zoom past spikes to see stutters.
+- **Captures.** Every capture in the order it ran, so baseline drift and outliers stand out, with each one's checks.
 
 **Details & review** lists every capture. The lab can't see your screen, so live captures carry checks only you can clear. Confirm that the camera stayed on the player, the replay kept playing and the config looked as intended. Tick the captures you actually watched and describe how you checked. Verdicts stay *inconclusive* until the relevant captures are confirmed. The app can't clear malformed data, missing settings or failed cvar readback.
 

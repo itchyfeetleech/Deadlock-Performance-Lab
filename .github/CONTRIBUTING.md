@@ -17,7 +17,7 @@ python -m build
 dpl --workspace /tmp/dpl-dev          # the app, with a throwaway workspace
 ```
 
-Tests use temporary workspaces and fake game, Steam and console fixtures. They need neither Steam nor Deadlock, and don't use the network. The app page `src/deadlock_perf_lab/assets/app.html` has no build step or external assets. Check changes to it in a browser at desktop and phone widths.
+Tests use temporary workspaces and fake game, Steam and console fixtures. They need neither Steam nor Deadlock, and don't use the network. The app page and the report (`src/deadlock_perf_lab/assets/app.html` and `report.html`) have no build step or external assets. Check changes in a browser at desktop and phone widths, and the report in its light and dark themes too; `dpl demo --open` builds one.
 
 ## How it fits together
 
@@ -34,12 +34,16 @@ Tests use temporary workspaces and fake game, Steam and console fixtures. They n
 | `system.py` | Steam discovery and read-only settings detection, setup checks, fingerprints, process identity |
 | `runner.py`, `vconsole.py` | Game lifecycle, replay control, capture orchestration |
 | `transaction.py`, `storage.py` | Atomic writes, backups, recovery journals, locks |
-| `capture.py`, `metrics.py` | MangoHud parsing, window validation, metrics, binned traces |
+| `capture.py`, `metrics.py` | MangoHud parsing, window validation, metrics, binned traces and percentiles |
 | `imports.py` | Ordered manual captures and review records |
 | `analysis.py` | Evidence checks, round comparisons, timings, rankings |
-| `report.py`, `assets/report.html` | Offline HTML, Markdown, JSON, CSV and ZIP exports |
+| `report.py`, `assets/report.html` | Offline HTML report and its Markdown, JSON, CSV and ZIP exports |
 
 Plans own the experiment's conditions and schedule, and analysis checks every result against its plan before comparing. Metric definitions and verdict rules live in the [methodology](../docs/METHODOLOGY.md).
+
+### The report
+
+`report.py` embeds the analysis as JSON in `assets/report.html`, which draws every chart as inline SVG. It follows benchmark-comparison conventions: paired changes with intervals against the practical threshold (a forest plot), results per round, HdrHistogram-style frame-time percentile curves, frame-time traces and a run-order chart of every capture. Profilers such as Perfetto, Speedscope or the Firefox Profiler are built for call stacks and timelines, not paired A/B statistics, and need an online or multi-megabyte viewer; MangoHud's online log viewer needs raw logs uploaded. So the report stays one offline file with no dependencies. It inserts every label as text (`textContent`), never as HTML; keep it that way.
 
 ### Saved data (schema 1)
 

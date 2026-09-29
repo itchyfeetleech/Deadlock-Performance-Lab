@@ -30,7 +30,7 @@ All frame-time values are milliseconds. Quantiles linearly interpolate the sorte
 | Stalls | Counts above 50 ms and above 100 ms; descriptive thresholds, not a stutter diagnosis |
 | Telemetry | Available MangoHud CPU/GPU load, temperature, clocks, memory and power summaries |
 
-Telemetry is sampled by MangoHud on its own update cadence and may repeat between frames. CPU load here is MangoHud system CPU load, not a process CPU profile. Zero telemetry can mean unsupported sensors; do not interpret it as proof of idle hardware. The report's plots group frame times into min/mean/max bins for display; statistics always use the full selected window.
+Telemetry is sampled by MangoHud on its own update cadence and may repeat between frames. CPU load here is MangoHud system CPU load, not a process CPU profile. Zero telemetry can mean unsupported sensors; do not interpret it as proof of idle hardware. The report's frame-time traces group frames into min/mean/max bins for display; statistics always use the full selected window. Each capture also keeps its frame-time percentiles from 0% to 99.99%, spaced evenly in "nines" (90%, 99%, 99.9%) as in HdrHistogram plots, for the report's percentile curves. A config's curve is the mean of its captures' curves, and a curve stops where a capture has too few frames to support the percentile (99.9% needs 1,000 frames). Results recorded before percentiles were stored get them from their raw capture when the report is built, if its hash still matches.
 
 Interval captures retain sampled FPS estimates and sample percentiles but suppress true 1%/0.1% lows and directional performance verdicts. They must not be mixed with per-frame captures.
 
@@ -43,7 +43,7 @@ control = mean(opening baseline FPS, closing baseline FPS)
 round change = 100 × (T FPS / control - 1)
 ```
 
-The reported effect is the mean round change. A deterministic percentile bootstrap resamples complete round changes 4,000 times to estimate a 95% interval. This avoids pretending that thousands of correlated frames are thousands of independent experiments, but assumes rounds reasonably represent the conditions of interest. The two baseline controls are averaged; there is no claimed time-interpolated drift correction.
+The reported effect is the mean round change. A deterministic percentile bootstrap resamples complete round changes 4,000 times to estimate a 95% interval. The report computes the 1% low change and its interval the same way; they are descriptive and never decide a verdict. This avoids pretending that thousands of correlated frames are thousands of independent experiments, but assumes rounds reasonably represent the conditions of interest. The two baseline controls are averaged; there is no claimed time-interpolated drift correction.
 
 At least five complete paired rounds are required for a directional verdict. Baseline CV and absolute opening-to-closing drift must both be no greater than the practical threshold (default 3%). All planned treatment rounds must be complete, capture context and profile fingerprints must match, raw hashes must verify and quality checks must be cleared. A CI wholly above +threshold yields “improved”; wholly below -threshold yields “regressed”; wholly inside the threshold band yields “within threshold.” Otherwise the result is inconclusive. Synthetic data always says “demo.”
 
