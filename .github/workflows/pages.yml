@@ -1,9 +1,10 @@
-name: Publish community results
+name: Publish project site
 on:
   push:
     branches: [main]
     paths:
       - 'site/**'
+      - 'docs/images/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -20,10 +21,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
-      - name: Assemble public results
+      - name: Assemble the site
         run: |
           cp -r site _site
-          cp site/cvar-impact.html _site/index.html
+          mkdir -p _site/images
+          cp docs/images/*.png _site/images/
           touch _site/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:

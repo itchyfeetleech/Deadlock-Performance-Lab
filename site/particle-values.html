@@ -13,8 +13,8 @@
 </style>
 </head>
 <body><main>
-<nav aria-label="Report navigation"><a href="./">← 100-CVAR screen</a><a href="#results">All value results</a><a href="https://github.com/itchyfeetleech/Deadlock-Performance-Lab">Benchmark source</a></nav>
-<div class="eyebrow">DEADLOCK PERF LAB / EXPERIMENT 02</div>
+<nav aria-label="Report navigation"><a href="./">← Project home</a><a href="cvar-impact.html">100-CVAR screen</a><a href="#results">All value results</a><a href="https://github.com/itchyfeetleech/Deadlock-Performance-Lab">Benchmark source</a></nav>
+<div class="eyebrow">DEADLOCK PERFORMANCE LAB / EXPERIMENT 02</div>
 <h1>Which CVAR values<br>moved performance?</h1>
 <p class="intro">Eight numeric commands, four values each. A follow-up to the 100-CVAR screen, including the particle fallback and size controls requested by Sqooky.</p>
 <p class="meta">September 6, 2026 · Ryzen 7 9800X3D / Radeon RX 9070 · Linux/Proton · 1280×720, existing low settings<br>Replay 102565106 · tick 134987 · 10-second samples · 10-second warm-up · player 1/chase view</p>
@@ -47,9 +47,9 @@
 <li>All 96 treatment captures lack individual CVAR readback. All 99 retain the replay progression/camera review flag. File application does not prove engine effect. The CSV and JSON preserve the quality notes.</li>
 <li>FPS measurements do not isolate CPU time from GPU time. Fallback controls may interact or be inactive in this workload; they were tested individually. Frame-rate gains do not establish acceptable visual quality or gameplay cues.</li></ul>
 <p>Game build 24882156 · Session <code>20260906T035918Z-34a33c</code><br>Context SHA-256: <code class="hash">c23d36e10d5552e641942e92ff4be72b23619fc0c467125170e813f48083c307</code></p>
-<p><a href="results/particle-values-provenance.md">Provenance and regeneration instructions</a> · <a href="https://github.com/itchyfeetleech/Deadlock-Performance-Lab/tree/main/research">Experiment design and candidate rationale</a> · <a href="https://github.com/Sqooky/OptimizationLock">OptimizationLock</a></p>
+<p><a href="results/particle-values-provenance.md">Provenance and quality notes</a> · <a href="results/particle-values-design.md">Experiment design and candidate rationale</a> · <a href="https://github.com/Sqooky/OptimizationLock">OptimizationLock</a></p>
 </details>
-<footer>Deadlock Perf Lab · Community measurements · <a href="./">View the earlier 100-CVAR screen</a></footer>
+<footer>Deadlock Performance Lab · Community measurements · <a href="cvar-impact.html">The earlier 100-CVAR screen</a> · <a href="./">Project home</a></footer>
 </main>
 <script>
 document.getElementById('command-filter').addEventListener('change',event=>{document.querySelectorAll('.command').forEach(section=>{section.hidden=event.target.value!=='all'&&section.id!==event.target.value;});});
