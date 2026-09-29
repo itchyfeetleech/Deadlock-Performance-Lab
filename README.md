@@ -51,7 +51,7 @@ Benchmarks also need native (non-Flatpak) Steam, Deadlock, [MangoHud](https://gi
 <details>
 <summary>The report (example data)</summary>
 
-<img src="docs/images/report-desktop.png" width="860" alt="The report: the biggest change, baseline checks, and each config's FPS change with its 95% interval. All values are made up." />
+<img src="docs/images/report-desktop.png" width="860" alt="The report: the biggest change, baseline variation and drift, and each config's FPS change with its 95% interval. All values are made up." />
 
 </details>
 
@@ -85,7 +85,7 @@ To use a config, download its files from the Configs tab and copy them into the 
 | [First benchmark](docs/QUICKSTART.md) | Setup and a first run |
 | [Configs](docs/CONFIGS.md) | Presets, settings, `video.txt`, imports, installing a config |
 | [Advanced use](docs/ADVANCED.md) | Many settings at once, run lengths, console cvars, manual captures |
-| [Methodology](docs/METHODOLOGY.md) | Metrics and verdict rules |
+| [Methodology](docs/METHODOLOGY.md) | How captures, metrics and changes are calculated |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | Common problems and recovery |
 | [Changelog](CHANGELOG.md) | Changes per version |
 

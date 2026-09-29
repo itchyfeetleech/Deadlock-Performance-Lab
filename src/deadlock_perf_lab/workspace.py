@@ -10,7 +10,8 @@ from .storage import LabError, atomic_write, read_json, write_json
 from .system import discover_install
 
 CONDITIONS = ("resolution", "graphics_preset", "proton_version", "display_mode")
-UNRECORDED = "record me"
+# Placeholders that workspaces from earlier versions stored for blank game settings.
+PLACEHOLDERS = {"record me", "Record upscaling, frame generation, VSync/VRR, driver overrides and background apps."}
 
 
 def default_workspace() -> Path:
@@ -58,8 +59,7 @@ def initialize(workspace: Path, install: str | None = None, replay: str | None =
               "scenario": {"mode": "replay", "replay": replay or "", "tick": 70000, "player": "1",
                            "map": "dl_midtown", "sample_s": 30, "warmup_s": 45, "settle_s": 5,
                            "cooldown_s": 5, "budget_fps": 144},
-              "conditions": {**{key: UNRECORDED for key in CONDITIONS},
-                             "notes": "Record upscaling, frame generation, VSync/VRR, driver overrides and background apps."}}
+              "conditions": {**{key: "" for key in CONDITIONS}, "notes": ""}}
     write_json(workspace / "lab.json", config)
     for folder in ("profiles", "sessions", "imports"):
         (workspace / folder).mkdir(exist_ok=True)
@@ -109,7 +109,7 @@ def save_settings(workspace: Path, values: dict) -> dict:
         if key not in (*CONDITIONS, "notes"):
             raise LabError(f"Unknown condition: {key}")
         value = " ".join(str(value).split())[:500]
-        config["conditions"][key] = value or (UNRECORDED if key in CONDITIONS else "")
+        config["conditions"][key] = value
     if config["install"] and scenario.get("mode") == "replay" and scenario.get("replay"):
         replay = Path(scenario["replay"]).expanduser()
         if not replay.is_absolute():
@@ -119,9 +119,6 @@ def save_settings(workspace: Path, values: dict) -> dict:
     write_json(workspace / "lab.json", validate_config(config))  # Never save an unusable config.
     return config
 
-
-def missing_conditions(config: dict) -> list[str]:
-    return [key for key in CONDITIONS if config.get("conditions", {}).get(key, UNRECORDED) in {UNRECORDED, ""}]
 
 
 def launch_options(workspace: Path) -> str:

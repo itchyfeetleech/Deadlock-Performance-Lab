@@ -8,7 +8,7 @@ import zipfile
 
 from deadlock_perf_lab.analysis import analyze, bootstrap_ci
 from deadlock_perf_lab.cli import main
-from deadlock_perf_lab.imports import import_capture, review_run
+from deadlock_perf_lab.imports import import_capture
 from deadlock_perf_lab.profiles import add_profile, catalog, validate_autoexec
 from deadlock_perf_lab.report import bundle, generate_report
 from deadlock_perf_lab.runner import run_session
@@ -51,7 +51,7 @@ class WorkflowTests(unittest.TestCase):
         session, plan = self.demo()
         result = analyze(session)
         self.assertEqual(result["valid_runs"], 15)
-        self.assertEqual(result["comparisons"][0]["verdict"], "demo")
+        self.assertNotIn("verdict", result["comparisons"][0])
         self.assertIsNotNone(result["comparisons"][0]["ci95_pct"])
         # Files outside the explicit report allowlist must stay local.
         (session / "private.env").write_text("secret")
@@ -91,7 +91,7 @@ class WorkflowTests(unittest.TestCase):
         write_json(path, record)
         self.assertIn("incompatible benchmark", str(analyze(session)["excluded"]))
 
-    def test_import_order_reuse_conditions_and_operator_review(self):
+    def test_import_order_reuse_and_conditions(self):
         add_profile(self.workspace, {"id":"shadows-low", "kind":"manual", "description":"Set shadows low"})
         session, plan = make_plan(self.workspace, ["shadows-low"], 1, 47, manual=True)
         source = mangohud(self.root / "raw.csv", [5.] * 300)
@@ -100,8 +100,8 @@ class WorkflowTests(unittest.TestCase):
         run = import_capture(session, source, "baseline", 1, interval_ms=0)
         with self.assertRaisesRegex(LabError, "already imported"):
             import_capture(session, source, "shadows-low", 1, interval_ms=0)
-        review_run(session, run.name, "Confirmed the intended replay camera and settings for this capture.")
-        self.assertFalse(analyze(session)["runs"][0]["quality_blockers"])
+        self.assertNotIn("quality_blockers", read_json(run / "result.json"))
+        self.assertEqual(analyze(session)["runs"][0]["warnings"], [])
         mangohud(source, [4.] * 350, system="Linux,Other CPU,GPU,32G,kernel,driver,performance")
         with self.assertRaisesRegex(LabError, "metadata differs"):
             import_capture(session, source, "shadows-low", 1, interval_ms=0)
@@ -155,30 +155,41 @@ class WorkflowTests(unittest.TestCase):
             if drift and item["case"] == "baseline":
                 ft += item["round"] * .3
             source = mangohud(self.root / f"source-{item['index']}.csv", [ft] * 300)
-            run = import_capture(session, source, item["case"], item["round"], interval_ms=0)
-            review_run(session, run.name, "Checked intended settings, camera and replay progression on this trial.")
+            import_capture(session, source, item["case"], item["round"], interval_ms=0)
         return session
 
-    def test_stable_complete_real_experiment_can_establish_direction(self):
+    def test_complete_experiment_reports_change_and_interval(self):
         session = self.manual_experiment()
-        result = analyze(session)
-        self.assertEqual(result["comparisons"][0]["verdict"], "improved")
-        self.assertGreater(result["comparisons"][0]["ci95_pct"][0], 3)
-        self.assertEqual(len(result["comparisons"][0]["paired_rounds"]), 5)
+        comparison = analyze(session)["comparisons"][0]
+        self.assertAlmostEqual(comparison["delta_pct"], 13.6, delta=0.2)
+        self.assertGreater(comparison["ci95_pct"][0], 13)
+        self.assertEqual(len(comparison["paired_rounds"]), 5)
 
-    def test_drift_blocks_apparent_improvement(self):
-        session = self.manual_experiment(drift=True)
-        result = analyze(session)
-        self.assertEqual(result["comparisons"][0]["verdict"], "inconclusive")
-        self.assertIn("Baseline stability", str(result["comparisons"][0]["reasons"]))
+    def test_baseline_drift_is_reported(self):
+        result = analyze(self.manual_experiment(drift=True))
+        self.assertGreater(abs(result["baseline"]["drift_pct"]), 3)
+        self.assertIsNotNone(result["comparisons"][0]["ci95_pct"])
 
-    def test_missing_closing_control_blocks_direction(self):
+    def test_round_without_closing_baseline_is_not_paired(self):
         session = self.manual_experiment()
         last = sorted((session / "runs").glob("*/result.json"))[-1]
         last.unlink()
         result = analyze(session)
-        self.assertEqual(result["comparisons"][0]["verdict"], "inconclusive")
         self.assertEqual(len(result["comparisons"][0]["paired_rounds"]), 4)
+        self.assertIn("Incomplete session", str(result["warnings"]))
+
+    def test_older_results_keep_data_problems_but_not_review_prompts(self):
+        session = self.manual_experiment()
+        path = sorted((session / "runs").glob("*/result.json"))[0]
+        record = read_json(path)
+        record["quality_blockers"] = ["Manual capture: confirm the planned scene, timing, camera and treatment were used.",
+                                      "Replay progression and camera require operator review; demo_info describes the file.",
+                                      "fps_max: requested 144, read back 120."]
+        write_json(path, record)
+        (path.parent / "review.json").write_text("{}")
+        run = analyze(session)["runs"][0]
+        self.assertEqual(run["warnings"], ["fps_max: requested 144, read back 120."])
+        self.assertNotIn("quality_blockers", run)
 
     def test_screen_preset_is_fast_and_does_not_edit_workspace(self):
         before = (self.workspace / "lab.json").read_bytes()
@@ -215,4 +226,3 @@ class WorkflowTests(unittest.TestCase):
             run_session(self.workspace, session)
         result = analyze(session)
         self.assertIsNone(result["comparisons"][0]["ci95_pct"])
-        self.assertTrue(any("5 complete" in s for s in result["comparisons"][0]["reasons"]))

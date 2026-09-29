@@ -34,9 +34,9 @@ Put any options you already use after `%command%`, and don't repeat `%command%`.
 | Start at tick | Where each capture starts. The replay has to run for the warm-up plus capture time after it. |
 | Player to follow | The player slot the camera follows. |
 | Target FPS | Frames slower than this count as over budget. |
-| Your game settings | Resolution, graphics quality, Proton version and display mode, saved with each result. Required before benchmarking. |
+| Your game settings | Optional: resolution, graphics quality, Proton version and display mode, saved with each result. |
 
-A **bot match** can replace the replay. Bots behave differently in every capture, so bot results never get a verdict.
+A **bot match** can replace the replay. Bots behave differently in every capture, so results vary more.
 
 Your baseline ("current setup") is the game as installed, including changes you've already made to `gameinfo.gi` or `autoexec.cfg`. To compare against stock, build a config from the **Clean Valve default** preset.
 
@@ -62,13 +62,11 @@ While it runs, leave the game window alone. Closing the browser tab doesn't stop
 
 ## 4. Results
 
-**Results** lists every benchmark. **Details & review** has the ranking by change in average FPS (changes within your baseline variation are marked *≈ noise*) and every capture. **Re-test the top N** runs the best configs again at Confirm length with the same run settings.
-
-Live captures need a manual check, because the app can't see whether the camera stayed on the player and the replay kept playing. Tick the captures you watched; comparisons that include unchecked captures get no verdict.
+**Results** lists every benchmark. **Details** has the ranking by change in average FPS (changes within your baseline variation are marked *≈ noise*) and every capture. **Re-test the top N** runs the best configs again at Confirm length with the same run settings.
 
 **Open report** shows each config's change with its 95% interval, per-round results, frame-time percentiles and traces, and every capture. **Share ZIP** downloads the report (`index.html`, `summary.md`, `summary.json`, `runs.csv`) without raw logs, game files or replay paths. Config names and notes are included.
 
-Metrics and verdict rules are in the [methodology](METHODOLOGY.md).
+How changes and intervals are calculated: [methodology](METHODOLOGY.md).
 
 ## Commands
 
@@ -79,7 +77,6 @@ $EDITOR ~/.local/share/deadlock-performance-lab/lab.json   # replay, tick, playe
 dpl profile add my-config --gameinfo ~/Downloads/gameinfo.gi   # and/or --video FILE
 dpl plan --cases my-config --preset confirm --fps-max 0   # freeze a plan and print its schedule
 dpl run --live                               # close Deadlock first
-dpl review --run 002-my-config --note 'Camera stayed on player 1 and the replay kept playing.'
 dpl report --open
 dpl export --output report.zip
 ```

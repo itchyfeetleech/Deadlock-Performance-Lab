@@ -86,6 +86,12 @@ class GuiServerTests(unittest.TestCase):
         status, page, _ = self.request("GET", f"/report/{demo['session']}/")
         self.assertEqual(status, 200)
         self.assertIn(b"DEMO DATA", page)
+        status, detail = self.api("GET", f"/api/session/{demo['session']}")
+        self.assertEqual(detail["runs"][0]["notes"], [])
+        self.assertNotIn("reviewable", detail["runs"][0])
+        status, ranking = self.api("GET", f"/api/session/{demo['session']}/ranking")
+        self.assertNotIn("verdict", ranking["rows"][0])
+        self.assertIsNotNone(ranking["rows"][0]["ci"])
         status, archive, response = self.request("GET", f"/export/{demo['session']}.zip")
         self.assertEqual(response.getheader("Content-Type"), "application/zip")
         self.assertEqual(len(zipfile.ZipFile(io.BytesIO(archive)).namelist()), 4)
@@ -105,7 +111,6 @@ class GuiServerTests(unittest.TestCase):
         status, result = self.api("POST", "/api/settings", {"conditions": {"resolution": "1280x720"}})
         self.assertEqual(result["config"]["conditions"]["resolution"], "1280x720")
         self.assertEqual(self.api("POST", "/api/cancel", {"session": "nope"})[0], 400)
-        self.assertEqual(self.api("POST", "/api/review", {"session": "nope", "runs": ["x"], "note": "x"})[0], 400)
 
     def test_started_session_runs_in_background_and_reports_progress(self):
         session, _ = make_plan(self.workspace, ["example-shadows-off"], 2, 47, demo=True)

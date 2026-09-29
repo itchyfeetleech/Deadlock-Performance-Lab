@@ -31,16 +31,15 @@ import urllib.request
 import webbrowser
 
 from . import __version__
-from .analysis import analyze, timings
-from .imports import REVIEWABLE, review_run
+from .analysis import analyze, capture_notes, timings
 from . import configs
 from .planning import PRESETS, make_plan
 from .profiles import DEMO_PROFILES, add_profile, catalog
 from .report import bundle, generate_report
 from .runner import recover, request_cancel, runner_alive
-from .storage import LabError, atomic_write, digest, read_json
+from .storage import LabError, atomic_write, read_json
 from .system import detect_conditions, discover_install, doctor, find_replays, process_start_time
-from .workspace import ensure_workspace, launch_options, missing_conditions, save_settings
+from .workspace import ensure_workspace, launch_options, save_settings
 
 NAME = "Deadlock Performance Lab"
 IDLE_EXIT_S = 30 * 60
@@ -182,14 +181,14 @@ class App:
             "version": __version__, "workspace": str(self.workspace), "config": config,
             "install": str(install) if install else None, "checks": checks,
             "launch_options": launch_options(self.workspace),
-            "detected": detect_conditions(install), "missing_conditions": missing_conditions(config),
+            "detected": detect_conditions(install),
             "replays": find_replays(install), "profiles": profiles, "profile_error": profile_error,
             "presets": {name: {**PRESETS[name], "rounds": PRESET_ROUNDS[name]} for name in PRESET_ROUNDS},
             "launch_overhead_s": LAUNCH_OVERHEAD_S, "sessions": sessions, "running": self.running(),
             "ready": {"tools": all(c["ok"] for c in checks if c["required"] and c["check"] != "Game closed"),
                       "game_closed": next((c["ok"] for c in checks if c["check"] == "Game closed"), True),
                       "launch": next((c["ok"] for c in checks if c["check"] == "Steam launch options"), False),
-                      "scene": scene_ready and not missing_conditions(config)},
+                      "scene": scene_ready},
             "recovery_needed": any(not c["ok"] for c in checks if c["check"] in {"Recovery", "Install recovery"}),
         }
 
@@ -213,17 +212,11 @@ class App:
         runs = []
         for path in sorted((session / "runs").glob("*/result.json")):
             record = read_json(path)
-            review = path.parent / "review.json"
-            reviewed = review.is_file() and read_json(review).get("result_sha256") == digest(path)
-            blockers = record.get("quality_blockers", [])
-            reviewable = [b for b in blockers if b.startswith(REVIEWABLE)]
             metrics = record.get("metrics") or {}
             runs.append({"id": record.get("id", path.parent.name), "case": record.get("case"), "round": record.get("round"),
                          "status": record.get("status"), "error": record.get("error"),
                          "avg_fps": metrics.get("avg_fps"), "low_1_fps": metrics.get("low_1_fps"),
-                         "p99_frame_ms": metrics.get("p99_frame_ms"),
-                         "reviewable": [] if reviewed else reviewable, "reviewed": reviewed,
-                         "blockers": [b for b in blockers if b not in reviewable]})
+                         "p99_frame_ms": metrics.get("p99_frame_ms"), "notes": capture_notes(record)})
         result["runs"] = runs
         try:
             estimate = timings(session)
@@ -299,7 +292,7 @@ class App:
                 continue
             rows.append({"case": c["case"], "name": c["name"], "avg_fps": c["avg_fps"], "delta_pct": c["delta_pct"],
                          "low_1_delta_pct": c["low_1_delta_pct"], "rounds": len(c["paired_rounds"]),
-                         "verdict": c["verdict"], "ci": c["ci95_pct"]})
+                         "ci": c["ci95_pct"]})
         rows.sort(key=lambda r: r["delta_pct"], reverse=True)
         base = report["baseline"]
         return {"rows": rows, "rounds": plan["rounds"], "synthetic": plan["synthetic"], "baseline_fps": base["avg_fps"],
@@ -338,16 +331,6 @@ class App:
         if not request_cancel(session):
             raise LabError("That benchmark is not running.")
         return {"cancelling": session.name}
-
-    def review(self, body: dict) -> dict:
-        session = self.session(body.get("session"))
-        note = str(body.get("note", ""))
-        runs = [str(r) for r in body.get("runs") or []]
-        if not runs:
-            raise LabError("Select the captures you checked.")
-        for run in runs:
-            review_run(session, run, note)
-        return {"reviewed": len(runs)}
 
     # ---- configs -------------------------------------------------------------------
     def installed(self) -> Path:
@@ -638,7 +621,6 @@ class Handler(BaseHTTPRequestHandler):
             "/api/benchmark": lambda: app.benchmark(body),
             "/api/start": lambda: app.start(body),
             "/api/cancel": lambda: app.cancel(body),
-            "/api/review": lambda: app.review(body),
             "/api/configs/save": lambda: app.save_config(body),
             "/api/configs/preview": lambda: configs.preview(app.build_config(body), app.installed()),
             "/api/configs/parse": lambda: app.parse_source(str(body.get("part")), str(body.get("content", ""))),

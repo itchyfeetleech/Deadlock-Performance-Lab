@@ -11,7 +11,7 @@ from . import __version__
 from .profiles import DEMO_PROFILES, catalog, frozen, validate
 from .storage import LabError, digest, fingerprint, write_json
 from .system import game_identity, identity
-from .workspace import load_workspace
+from .workspace import PLACEHOLDERS, load_workspace
 
 
 RENDERERS = {"default": [], "vulkan": ["-vulkan"], "dx11": ["-dx11"]}
@@ -113,7 +113,7 @@ def make_plan(workspace: Path, cases: list[str], rounds: int | None, seed: int, 
         for case in ["baseline", *order, "baseline"] if cases else ["baseline"]:
             schedule.append({"index": len(schedule) + 1, "round": round_index, "case": case})
     session_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:6]
-    conditions = config["conditions"] if not demo else {
+    conditions = {k: v for k, v in config["conditions"].items() if v and v not in PLACEHOLDERS} if not demo else {
         "resolution": "1920×1080 (illustrative)", "graphics_preset": "Synthetic demonstration",
         "proton_version": "Not used", "display_mode": "Not used",
         "notes": "Made-up data; no game was run."}

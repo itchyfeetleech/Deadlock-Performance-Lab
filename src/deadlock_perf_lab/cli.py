@@ -11,7 +11,7 @@ import webbrowser
 from . import __version__
 from .analysis import analyze, shortlist, timings
 from .capture import read_mangohud
-from .imports import import_capture, review_run
+from .imports import import_capture
 from .planning import PRESETS, make_plan
 from .profiles import DEMO_PROFILES, add_profile, catalog
 from .report import bundle, generate_report, markdown_report
@@ -103,16 +103,11 @@ def parser() -> argparse.ArgumentParser:
     imp.add_argument("--round", type=int, required=True)
     imp.add_argument("--interval-ms", type=float, required=True, help="0 for confirmed per-frame logs; 100 for legacy 10Hz logs")
     imp.add_argument("--start", type=float, default=0)
-    review = command("review", "Mark a live or imported capture as checked.")
-    review.add_argument("session", nargs="?", default="latest")
-    review.add_argument("--run", required=True)
-    review.add_argument("--note", required=True)
     for name, description in (("compare", "Print the comparison as Markdown."),
                               ("report", "Build the offline HTML report, CSV, JSON and Markdown."),
                               ("export", "Create a shareable report ZIP (no raw captures, logs or backups).")):
         cmd = command(name, description)
         cmd.add_argument("session", nargs="?", default="latest")
-        cmd.add_argument("--threshold", type=float, default=3)
         if name == "report":
             cmd.add_argument("--open", action="store_true")
         if name == "export":
@@ -268,7 +263,8 @@ def main(argv: list[str] | None = None) -> int:
             session = session_path(workspace, args.session)
             candidates = shortlist(session, args.top)
             for c in candidates:
-                print(f"  {c['case']:<28} {c['delta_pct']:+.2f}% average FPS · {len(c['paired_rounds'])} complete rounds · {c['verdict']}")
+                ci = f" (95% interval {c['ci95_pct'][0]:+.1f} to {c['ci95_pct'][1]:+.1f}%)" if c["ci95_pct"] else ""
+                print(f"  {c['case']:<28} {c['delta_pct']:+.2f}% average FPS{ci} · {len(c['paired_rounds'])} rounds")
             if candidates:
                 print("\nRe-test them: dpl plan --preset confirm --cases " + ",".join(c["case"] for c in candidates))
             else:
@@ -292,19 +288,17 @@ def main(argv: list[str] | None = None) -> int:
         elif cmd == "import":
             print(import_capture(session_path(workspace, args.session), args.csv, args.case, args.round,
                                  interval_ms=args.interval_ms, start_s=args.start))
-        elif cmd == "review":
-            print(review_run(session_path(workspace, args.session), args.run, args.note))
         elif cmd in {"compare", "report", "export"}:
             session = session_path(workspace, args.session)
             if cmd == "compare":
-                print(markdown_report(analyze(session, args.threshold)))
+                print(markdown_report(analyze(session)))
             elif cmd == "report":
-                output = generate_report(session, args.threshold)
+                output = generate_report(session)
                 print(output)
                 if args.open:
                     webbrowser.open(output.as_uri())
             else:
-                print(bundle(session, args.output.resolve(), args.threshold))
+                print(bundle(session, args.output.resolve()))
         elif cmd == "recover":
             restored = recover(workspace, force=args.force)
             print("\n".join(restored) if restored else "No pending restoration.")

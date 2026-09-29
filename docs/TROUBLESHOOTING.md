@@ -14,11 +14,11 @@
 | Game folder not found | Enter it in **Set up** (or `install` in `lab.json`); it contains `game/citadel/gameinfo.gi`. |
 | No game within 180 seconds | Sign in to Steam, launch Deadlock once normally, let updates and shader processing finish, close it and start a new benchmark. See the run's `steam.log`. |
 | No MangoHud file | Paste the launch options line from the app (or `dpl setup`) into Deadlock's Steam properties, and check MangoHud works in your Proton games. |
-| Old 100 ms / 10 Hz logs | Import with `--interval-ms 100`. They have no 1%/0.1% lows and no verdict. |
+| Old 100 ms / 10 Hz logs | Import with `--interval-ms 100`. They have no 1%/0.1% lows. |
 | Missing measurement window | The log or the replay is shorter than warm-up plus capture time. Pick an earlier tick or capture longer. |
 | No VConsole / missing seek confirmation | The game's console output may have changed. Check the run's `vconsole.log`. Don't expose port 29000 beyond localhost. |
-| Replay froze or the camera changed | Don't mark that capture as checked. Pick a different tick or player and run again. |
-| Cvar readback differs | The game rejected, renamed or protected that cvar, so that config gets no verdict. |
+| Replay froze or the camera changed | Pick a different tick or player and run again. |
+| Cvar readback differs | The game rejected, renamed or protected that cvar. The capture lists it in its notes. |
 | High baseline variation or drift | Something besides the config changed between captures (heat, background load, shader compilation). Run again. |
 | "Plan changed after creation" or a fingerprint mismatch | Make a new plan. |
 | Workspace path rejected | Avoid commas, equals signs and newlines, which MangoHud treats as config syntax. Spaces are fine. |

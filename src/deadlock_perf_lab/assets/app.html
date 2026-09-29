@@ -191,9 +191,6 @@
       td { padding: 6px 8px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
       td.num, th.num { text-align: right; }
       .table-wrap { overflow-x: auto; }
-      .review { margin-top: 14px; padding: 14px; border: 1px dashed #6b5a2c; border-radius: 8px; }
-      .review ul { list-style: none; padding: 0; margin: 8px 0; columns: 2; }
-      .review li label { display: flex; gap: 8px; align-items: center; }
 
       .parts { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 0; border-bottom: 1px solid var(--line); }
       .parts button { border: 0; border-radius: 6px 6px 0 0; background: none; color: var(--muted); padding: 9px 14px; font-family: var(--mono); }
@@ -268,7 +265,6 @@
         .brow { grid-template-columns: 1fr; }
         ul.checks li { grid-template-columns: 22px 1fr; }
         ul.checks .d { grid-column: 2; }
-        .review ul { columns: 1; }
         nav.tabs { gap: 0; overflow-x: auto; }
         nav.tabs button { padding: 10px 6px; font-size: 13px; }
         nav.tabs button .n { width: 18px; height: 18px; margin-right: 4px; font-size: 11px; }
@@ -376,7 +372,7 @@
                 </label>
                 <div class="wide" style="margin-top:6px">
                   <h3>Your game settings</h3>
-                  <p class="hint">Saved with every result. Detected values are pre-filled.</p>
+                  <p class="hint">Optional. Saved with every result; detected values are pre-filled.</p>
                 </div>
                 <label><span class="label">Resolution <span class="tag" data-for="resolution"></span></span><input name="resolution" placeholder="e.g. 2560x1440" /></label>
                 <label><span class="label">Graphics quality</span><input name="graphics_preset" placeholder="e.g. High, or Custom: low shadows" /></label>
@@ -651,7 +647,7 @@
           let value = c.conditions[key] ?? "";
           const tag = $(`.tag[data-for="${key}"]`);
           if (tag) tag.textContent = "";
-          if (value === "record me") {
+          if (!value || value === "record me") {
             value = S.detected[key] || "";
             if (value && tag) tag.textContent = "detected";
           }
@@ -662,9 +658,7 @@
         const missing = [];
         if (!S.install) missing.push("game folder");
         if (sc.mode === "replay" && !sc.replay) missing.push("replay");
-        if (S.missing_conditions.length) missing.push("game settings");
-        const unsaved = !S.ready.scene && S.install && (sc.mode === "bots" || S.replays.length) && !S.missing_conditions.some((k) => !S.detected[k] && k !== "graphics_preset");
-        setStatus("scene", missing.length ? "warn" : "ok", !missing.length ? "Saved" : unsaved ? "Check and save" : "Needs " + missing.join(", "));
+        setStatus("scene", missing.length ? "warn" : "ok", missing.length ? "Needs " + missing.join(", ") : "Saved");
       }
       function syncMode() {
         const f = $("#scene");
@@ -693,11 +687,10 @@
                         replay: pick === "__other" ? f.replay.value : pick },
             conditions: Object.fromEntries(["resolution", "graphics_preset", "proton_version", "display_mode", "notes"].map((k) => [k, f[k].value])),
           };
-          const empty = ["resolution", "graphics_preset", "proton_version", "display_mode"].filter((k) => !f[k].value.trim());
           await api("/api/settings", body);
           sceneDirty = false;
           await refresh();
-          toast(empty.length ? "Saved. Fill in your game settings before benchmarking." : "Scene saved.");
+          toast("Scene saved.");
         });
       });
 
@@ -1307,7 +1300,7 @@
               ${s.has_results ? `<a class="primary" href="/report/${esc(s.id)}/" target="_blank">Open report</a><a href="/export/${esc(s.id)}.zip" title="A ZIP you can share: report only, no raw logs or game files">Share ZIP</a>` : ""}
               ${st === "planned" && !s.manual ? `<button data-start="${esc(s.id)}">Start</button>` : ""}
               <button data-folder="${esc(s.id)}" title="Open this session's folder">Folder</button>
-              ${!s.has_results ? "" : `<button data-open="${esc(s.id)}">${open.has(s.id) ? "Hide details" : "Details & review"}</button>`}
+              ${!s.has_results ? "" : `<button data-open="${esc(s.id)}">${open.has(s.id) ? "Hide details" : "Details"}</button>`}
             </div></div>${open.has(s.id) ? `<div class="body" id="body-${esc(s.id)}">Loading…</div>` : ""}</div>`;
         }).join("");
         for (const id of open) loadDetail(id);
@@ -1325,34 +1318,13 @@
         let d;
         try { d = await api("/api/session/" + encodeURIComponent(id)); }
         catch (e) { box.textContent = e.message; return; }
-        const pending = d.runs.filter((r) => r.reviewable.length);
         const rows = d.runs.map((r) => `<tr><td class="mono small">${esc(r.id)}</td><td>${r.round}</td><td>${esc(caseName(d, r.case))}</td>
           <td class="num">${num(r.avg_fps)}</td><td class="num">${num(r.low_1_fps)}</td><td class="num">${num(r.p99_frame_ms, 2)}</td>
-          <td>${r.status !== "ok" ? `<span class="state failed">${esc(r.error || r.status)}</span>` : r.reviewable.length ? `<span class="state cancelled">needs your check</span>` : r.reviewed ? `<span class="state complete">checked</span>` : "—"}
-          ${r.blockers.length ? `<details><summary class="small">${r.blockers.length} note${r.blockers.length > 1 ? "s" : ""}</summary><ul class="small muted">${r.blockers.map((b) => `<li>${esc(b)}</li>`).join("")}</ul></details>` : ""}</td></tr>`).join("");
-        box.innerHTML = `<div class="rank" id="rank-${esc(id)}"></div><h3>All captures</h3><div class="table-wrap"><table><thead><tr><th>Capture</th><th>Round</th><th>Config</th><th class="num">Avg FPS</th><th class="num">1% low</th><th class="num">P99 ms</th><th>Checks</th></tr></thead><tbody>${rows}</tbody></table></div>
-          ${d.log_tail ? `<details><summary>Error log</summary><pre class="log">${esc(d.log_tail.join("\n"))}</pre></details>` : ""}
-          ${pending.length ? `<form class="review"><h3>Check captures (${pending.length})</h3>
-            <p class="small muted">Tick the captures where the camera stayed on the player, the replay kept playing${pending.some((r) => r.reviewable.some((b) => /^(Config applied|Whole GameInfo|Renderer)/.test(b))) ? " and the config looked right" : ""}.</p>
-            <label class="small"><input type="checkbox" class="all" /> Select all</label>
-            <ul>${pending.map((r) => `<li><label><input type="checkbox" value="${esc(r.id)}" /> <span class="mono small">${esc(r.id)}</span></label></li>`).join("")}</ul>
-            <label><span class="label">Note (saved with the result)</span>
-              <textarea name="note" minlength="15" required placeholder="Camera stayed on player 1 and the replay kept playing."></textarea></label>
-            <p><button class="primary" type="submit">Mark as checked</button></p></form>` : ""}`;
+          <td>${r.status !== "ok" ? `<span class="state failed">${esc(r.error || r.status)}</span>` : r.notes.length
+            ? `<details><summary class="small">${r.notes.length} note${r.notes.length > 1 ? "s" : ""}</summary><ul class="small muted">${r.notes.map((b) => `<li>${esc(b)}</li>`).join("")}</ul></details>` : "—"}</td></tr>`).join("");
+        box.innerHTML = `<div class="rank" id="rank-${esc(id)}"></div><h3>All captures</h3><div class="table-wrap"><table><thead><tr><th>Capture</th><th>Round</th><th>Config</th><th class="num">Avg FPS</th><th class="num">1% low</th><th class="num">P99 ms</th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table></div>
+          ${d.log_tail ? `<details><summary>Error log</summary><pre class="log">${esc(d.log_tail.join("\n"))}</pre></details>` : ""}`;
         loadRanking(id);
-        const form = $("form.review", box);
-        if (form) {
-          $(".all", form).onchange = (e) => $$("ul input", form).forEach((i) => (i.checked = e.target.checked));
-          form.onsubmit = (e) => {
-            e.preventDefault();
-            act($("button[type=submit]", form), async () => {
-              const runs = $$("ul input:checked", form).map((i) => i.value);
-              const r = await api("/api/review", { session: id, runs, note: form.note.value });
-              toast(`Marked ${r.reviewed} capture(s) as checked.`);
-              loadDetail(id);
-            });
-          };
-        }
       }
 
       const signed = (v) => (v == null ? "—" : (v > 0 ? "+" : "") + Number(v).toFixed(1) + "%");
@@ -1362,19 +1334,19 @@
         let r;
         try { r = await api(`/api/session/${encodeURIComponent(id)}/ranking`); } catch { el.innerHTML = ""; return; }
         if (!r.rows.length) { el.innerHTML = ""; return; }
-        const noise = r.baseline_cv_pct;
+        const noise = r.baseline_cv_pct, withCi = r.rows.some((x) => x.ci);
         const rows = r.rows.map((x, i) => {
           const within = noise != null && Math.abs(x.delta_pct) <= noise;
           return `<tr><td>${i + 1}</td><td>${esc(x.name)}</td><td class="num">${num(x.avg_fps)}</td>
             <td class="num ${x.delta_pct > 0 ? "delta-pos" : "delta-neg"}">${signed(x.delta_pct)}${within ? ` <span class="badge" title="Within the baseline variation (${noise.toFixed(1)}%)">≈ noise</span>` : ""}</td>
-            <td class="num">${signed(x.low_1_delta_pct)}</td><td>${r.rounds >= 5 ? esc(x.verdict) : ""}</td></tr>`;
+            ${withCi ? `<td class="num muted">${x.ci ? `${signed(x.ci[0])} to ${signed(x.ci[1])}` : "—"}</td>` : ""}<td class="num">${signed(x.low_1_delta_pct)}</td></tr>`;
         }).join("");
         const v = S.presets.confirm, each = v.sample_s + v.warmup_s + v.settle_s + v.cooldown_s + S.launch_overhead_s;
         const est = (n) => `${5 * (n + 2)} launches, ${duration(5 * (n + 2) * each)}`;
         const first = Math.min(5, r.rows.length);
         el.innerHTML = `<h3>Ranking</h3>
           <p class="small muted">Your current setup: ${num(r.baseline_fps)} FPS${noise != null ? ` · baseline variation ${noise.toFixed(1)}%` : ""}</p>
-          <div class="table-wrap"><table><thead><tr><th>#</th><th>Config</th><th class="num">Avg FPS</th><th class="num">vs current</th><th class="num">1% low</th><th>${r.rounds >= 5 ? "Verdict" : ""}</th></tr></thead><tbody>${rows}</tbody></table></div>
+          <div class="table-wrap"><table><thead><tr><th>#</th><th>Config</th><th class="num">Avg FPS</th><th class="num">vs current</th>${withCi ? `<th class="num">95% interval</th>` : ""}<th class="num">1% low</th></tr></thead><tbody>${rows}</tbody></table></div>
           ${r.synthetic ? "" : `<div class="retest">Re-test the top <input type="number" class="topn" min="1" max="${Math.min(30, r.rows.length)}" value="${first}" /> at Confirm length (5 rounds):
             <span class="small muted est">${est(first)}</span><button class="primary go-retest">Re-test</button></div>`}`;
         const top = $(".topn", el);

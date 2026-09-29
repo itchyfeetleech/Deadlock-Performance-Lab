@@ -7,7 +7,7 @@ import statistics
 from pathlib import Path
 
 from .metrics import percentile
-from .storage import LabError, digest, read_json
+from .storage import digest, read_json
 from .planning import verify_plan
 
 
@@ -29,22 +29,29 @@ def aggregate_metrics(records: list[dict]) -> dict:
     return result
 
 
-def analyze(session: Path, threshold: float = 3) -> dict:
-    import math
-    if not math.isfinite(threshold) or threshold <= 0:
-        raise LabError("Threshold must be finite and positive.")
+# Results from earlier versions list checks to confirm by hand under "quality_blockers".
+# Those checks are gone; the data problems among them are kept as warnings.
+REVIEW_PROMPTS = ("Replay POV is not explicitly selected.", "Review demo_info", "Replay progression and camera require",
+                  "Whole GameInfo swap:", "Renderer flag requested;", "Manual capture: confirm", "Config applied: confirm",
+                  "Record resolution, graphics preset", "Benchmark conditions were not recorded",
+                  "Interval-sampled evidence cannot", "The raw capture contained malformed rows")
+
+
+def capture_notes(record: dict) -> list[str]:
+    """A capture's warnings, including data problems older versions stored as blockers."""
+    notes = list(record.get("warnings", []))
+    notes += [b for b in record.get("quality_blockers", []) if not b.startswith(REVIEW_PROMPTS) and b not in notes]
+    return notes
+
+
+def analyze(session: Path) -> dict:
     plan = read_json(session / "plan.json")
     verify_plan(plan)
     records = []
     for path in sorted((session / "runs").glob("*/result.json")):
         record = read_json(path)
-        review_path = path.parent / "review.json"
-        if review_path.exists():
-            review = read_json(review_path)
-            if review.get("result_sha256") == digest(path):
-                record["operator_review"] = review
-                record["quality_blockers"] = [b for b in record.get("quality_blockers", [])
-                                              if b not in review.get("confirmed", [])]
+        record["warnings"] = capture_notes(record)
+        record.pop("quality_blockers", None)
         record["_directory"] = str(path.parent)
         records.append(record)
     warnings = []
@@ -89,13 +96,6 @@ def analyze(session: Path, threshold: float = 3) -> dict:
     base_fps = [r["metrics"]["avg_fps"] for r in base]
     base_cv = statistics.pstdev(base_fps) / statistics.fmean(base_fps) * 100 if base_fps else None
     drift = (base_fps[-1] / base_fps[0] - 1) * 100 if len(base_fps) >= 2 else None
-    if base_cv is not None and base_cv > threshold:
-        warnings.append(f"Baseline variation is high (CV {base_cv:.1f}%).")
-    if drift is not None and abs(drift) > threshold:
-        warnings.append(f"Baseline drift is {drift:+.1f}% from first to last capture.")
-    scenario = plan["context"]["scenario"]
-    if scenario.get("mode") == "bots":
-        warnings.append("Bot match: bots and camera vary between captures.")
     for record in valid:
         for warning in record.get("warnings", []):
             if warning not in warnings:
@@ -121,42 +121,17 @@ def analyze(session: Path, threshold: float = 3) -> dict:
             # Kept aligned with paired_rounds; None where a true 1% low is unavailable.
             low_deltas.append((low / statistics.fmean(lows) - 1) * 100
                               if all(x is not None for x in lows) and low is not None else None)
-        ci = bootstrap_ci(deltas)
         known_lows = [x for x in low_deltas if x is not None]
-        delta = statistics.fmean(deltas) if deltas else None
-        reasons = []
-        if len(deltas) < 5:
-            reasons.append("Fewer than 5 complete rounds.")
-        if len(deltas) != plan["rounds"]:
-            reasons.append("Some planned rounds are incomplete.")
-        if base_cv is None or base_cv > threshold or drift is None or abs(drift) > threshold:
-            reasons.append("Baseline stability checks did not pass.")
-        if scenario.get("mode") == "bots":
-            reasons.append("Bot match scenario.")
-        if any(r.get("quality_blockers") for r in own + base):
-            reasons.append("Some captures are not checked yet.")
-        verdict = "inconclusive"
-        if not reasons and ci:
-            if ci[0] > threshold:
-                verdict = "improved"
-            elif ci[1] < -threshold:
-                verdict = "regressed"
-            elif ci[0] >= -threshold and ci[1] <= threshold:
-                verdict = "within threshold"
-            else:
-                reasons.append(f"The 95% interval overlaps ±{threshold:g}%.")
         comparisons.append({"case": case, "name": profile.get("name", case), "kind": profile["kind"],
                             "metrics": aggregate_metrics(own),
-                            "runs": len(own), "paired_rounds": paired_rounds, "delta_pct": delta,
-                            "ci95_pct": ci, "round_deltas_pct": deltas,
+                            "runs": len(own), "paired_rounds": paired_rounds,
+                            "delta_pct": statistics.fmean(deltas) if deltas else None,
+                            "ci95_pct": bootstrap_ci(deltas), "round_deltas_pct": deltas,
                             "low_1_delta_pct": statistics.fmean(known_lows) if known_lows else None,
-                            # Descriptive only: verdicts are decided on average FPS.
                             "low_1_ci95_pct": bootstrap_ci(known_lows) if len(known_lows) == len(deltas) else None,
                             "round_low_1_deltas_pct": low_deltas,
-                            "avg_fps": statistics.fmean(r["metrics"]["avg_fps"] for r in own) if own else None,
-                            "verdict": "demo" if plan["synthetic"] else verdict,
-                            "reasons": reasons})
-    return {"schema": 1, "session": plan["id"], "synthetic": plan["synthetic"], "threshold_pct": threshold,
+                            "avg_fps": statistics.fmean(r["metrics"]["avg_fps"] for r in own) if own else None})
+    return {"schema": 1, "session": plan["id"], "synthetic": plan["synthetic"],
             "baseline": {"metrics": aggregate_metrics(base), "runs": len(base), "avg_fps": statistics.fmean(base_fps) if base_fps else None,
                          "cv_pct": base_cv, "drift_pct": drift},
             "comparisons": comparisons, "warnings": warnings, "excluded": excluded,

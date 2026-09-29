@@ -66,11 +66,4 @@ dpl import $W/imports/deadlock_THIRD.csv --case baseline --round 1 --interval-ms
 
 Imports out of order, repeated logs, or logs from different hardware or logging intervals are rejected. Each import is copied into the session.
 
-Mark the captures you checked, then open the report:
-
-```bash
-dpl review --run 002-shadows-low --note 'Low shadows, same tick and player, baseline settings unchanged.'
-dpl report --open
-```
-
-Manual sessions also appear in the app's **Results** tab. To go back to automated capture, paste the line from **Set up** (or `dpl setup`) into Steam in place of the `manual.conf` one.
+Then open the report with `dpl report --open`. Manual sessions also appear in the app's **Results** tab. To go back to automated capture, paste the line from **Set up** (or `dpl setup`) into Steam in place of the `manual.conf` one.

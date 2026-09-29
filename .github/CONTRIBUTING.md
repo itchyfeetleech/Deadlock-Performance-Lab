@@ -33,11 +33,11 @@ Tests use temporary workspaces and fake game, Steam and console fixtures. They n
 | `runner.py`, `vconsole.py` | Game lifecycle, replay control, capture orchestration |
 | `transaction.py`, `storage.py` | Atomic writes, backups, recovery journals, locks |
 | `capture.py`, `metrics.py` | MangoHud parsing, window validation, metrics, binned traces and percentiles |
-| `imports.py` | Ordered manual captures and review records |
+| `imports.py` | Ordered manual captures |
 | `analysis.py` | Evidence checks, round comparisons, timings, rankings |
 | `report.py`, `assets/report.html` | Offline HTML report and its Markdown, JSON, CSV and ZIP exports |
 
-Plans own the experiment's conditions and schedule, and analysis checks every result against its plan before comparing. Metric definitions and verdict rules live in the [methodology](../docs/METHODOLOGY.md).
+Plans own the experiment's conditions and schedule, and analysis checks every result against its plan before comparing. Metric definitions live in the [methodology](../docs/METHODOLOGY.md).
 
 ### The report
 
@@ -56,7 +56,7 @@ Plans own the experiment's conditions and schedule, and analysis checks every re
     plan.json                       # frozen plan with SHA-256, including the exact files each config writes
     status.json / events.log / runner.json / runner.log
     runs/001-baseline/              # result.json, window.json, capture/*.csv, steam.log, vconsole.log,
-                                    # transaction.json + backup/, review.json, timings.json
+                                    # transaction.json + backup/, timings.json
     report/index.html / summary.* / runs.csv
 ```
 

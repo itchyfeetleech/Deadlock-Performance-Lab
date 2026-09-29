@@ -96,20 +96,17 @@
       .demo strong { color: var(--text); }
 
       /* ------------------------------------------------------------ summary */
-      .summary { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; }
       .hero-label { color: var(--muted); font-size: 13px; }
       .hero-row { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin: 2px 0 4px; }
       .hero { font: 600 48px/1.1 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: -0.02em; }
       .hero-sub { font-size: 15px; }
       .hero-name { font-size: 17px; font-weight: 600; overflow-wrap: anywhere; }
-      .kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-top: 16px; }
+      .kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-top: 16px; }
       .kpi { background: var(--panel-2); padding: 10px 14px; }
       .kpi .k { color: var(--muted); font-size: 12px; }
       .kpi .v { font-size: 22px; font-weight: 600; line-height: 1.3; }
       .kpi .v small { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 3px; }
       .kpi .s { color: var(--muted); font-size: 12px; }
-      .checks { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
-      .checks li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; font-size: 13px; align-items: start; }
       .ic { width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 11px; font-weight: 700; line-height: 1; margin-top: 1px; }
       .ic.good { background: color-mix(in srgb, var(--good) 22%, transparent); color: var(--good-text); }
       .ic.bad { background: color-mix(in srgb, var(--bad) 22%, transparent); color: var(--bad-text); }
@@ -118,12 +115,6 @@
 
       /* ------------------------------------------------------------ badges */
       .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 2px 8px 2px 6px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel-2); white-space: nowrap; color: var(--text); }
-      .badge .i { font-size: 10px; }
-      .badge.good { border-color: color-mix(in srgb, var(--good) 55%, var(--line)); }
-      .badge.good .i { color: var(--good-text); }
-      .badge.bad { border-color: color-mix(in srgb, var(--bad) 55%, var(--line)); }
-      .badge.bad .i { color: var(--bad-text); }
-      .badge.flat .i, .badge.unknown .i { color: var(--muted); }
       .up { color: var(--good-text); }
       .down { color: var(--bad-text); }
 
@@ -185,9 +176,6 @@
       .detail-sum { color: var(--muted); font-size: 13px; margin-top: 4px; }
       .detail-fig { text-align: right; }
       .detail-fig .big { font-size: 32px; font-weight: 600; line-height: 1.1; }
-      .why { margin: 14px 0 0; padding: 10px 14px; border-radius: 8px; background: var(--panel-2); border: 1px solid var(--line); font-size: 13px; }
-      .why ul { margin: 6px 0 0; padding-left: 18px; color: var(--muted); }
-      .why li { margin: 3px 0; }
       .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
       .cards.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0; }
@@ -214,8 +202,6 @@
       .ciwash { fill: var(--cfg); opacity: 0.14; }
       .pt { stroke: var(--ring, var(--panel)); stroke-width: 2; fill: var(--text); }
       .pt.open { fill: var(--ring, var(--panel)); stroke: var(--text); stroke-width: 2; }
-      .ci.good { stroke: var(--good); } .pt.good { fill: var(--good); }
-      .ci.bad { stroke: var(--bad); } .pt.bad { fill: var(--bad); }
       .line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
       .line.thin { stroke-width: 1; opacity: 0.55; }
       .s-base { stroke: var(--base); } .s-cfg { stroke: var(--cfg); } .s-other { stroke: var(--other); }
@@ -264,7 +250,6 @@
       noscript td, noscript th { border-bottom: 1px solid var(--line); }
 
       @media (max-width: 1100px) {
-        .summary { grid-template-columns: 1fr; }
         .cards { grid-template-columns: 1fr 1fr; }
         .cards .card:last-child { grid-column: 1 / -1; }
         .frames { grid-template-columns: 1fr; }
@@ -277,24 +262,24 @@
         .nav { order: 3; flex-basis: 100%; margin: 0 -10px; }
         #print { display: none; }
         .detail-head > div { flex-basis: 100%; }
-        /* Each config becomes a two-line card: name and verdict, then the change and its interval chart. */
+        /* Each config becomes a two-line card: its name, then the change and its interval chart. */
         .compare, .compare thead, .compare tbody { display: block; }
-        .compare tr { display: grid; grid-template-columns: 92px minmax(0, 1fr) auto; grid-template-areas: "name name verdict" "delta forest forest"; align-items: center; }
+        .compare tr { display: grid; grid-template-columns: 92px minmax(0, 1fr) auto; grid-template-areas: "name name name" "delta forest forest"; align-items: center; }
         .compare thead tr { grid-template-areas: "delta forest forest"; border-bottom: 1px solid var(--line); }
         .compare th, .compare td { border: 0; padding: 3px 4px; }
-        .compare th.c-name, .compare th.c-verdict { display: none; }
+        .compare th.c-name { display: none; }
         .compare tbody tr { padding: 8px 0; border-bottom: 1px solid var(--grid); }
         .compare tbody tr.ref { border-bottom: 1px solid var(--line); }
         .compare tbody tr.on { box-shadow: inset 3px 0 var(--accent); padding-left: 6px; }
         .compare .c-name { grid-area: name; }
         .compare .c-delta { grid-area: delta; text-align: left; }
-        .compare .c-verdict { grid-area: verdict; }
         .compare td.forest-cell, .compare th.forest-head { grid-area: forest; width: auto; min-width: 0; }
         .compare tbody tr.ref td { border: 0; }
         .compare .name { max-width: none; }
         .compare td[colspan] { grid-column: 1 / -1; }
         .shell { padding: 0 16px 32px; }
         .hero { font-size: 40px; }
+        .kpis { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
         .kpi { padding: 8px 10px; }
         .kpi .v { font-size: 18px; }
         .cards, .twocol { grid-template-columns: 1fr; }
@@ -354,13 +339,7 @@
           </div>
         </div>
         <div id="demo-note"></div>
-        <div class="summary" style="margin-top: 16px">
-          <div class="panel" id="headline"></div>
-          <div class="panel">
-            <h3>Checks</h3>
-            <ul class="checks" id="checks"></ul>
-          </div>
-        </div>
+        <div class="panel" id="headline" style="margin-top: 16px"></div>
         <noscript><div class="panel" style="margin-top: 16px">__FALLBACK__</div></noscript>
       </section>
 
@@ -381,7 +360,7 @@
           </div>
           <div class="table-wrap table-scroll">
             <table class="compare" id="compare-table">
-              <caption class="sr-only">Configs with their change against your current setup, 95% interval, verdict and frame-rate metrics</caption>
+              <caption class="sr-only">Configs with their change against your current setup, 95% interval and frame-rate metrics</caption>
               <thead id="compare-head"></thead>
               <tbody id="compare-rows"></tbody>
             </table>
@@ -475,7 +454,8 @@
       "use strict";
       const data = JSON.parse(document.getElementById("report-data").textContent);
       const $ = (id) => document.getElementById(id);
-      const T = data.threshold_pct;
+      // Baseline variation: the scale of run-to-run noise, drawn as a band and used for the "≈ noise" mark.
+      const NOISE = typeof data.baseline.cv_pct === "number" ? data.baseline.cv_pct : null;
       const plan = data.plan || { rounds: 0, schedule: [] };
       const scenario = data.context.scenario || {};
       const BUDGET_MS = scenario.budget_fps ? 1000 / scenario.budget_fps : null;
@@ -574,19 +554,11 @@
           delta: (c) => c.low_1_delta_pct, ci: (c) => c.low_1_ci95_pct, rounds: (c) => c.round_low_1_deltas_pct || [],
         },
       };
-      const VERDICTS = {
-        improved: { label: "Improved", icon: "▲", tone: "good", why: `95% interval above +${T}%` },
-        regressed: { label: "Regressed", icon: "▼", tone: "bad", why: `95% interval below −${T}%` },
-        "within threshold": { label: `Within ±${T}%`, icon: "=", tone: "flat", why: `95% interval inside ±${T}%` },
-        inconclusive: { label: "Inconclusive", icon: "?", tone: "unknown", why: "No verdict" },
-        demo: { label: "Demo data", icon: "◇", tone: "unknown", why: "Made-up data" },
-      };
-      const verdictOf = (v) => VERDICTS[v] || { label: v, icon: "·", tone: "unknown", why: "" };
-      function badge(verdict) {
-        const v = verdictOf(verdict);
-        return h("span", { class: "badge " + v.tone, title: v.why }, h("span", { class: "i", "aria-hidden": "true" }, v.icon), v.label);
-      }
-      const toneMark = (c) => (state.metric === "avg" && ["good", "bad"].includes(verdictOf(c.verdict).tone) ? verdictOf(c.verdict).tone : "");
+      // Average-FPS changes are coloured by direction unless they're within the baseline
+      // variation (marked ≈ noise) or their 95% interval includes zero.
+      const noisy = (d) => state.metric === "avg" && isNum(d) && NOISE !== null && Math.abs(d) <= NOISE;
+      const noiseTag = () => h("span", { class: "badge", title: `Within the baseline variation (±${fixed(NOISE, 1)}%)` }, "≈ noise");
+      const deltaClass = (d, ci) => (state.metric !== "avg" || !isNum(d) || noisy(d) || (ci && ci[0] <= 0 && ci[1] >= 0) ? "" : d > 0 ? "up" : "down");
 
       const RUN_METRICS = [
         ["avg_fps", "Average FPS", 1, "", 1],
@@ -616,7 +588,6 @@
         };
       }
 
-      const pending = data.runs.filter((r) => r.quality_blockers?.length);
       const state = { metric: "avg", selected: null, sortKey: "delta", sortDir: -1, query: "", a: null, b: null, clip: false };
 
       // ---------------------------------------------------------------- header & summary
@@ -631,6 +602,7 @@
             plan.rounds ? `${plan.rounds} round${plan.rounds > 1 ? "s" : ""}` : null,
             scenario.sample_s ? `${scenario.sample_s} s per capture` : null,
             scene,
+            data.valid_runs === data.expected_runs ? `${data.valid_runs} captures` : `${data.valid_runs} of ${data.expected_runs} captures usable`,
             h("span", { class: "mono small" }, data.session),
           ].filter(Boolean).map((x) => (x instanceof Node ? x : h("span", {}, x))),
         );
@@ -639,7 +611,7 @@
         if (data.synthetic)
           $("demo-note").replaceChildren(h("div", { class: "demo" }, h("strong", {}, "Example report with made-up data.")));
 
-        // Headline: the largest change, with its interval and verdict right beside it.
+        // Headline: the largest change, with its interval.
         const ranked = data.comparisons.filter((c) => isNum(c.delta_pct)).sort((a, b) => b.delta_pct - a.delta_pct);
         const best = ranked[0], base = data.baseline;
         const head = $("headline");
@@ -648,17 +620,12 @@
           const gain = best.delta_pct > 0;
           head.append(
             h("div", { class: "hero-label" }, gain ? "Biggest change in average FPS" : "No config was faster than your current setup. Closest:"),
-            h("div", { class: "hero-row" }, h("span", { class: "hero" }, pct(best.delta_pct)), badge(best.verdict)),
+            h("div", { class: "hero-row" }, h("span", { class: "hero" }, pct(best.delta_pct)), noisy(best.delta_pct) ? noiseTag() : null),
             h("div", { class: "hero-name" }, best.name),
             h("div", { class: "hero-sub muted" },
               best.ci95_pct ? `95% interval ${span(best.ci95_pct)}` : "no interval",
               ` · ${fixed(best.avg_fps)} FPS vs ${fixed(base.avg_fps)} FPS`),
           );
-          const tally = {};
-          for (const v of [...VERDICT_ORDER, ...data.comparisons.map((c) => c.verdict)]) tally[v] = 0;
-          for (const c of data.comparisons) tally[c.verdict] += 1;
-          for (const v in tally) if (!tally[v]) delete tally[v];
-          head.append(h("div", { class: "legend", style: "margin-top:10px" }, h("span", {}, `All ${n} verdicts:`), ...Object.entries(tally).map(([v, k]) => h("span", {}, `${k}`, badge(v)))));
         } else {
           head.append(
             h("div", { class: "hero-label" }, BASE_NAME),
@@ -671,23 +638,10 @@
           h("div", { class: "kpis" },
             kpi("Current setup", fixed(base.avg_fps), "FPS", "average"),
             kpi("Current 1% low", fixed(base.metrics?.low_1_fps), "FPS", "slowest 1% of frames"),
-            kpi("Current 99th pct.", fixed(base.metrics?.p99_frame_ms, 2), "ms", "frame time")),
+            kpi("Current 99th pct.", fixed(base.metrics?.p99_frame_ms, 2), "ms", "frame time"),
+            kpi("Baseline variation", fixed(base.cv_pct, 1), "%", "spread of its captures"),
+            kpi("Baseline drift", pct(base.drift_pct), null, "first to last capture")),
         );
-
-        // Values behind the verdict rules; the icon compares each with its limit.
-        const rows = [];
-        const check = (tone, text) => rows.push(h("li", {}, h("span", { class: "ic " + tone, "aria-label": { good: "within limit", bad: "over limit", warn: "attention", info: "" }[tone] }, { good: "✓", bad: "✕", warn: "!", info: "·" }[tone]), h("div", {}, text)));
-        const cv = data.baseline.cv_pct, drift = data.baseline.drift_pct;
-        check(!isNum(cv) ? "info" : cv <= T ? "good" : "bad", `Baseline variation ${fixed(cv, 1, "%")} (limit ${T}%)`);
-        check(!isNum(drift) ? "info" : Math.abs(drift) <= T ? "good" : "bad", `Baseline drift ${pct(drift)} (limit ±${T}%)`);
-        if (n) {
-          const complete = Math.min(...data.comparisons.map((c) => c.paired_rounds.length));
-          check("info", `${complete} of ${plan.rounds} rounds complete`);
-        }
-        check(data.valid_runs === data.expected_runs ? "good" : "warn", `${data.valid_runs} of ${data.expected_runs} captures usable`);
-        if (pending.length) check("warn", `${pending.length} capture${pending.length > 1 ? "s" : ""} not checked yet`);
-        if (scenario.mode === "bots") check("warn", "Bot match (not repeatable)");
-        $("checks").replaceChildren(...rows);
       }
 
       // ---------------------------------------------------------------- compare table + forest plot
@@ -695,18 +649,15 @@
         { key: "name", label: "Config", dir: 1 },
         { key: "delta", label: "Change", num: true, dir: -1 },
         { key: "forest", label: "" },
-        { key: "verdict", label: "Verdict", dir: 1 },
         { key: "avg_fps", label: "Avg FPS", num: true, opt: true, dir: -1 },
         { key: "low_1_fps", label: "1% low", num: true, opt: true, dir: -1 },
         { key: "p99_frame_ms", label: "99th pct. ms", num: true, opt: true, dir: 1 },
         { key: "rounds", label: "Rounds", num: true, opt: true, dir: -1 },
       ];
-      const VERDICT_ORDER = ["improved", "within threshold", "inconclusive", "demo", "regressed"];
       function sortValue(c, key) {
         const m = METRICS[state.metric];
         if (key === "delta") return m.delta(c);
         if (key === "name") return c.name.toLowerCase();
-        if (key === "verdict") return VERDICT_ORDER.indexOf(c.verdict);
         if (key === "rounds") return c.paired_rounds.length;
         return c.metrics?.[key];
       }
@@ -722,7 +673,7 @@
           });
       }
       function forestDomain() {
-        const m = METRICS[state.metric], values = [-T * 1.6, T * 1.6];
+        const edge = (state.metric === "avg" && NOISE !== null ? NOISE : 1) * 1.6, m = METRICS[state.metric], values = [-edge, edge];
         for (const c of data.comparisons) {
           if (isNum(m.delta(c))) values.push(m.delta(c));
           if (m.ci(c)) values.push(...m.ci(c));
@@ -733,21 +684,21 @@
       function forest(width, domain, c) {
         const H = 30, x = scale(domain, [6, width - 6]), y = H / 2;
         const svg = s("svg", { class: "forest", width, height: H, "aria-hidden": "true" },
-          s("rect", { class: "band", x: x(-T), y: 3, width: x(T) - x(-T), height: H - 6, rx: 3 }),
+          state.metric === "avg" && NOISE !== null ? s("rect", { class: "band", x: x(-NOISE), y: 3, width: x(NOISE) - x(-NOISE), height: H - 6, rx: 3 }) : null,
           ticks(domain, 5).map((t) => s("line", { class: t === 0 ? "zero" : "grid", x1: x(t), x2: x(t), y1: 0, y2: H })));
         if (!c) return svg;
-        const m = METRICS[state.metric], d = m.delta(c), ci = m.ci(c), tone = toneMark(c);
+        const m = METRICS[state.metric], d = m.delta(c), ci = m.ci(c);
         if (ci) svg.append(
-          s("line", { class: "ci " + tone, x1: x(ci[0]), x2: x(ci[1]), y1: y, y2: y }),
-          s("line", { class: "ci " + tone, x1: x(ci[0]), x2: x(ci[0]), y1: y - 5, y2: y + 5 }),
-          s("line", { class: "ci " + tone, x1: x(ci[1]), x2: x(ci[1]), y1: y - 5, y2: y + 5 }));
-        if (isNum(d)) svg.append(s("circle", { class: `pt ${tone}${ci ? "" : " open"}`, cx: x(d), cy: y, r: 4.5 }));
+          s("line", { class: "ci", x1: x(ci[0]), x2: x(ci[1]), y1: y, y2: y }),
+          s("line", { class: "ci", x1: x(ci[0]), x2: x(ci[0]), y1: y - 5, y2: y + 5 }),
+          s("line", { class: "ci", x1: x(ci[1]), x2: x(ci[1]), y1: y - 5, y2: y + 5 }));
+        if (isNum(d)) svg.append(s("circle", { class: `pt${ci ? "" : " open"}`, cx: x(d), cy: y, r: 4.5 }));
         return svg;
       }
       function renderCompare() {
         const m = METRICS[state.metric];
         document.querySelectorAll("[data-metric]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.metric === state.metric));
-        $("compare-note").textContent = state.metric === "avg" ? `Threshold ±${T}%` : "Verdicts use average FPS";
+        $("compare-note").textContent = state.metric === "avg" && NOISE !== null ? `Baseline variation ±${fixed(NOISE, 1)}%` : "";
         const headRow = h("tr", {}, ...COLUMNS.map((col) => {
           const th = h("th", { class: [col.num ? "num" : "", col.opt ? "opt" : "", col.key === "forest" ? "forest-head" : "c-" + col.key].join(" "), scope: "col" });
           if (col.key === "forest") th.append(h("span", { class: "sr-only" }, "Interval chart"));
@@ -762,15 +713,16 @@
         const base = data.baseline;
         const out = [h("tr", { class: "ref" + (state.selected === "baseline" ? " on" : ""), "data-case": "baseline" },
           h("td", { class: "c-name" }, h("button", { type: "button", class: "name", "aria-pressed": state.selected === "baseline" }, BASE_NAME, h("small", {}, "Baseline: the reference for every change"))),
-          h("td", { class: "num c-delta" }, h("span", { class: "muted" }, "0%")), h("td", { class: "forest-cell" }), h("td", { class: "c-verdict" }, h("span", { class: "badge flat" }, "Reference")),
+          h("td", { class: "num c-delta" }, h("span", { class: "muted" }, "0%")), h("td", { class: "forest-cell" }),
           cell(base.metrics?.avg_fps ?? base.avg_fps, 1), cell(base.metrics?.low_1_fps, 1), cell(base.metrics?.p99_frame_ms, 2),
           h("td", { class: "num opt muted" }, "—"))];
         for (const c of rows) {
-          const d = m.delta(c), ci = m.ci(c), tone = toneMark(c);
+          const d = m.delta(c), ci = m.ci(c);
           out.push(h("tr", { class: state.selected === c.case ? "on" : "", "data-case": c.case },
             h("td", { class: "c-name" }, h("button", { type: "button", class: "name", "aria-pressed": state.selected === c.case }, c.name, c.treatment?.summary ? h("small", {}, c.treatment.summary) : null)),
-            h("td", { class: "num c-delta" }, h("span", { class: "delta " + (tone === "good" ? "up" : tone === "bad" ? "down" : "") }, pct(d)), h("small", { class: "sub" }, ci ? span(ci) : `${c.paired_rounds.length} round${c.paired_rounds.length === 1 ? "" : "s"}`)),
-            h("td", { class: "forest-cell" }), h("td", { class: "c-verdict" }, badge(c.verdict)),
+            h("td", { class: "num c-delta" }, h("span", { class: "delta " + deltaClass(d, ci) }, pct(d)),
+              h("small", { class: "sub" }, noisy(d) ? noiseTag() : ci ? span(ci) : `${c.paired_rounds.length} round${c.paired_rounds.length === 1 ? "" : "s"}`)),
+            h("td", { class: "forest-cell" }),
             cell(c.metrics?.avg_fps ?? c.avg_fps, 1), cell(c.metrics?.low_1_fps, 1), cell(c.metrics?.p99_frame_ms, 2),
             h("td", { class: "num opt" }, `${c.paired_rounds.length}/${plan.rounds}`)));
         }
@@ -789,13 +741,11 @@
       }
       function renderLegend() {
         const sw = (...kids) => s("svg", { width: 26, height: 14, "aria-hidden": "true" }, ...kids);
-        $("compare-legend").replaceChildren(
+        $("compare-legend").replaceChildren(...[
           h("span", {}, sw(s("line", { class: "ci", x1: 2, x2: 24, y1: 7, y2: 7 }), s("circle", { class: "pt", cx: 13, cy: 7, r: 4 })), "Mean change, 95% interval"),
           h("span", {}, sw(s("circle", { class: "pt open", cx: 13, cy: 7, r: 4 })), "No interval (under 3 rounds)"),
-          h("span", {}, sw(s("rect", { class: "band", x: 1, y: 1, width: 24, height: 12, rx: 2 })), `±${T}% threshold`),
-          h("span", {}, sw(s("line", { class: "ci good", x1: 2, x2: 24, y1: 7, y2: 7 }), s("circle", { class: "pt good", cx: 13, cy: 7, r: 4 })), "Improved"),
-          h("span", {}, sw(s("line", { class: "ci bad", x1: 2, x2: 24, y1: 7, y2: 7 }), s("circle", { class: "pt bad", cx: 13, cy: 7, r: 4 })), "Regressed"),
-        );
+          state.metric === "avg" && NOISE !== null ? h("span", {}, sw(s("rect", { class: "band", x: 1, y: 1, width: 24, height: 12, rx: 2 })), "±baseline variation") : null,
+        ].filter(Boolean));
       }
 
       // ---------------------------------------------------------------- selected config
@@ -804,10 +754,11 @@
         const pts = c.paired_rounds.map((r, i) => [r, values[i]]).filter((p) => isNum(p[1]));
         if (!pts.length) return container.replaceChildren(h("p", { class: "empty" }, `No complete round has a ${m.short} value.`));
         const f = canvas(container, 210, { l: 46, r: 12, t: 12, b: 26 }, `${m.label} change in each round`);
-        const domain = nice(Math.min(-T * 1.3, ...pts.map((p) => p[1]), ...(ci || [])), Math.max(T * 1.3, ...pts.map((p) => p[1]), ...(ci || [])), 4);
+        const band = state.metric === "avg" ? NOISE : null, edge = (band ?? 1) * 1.3;
+        const domain = nice(Math.min(-edge, ...pts.map((p) => p[1]), ...(ci || [])), Math.max(edge, ...pts.map((p) => p[1]), ...(ci || [])), 4);
         const y = scale(domain, [f.y0, f.y1]), N = Math.max(plan.rounds || 1, ...c.paired_rounds);
         const x = (r) => f.x0 + ((r - 0.5) / N) * (f.x1 - f.x0);
-        f.svg.append(s("rect", { class: "band", x: f.x0, width: f.x1 - f.x0, y: y(T), height: y(-T) - y(T) }));
+        if (band !== null) f.svg.append(s("rect", { class: "band", x: f.x0, width: f.x1 - f.x0, y: y(band), height: y(-band) - y(band) }));
         yGrid(f, y, ticks(domain, 4), (v) => pct(v, Number.isInteger(v) ? 0 : 1));
         if (ci) f.svg.append(s("rect", { class: "ciwash", x: f.x0, width: f.x1 - f.x0, y: y(ci[1]), height: Math.max(1, y(ci[0]) - y(ci[1])) }));
         if (isNum(avg)) f.svg.append(s("line", { class: "mean", x1: f.x0, x2: f.x1, y1: y(avg), y2: y(avg) }));
@@ -882,17 +833,14 @@
           return;
         }
         const m = METRICS[state.metric];
-        // Reasons only matter when they withheld a verdict.
-        const why = c.verdict === "inconclusive" && c.reasons.length ? h("div", { class: "why" }, h("strong", {}, "No verdict:"), h("ul", {}, c.reasons.map((r) => h("li", {}, r)))) : null;
         panel.append(
           h("div", { class: "detail-head" },
             h("div", { style: "min-width:0;flex:1" }, h("div", { class: "small muted" }, "Selected config"), h("div", { class: "detail-name" }, c.name), c.treatment?.summary ? h("div", { class: "detail-sum" }, c.treatment.summary) : null, c.treatment?.description ? h("div", { class: "detail-sum" }, c.treatment.description) : null),
-            h("div", { class: "detail-fig" }, h("div", { class: "small muted" }, `${m.label} vs current setup`), h("div", { class: "big" }, pct(m.delta(c))), h("div", { class: "small muted" }, m.ci(c) ? `95% interval ${span(m.ci(c))}` : "no interval"), h("div", { style: "margin-top:6px" }, badge(c.verdict)))),
+            h("div", { class: "detail-fig" }, h("div", { class: "small muted" }, `${m.label} vs current setup`), h("div", { class: "big" }, pct(m.delta(c))), h("div", { class: "small muted" }, m.ci(c) ? `95% interval ${span(m.ci(c))}` : "no interval"), noisy(m.delta(c)) ? h("div", { style: "margin-top:6px" }, noiseTag()) : null)),
         );
-        if (why) panel.append(why);
         const own = runsOf(c.case), base = runsOf("baseline");
         panel.append(h("div", { class: "cards" },
-          card(`${m.label} change per round`, `Line: mean · shaded: 95% interval · grey band: ±${T}%`, (el) => roundChart(el, c)),
+          card(`${m.label} change per round`, `Line: mean · shaded: 95% interval${state.metric === "avg" && NOISE !== null ? " · grey band: ±baseline variation" : ""}`, (el) => roundChart(el, c)),
           card("Frame-time percentiles", null, (el) => {
             percentileChart(el, [{ cls: "cfg", label: c.name, dist: averageDistribution(own) }, { cls: "base", label: BASE_NAME, dist: averageDistribution(base) }], `Frame-time percentiles, ${c.name} against your current setup`);
             el.append(h("div", { class: "legend" }, h("span", {}, h("i", { class: "key cfg" }), c.name), h("span", {}, h("i", { class: "key base" }), BASE_NAME)));
@@ -1091,9 +1039,8 @@
           const st = (tone, icon, text, title) => h("span", { class: "status", title }, h("span", { class: "ic " + tone, "aria-hidden": "true" }, icon), text);
           if (ex) return st("bad", "✕", "Not used: " + ex.reasons.join("; "));
           if (!r) return st("info", "·", "Not captured");
-          if (r.operator_review) return st("good", "✓", "Checked by you", r.operator_review.note);
-          if (r.quality_blockers?.length) return st("warn", "!", "Needs your check", r.quality_blockers.join("\n"));
-          return st("good", "✓", data.synthetic ? "Generated" : "OK", (r.warnings || []).join("\n") || null);
+          if (r.warnings?.length) return st("warn", "!", `${r.warnings.length} note${r.warnings.length > 1 ? "s" : ""}`, r.warnings.join("\n"));
+          return st("good", "✓", data.synthetic ? "Generated" : "OK");
         };
         const cols = [["#", "num"], ["Round", "num"], ["Config", ""], ["Avg FPS", "num"], ["1% low", "num"], ["0.1% low", "num opt"], ["99th pct. ms", "num"], ["Slowest ms", "num opt"], [">50 ms", "num opt"], ["Frames", "num opt"], ["Status", ""]];
         $("runs-rows").replaceChildren(
@@ -1137,13 +1084,7 @@
           ["Lab version", plan.version], ["Session", data.session],
         ].filter(([, v]) => v != null && v !== "");
         $("facts").replaceChildren(...facts.map(([k, v]) => h("div", {}, h("dt", {}, k), h("dd", {}, String(v)))));
-        // Notes: session warnings, then capture notes grouped with how many captures carry them.
-        const counts = new Map();
-        for (const r of data.runs) for (const n of [...(r.quality_blockers || []), ...(r.warnings || [])]) counts.set(n, (counts.get(n) || 0) + 1);
-        const notes = [...data.warnings.map((w) => h("li", {}, w))];
-        for (const c of data.comparisons) for (const n of c.treatment?.notes || []) notes.push(h("li", {}, h("b", {}, c.name + ": "), n));
-        for (const [n, k] of counts) if (!data.warnings.includes(n)) notes.push(h("li", {}, n, h("span", { class: "small" }, ` (${k === data.runs.length ? "every capture" : `${k} capture${k > 1 ? "s" : ""}`})`)));
-        $("notes").replaceChildren(...(notes.length ? notes : [h("li", {}, "No warnings.")]));
+        $("notes").replaceChildren(...(data.warnings.length ? data.warnings.map((w) => h("li", {}, w)) : [h("li", {}, "No warnings.")]));
         const defs = [
           ["Average FPS", "1000 ÷ the mean frame time over the whole capture."],
           ["1% low FPS", "1000 ÷ the mean of the slowest 1% of frame times."],
@@ -1151,8 +1092,7 @@
           ["Percentile frame time", "The frame time that share of frames is faster than."],
           ["Change", "Per round: config ÷ mean of that round's two baseline captures, minus 1. Averaged over rounds."],
           ["95% interval", "Bootstrap over whole rounds (4,000 resamples). Needs 3 rounds."],
-          ["Verdict", `Average FPS only. Needs 5 complete rounds, baseline variation and drift within ${T}%, checked captures, and the whole interval outside ±${T}%.`],
-          ["Baseline variation", "Coefficient of variation of your current setup's average FPS."],
+          ["Baseline variation", "Coefficient of variation of your current setup's average FPS. Changes within it are marked ≈ noise."],
           ["Baseline drift", "First to last capture of your current setup."],
           ["Frame-time chart", "Up to 360 time slices, each with its mean and slowest frame. All numbers use every frame."],
         ];
@@ -1172,8 +1112,8 @@
       const csv = (rows) => rows.map((row) => row.map(csvCell).join(",")).join("\r\n");
       const DOWNLOADS = {
         configs: () => download(csv([
-          ["case", "name", "verdict", "avg_fps", "low_1_fps", "p99_frame_ms", "delta_pct", "ci95_lower_pct", "ci95_upper_pct", "low_1_delta_pct", "low_1_ci95_lower_pct", "low_1_ci95_upper_pct", "paired_rounds"],
-          ...data.comparisons.map((c) => [c.case, c.name, c.verdict, c.avg_fps, c.metrics?.low_1_fps, c.metrics?.p99_frame_ms, c.delta_pct, ...(c.ci95_pct || [null, null]), c.low_1_delta_pct, ...(c.low_1_ci95_pct || [null, null]), c.paired_rounds.length]),
+          ["case", "name", "avg_fps", "low_1_fps", "p99_frame_ms", "delta_pct", "ci95_lower_pct", "ci95_upper_pct", "low_1_delta_pct", "low_1_ci95_lower_pct", "low_1_ci95_upper_pct", "paired_rounds"],
+          ...data.comparisons.map((c) => [c.case, c.name, c.avg_fps, c.metrics?.low_1_fps, c.metrics?.p99_frame_ms, c.delta_pct, ...(c.ci95_pct || [null, null]), c.low_1_delta_pct, ...(c.low_1_ci95_pct || [null, null]), c.paired_rounds.length]),
         ]), "text/csv", `dpl-${data.session}-configs.csv`),
         captures: () => {
           const keys = ["avg_fps", "low_1_fps", "low_01_fps", "median_frame_ms", "p95_frame_ms", "p99_frame_ms", "max_frame_ms", "over_budget_pct", "stalls_over_50ms", "stalls_over_100ms", "samples"];

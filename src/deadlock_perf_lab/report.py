@@ -83,8 +83,8 @@ def add_distributions(session: Path, runs: list[dict]) -> None:
             record["distribution"] = frame_distribution(capture.frames)
 
 
-def report_payload(session: Path, threshold: float = 3) -> dict:
-    analysis = analyze(session, threshold)
+def report_payload(session: Path) -> dict:
+    analysis = analyze(session)
     plan = read_json(session / "plan.json")
     add_distributions(session, analysis["runs"])
     for comparison in analysis["comparisons"]:
@@ -116,18 +116,15 @@ def markdown_report(result: dict) -> str:
              "**DEMO DATA — not game measurements.**" if result["synthetic"] else "Measured capture report.", "",
              f"Baseline: {fmt(base['avg_fps'], ' FPS')} · 1% low {fmt(base['metrics'].get('low_1_fps'), ' FPS')} · "
              f"CV {fmt(base['cv_pct'], '%')} · drift {fmt(base['drift_pct'], '%', True)}.", "",
-             "| Config | Rounds | Average FPS | Change | 95% interval | 1% low change | Verdict |",
-             "|---|---:|---:|---:|---|---:|---|"]
+             "| Config | Rounds | Average FPS | Change | 95% interval | 1% low change |",
+             "|---|---:|---:|---:|---|---:|"]
     for c in ranked(result):
         label = c["name"].replace("|", "\\|").replace("\n", " ")
-        ci = interval(c["ci95_pct"]) if c["ci95_pct"] else "insufficient repeats"
         lines.append(f"| {label} | {len(c['paired_rounds'])} | {fmt(c['avg_fps'])} | {fmt(c['delta_pct'], '%', True)} | "
-                     f"{ci} | {fmt(c.get('low_1_delta_pct'), '%', True)} | {c['verdict']} |")
-    lines += ["", "## Notes", ""]
-    lines += [f"- {w}" for w in result["warnings"]]
-    for c in result["comparisons"]:
-        lines += [f"- {c['case']}: {reason}" for reason in c["reasons"]]
-    lines += ["", "Change: per round, against that round's two baseline captures. 95% interval: bootstrap over rounds.",
+                     f"{interval(c['ci95_pct'])} | {fmt(c.get('low_1_delta_pct'), '%', True)} |")
+    if result["warnings"]:
+        lines += ["", "## Notes", ""] + [f"- {w}" for w in result["warnings"]]
+    lines += ["", "Change: per round, against that round's two baseline captures. 95% interval: bootstrap over rounds (3 or more).",
               "Average FPS = 1000 / mean frame time. 1% low = 1000 / mean of the slowest 1% of frame times.", ""]
     return "\n".join(lines)
 
@@ -137,23 +134,18 @@ def fallback(result: dict) -> str:
     escape = html.escape
     rows = "".join(
         f"<tr><td>{escape(c['name'])}</td><td>{fmt(c['delta_pct'], '%', True)}</td><td>{escape(interval(c['ci95_pct']))}</td>"
-        f"<td>{fmt(c['avg_fps'])}</td><td>{fmt(c['metrics']['low_1_fps'])}</td><td>{escape(c['verdict'])}</td></tr>"
-        for c in ranked(result)) or '<tr><td colspan="6">Baseline only: no configs to compare.</td></tr>'
-    notes = list(result["warnings"])
-    for c in result["comparisons"]:
-        notes.extend(f"{c['name']}: {reason}" for reason in c["reasons"])
-    for record in result["runs"]:
-        notes.extend(record.get("quality_blockers", []))
-    items = "".join(f"<li>{escape(n)}</li>" for n in dict.fromkeys(notes)) or "<li>No quality warnings.</li>"
+        f"<td>{fmt(c['avg_fps'])}</td><td>{fmt(c['metrics']['low_1_fps'])}</td></tr>"
+        for c in ranked(result)) or '<tr><td colspan="5">Baseline only: no configs to compare.</td></tr>'
+    items = "".join(f"<li>{escape(n)}</li>" for n in result["warnings"]) or "<li>No warnings.</li>"
     base = result["baseline"]
     return (f"<p>Your current setup: {fmt(base['avg_fps'], ' FPS')} average · baseline variation {fmt(base['cv_pct'], '%')} · "
             f"drift {fmt(base['drift_pct'], '%', True)} · {result['valid_runs']} of {result['expected_runs']} captures usable.</p>"
             "<table><thead><tr><th>Config</th><th>FPS change</th><th>95% interval</th><th>Average FPS</th><th>1% low</th>"
-            f"<th>Verdict</th></tr></thead><tbody>{rows}</tbody></table><h2>Notes</h2><ul>{items}</ul>")
+            f"</tr></thead><tbody>{rows}</tbody></table><h2>Notes</h2><ul>{items}</ul>")
 
 
-def generate_report(session: Path, threshold: float = 3) -> Path:
-    result = report_payload(session, threshold)
+def generate_report(session: Path) -> Path:
+    result = report_payload(session)
     output = session / "report"
     output.mkdir(exist_ok=True)
     write_json(output / "summary.json", result)
@@ -180,8 +172,8 @@ def generate_report(session: Path, threshold: float = 3) -> Path:
     return output / "index.html"
 
 
-def bundle(session: Path, destination: Path, threshold: float = 3) -> Path:
-    report = generate_report(session, threshold).parent
+def bundle(session: Path, destination: Path) -> Path:
+    report = generate_report(session).parent
     with zipfile.ZipFile(destination, "x", compression=zipfile.ZIP_DEFLATED) as archive:
         for name in ("index.html", "summary.json", "summary.md", "runs.csv"):
             archive.write(report / name, name)
